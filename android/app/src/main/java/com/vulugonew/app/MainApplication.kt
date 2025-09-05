@@ -1,4 +1,4 @@
-package com.vulugo
+package com.vulugonew.app
 
 import android.app.Application
 import android.content.res.Configuration
