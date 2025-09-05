@@ -326,6 +326,15 @@ const LiveStreamSetupScreen: React.FC = () => {
             }
           </Text>
 
+          {/* Privacy disclosure for camera and microphone usage */}
+          <View style={styles.privacyNote}>
+            <Text style={styles.privacyNoteText}>
+              We use your camera and microphone only while you are live. Your
+              audio and video are transmitted for streaming and are not stored on
+              your device.
+            </Text>
+          </View>
+
           {/* Development Mode Warning */}
           {isExpoGo && (
             <View style={styles.developmentWarning}>
@@ -467,6 +476,20 @@ const styles = StyleSheet.create({
     color: '#888888',
     fontSize: 14,
     marginBottom: 20,
+  },
+  privacyNote: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 16,
+  },
+  privacyNoteText: {
+    color: '#BBBBBB',
+    fontSize: 12,
+    lineHeight: 16,
   },
   developmentWarning: {
     flexDirection: 'row',
