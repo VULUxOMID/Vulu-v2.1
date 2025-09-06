@@ -40,6 +40,7 @@ import GroupChatInfo from '../components/GroupChatInfo';
 import MessageSearch from '../components/MessageSearch';
 import PinnedMessages from '../components/PinnedMessages';
 import ChatCustomization from '../components/ChatCustomization';
+import MessageForwarding from '../components/MessageForwarding';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { firestoreService } from '../services/firestoreService';
 import { messagingService } from '../services/messagingService';
@@ -58,6 +59,7 @@ import { useReadReceipts } from '../hooks/useReadReceipts';
 import { useTypingIndicator } from '../hooks/useTypingIndicator';
 import { useMessagePinning } from '../hooks/useMessagePinning';
 import { useChatTheme } from '../hooks/useChatTheme';
+import { useMessageForwarding } from '../hooks/useMessageForwarding';
 import { MessageValidator } from '../utils/chatUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -331,6 +333,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
   const [showChatCustomization, setShowChatCustomization] = useState(false);
+  const [showMessageForwarding, setShowMessageForwarding] = useState(false);
+  const [selectedMessagesForForwarding, setSelectedMessagesForForwarding] = useState<DirectMessage[]>([]);
 
   // Read receipts
   const {
@@ -404,6 +408,18 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     getDynamicStyles,
   } = useChatTheme({
     conversationId: conversationId || undefined,
+  });
+
+  // Message forwarding
+  const {
+    forwardMessage,
+    forwardMessages,
+    loadForwardingTargets,
+  } = useMessageForwarding({
+    currentConversationId: conversationId || undefined,
+    onForwardComplete: (targetConversations) => {
+      console.log(`Messages forwarded to ${targetConversations.length} conversations`);
+    },
   });
 
   // Legacy state for backward compatibility
@@ -934,8 +950,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     // For now, we'll just toggle the state
   };
 
+  const dynamicStyles = getDynamicStyles();
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       <StatusBar barStyle="light-content" backgroundColor="#1D1E26" />
       
       {/* Background for swipe gesture */}
@@ -1114,6 +1132,21 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             // Navigate to the selected message
             console.log('Navigate to pinned message:', message.id);
             setShowPinnedMessages(false);
+          }}
+        />
+
+        {/* Chat Customization Modal */}
+        <ChatCustomization
+          visible={showChatCustomization}
+          onClose={() => setShowChatCustomization(false)}
+          conversationId={conversationId || ''}
+          currentTheme={currentTheme}
+          currentCustomization={currentCustomization}
+          onThemeChange={(theme) => {
+            applyTheme(theme);
+          }}
+          onCustomizationChange={(customization) => {
+            applyCustomization(customization);
           }}
         />
       </Animated.View>

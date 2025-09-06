@@ -126,6 +126,16 @@ export interface DirectMessage {
   isPinned?: boolean;
   pinnedBy?: string;
   pinnedAt?: Timestamp;
+
+  // Message forwarding
+  forwardedFrom?: {
+    messageId: string;
+    originalSenderId: string;
+    originalSenderName: string;
+    originalText: string;
+    originalTimestamp: Timestamp;
+    originalConversationId: string;
+  };
 }
 
 // Message status for delivery tracking

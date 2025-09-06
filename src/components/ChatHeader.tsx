@@ -164,6 +164,16 @@ const ChatHeader = ({
             </TouchableOpacity>
           )}
 
+          {onCustomization && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onCustomization}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons name="palette" size={22} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.optionsButton}
             onPress={onOptions}

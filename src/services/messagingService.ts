@@ -2436,6 +2436,186 @@ export class MessagingService {
     }
   }
 
+  // ==================== MESSAGE FORWARDING ====================
+
+  /**
+   * Forward a message to another conversation
+   */
+  async forwardMessage(
+    originalMessage: DirectMessage,
+    targetConversationId: string,
+    forwardedBy: string,
+    forwardedByName: string,
+    additionalText?: string
+  ): Promise<string> {
+    try {
+      const messageRef = collection(db, 'conversations', targetConversationId, 'messages');
+
+      // Create forwarded message
+      const forwardedMessage: Partial<DirectMessage> = {
+        conversationId: targetConversationId,
+        senderId: forwardedBy,
+        senderName: forwardedByName,
+        text: additionalText || '',
+        type: 'text',
+        status: 'sent',
+        timestamp: serverTimestamp(),
+        isEdited: false,
+        isDeleted: false,
+
+        // Forward metadata
+        forwardedFrom: {
+          messageId: originalMessage.id,
+          originalSenderId: originalMessage.senderId,
+          originalSenderName: originalMessage.senderName,
+          originalText: originalMessage.text,
+          originalTimestamp: originalMessage.timestamp,
+          originalConversationId: originalMessage.conversationId,
+        },
+
+        // Copy attachments if any
+        attachments: originalMessage.attachments ? [...originalMessage.attachments] : undefined,
+      };
+
+      const docRef = await addDoc(messageRef, forwardedMessage);
+
+      // Update conversation's last message
+      await this.updateConversationLastMessage(targetConversationId, {
+        id: docRef.id,
+        text: additionalText || `Forwarded: ${originalMessage.text}`,
+        senderId: forwardedBy,
+        senderName: forwardedByName,
+        timestamp: serverTimestamp(),
+        type: 'text',
+      });
+
+      console.log(`✅ Message forwarded to conversation ${targetConversationId}`);
+      return docRef.id;
+    } catch (error: any) {
+      console.error('Error forwarding message:', error);
+      throw new Error(`Failed to forward message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Forward multiple messages to a conversation
+   */
+  async forwardMessages(
+    originalMessages: DirectMessage[],
+    targetConversationId: string,
+    forwardedBy: string,
+    forwardedByName: string,
+    additionalText?: string
+  ): Promise<string[]> {
+    try {
+      const forwardedMessageIds: string[] = [];
+
+      // Add optional additional text first
+      if (additionalText && additionalText.trim()) {
+        const additionalMessageId = await this.sendMessage(
+          targetConversationId,
+          forwardedBy,
+          forwardedByName,
+          additionalText.trim()
+        );
+        forwardedMessageIds.push(additionalMessageId);
+      }
+
+      // Forward each message
+      for (const message of originalMessages) {
+        const forwardedId = await this.forwardMessage(
+          message,
+          targetConversationId,
+          forwardedBy,
+          forwardedByName
+        );
+        forwardedMessageIds.push(forwardedId);
+      }
+
+      console.log(`✅ Forwarded ${originalMessages.length} messages to conversation ${targetConversationId}`);
+      return forwardedMessageIds;
+    } catch (error: any) {
+      console.error('Error forwarding messages:', error);
+      throw new Error(`Failed to forward messages: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get conversations available for forwarding (excluding current conversation)
+   */
+  async getForwardingTargets(
+    userId: string,
+    excludeConversationId?: string
+  ): Promise<Conversation[]> {
+    try {
+      const conversationsQuery = query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', userId),
+        orderBy('lastMessageTimestamp', 'desc'),
+        limit(50)
+      );
+
+      const conversationsSnapshot = await getDocs(conversationsQuery);
+      const conversations: Conversation[] = [];
+
+      conversationsSnapshot.forEach((doc) => {
+        const conversationData = doc.data() as Conversation;
+
+        // Exclude current conversation
+        if (excludeConversationId && doc.id === excludeConversationId) {
+          return;
+        }
+
+        conversations.push({
+          ...conversationData,
+          id: doc.id,
+        });
+      });
+
+      console.log(`✅ Retrieved ${conversations.length} forwarding targets for user ${userId}`);
+      return conversations;
+    } catch (error: any) {
+      console.error('Error getting forwarding targets:', error);
+      throw new Error(`Failed to get forwarding targets: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if user can forward to a conversation
+   */
+  async canForwardToConversation(
+    userId: string,
+    conversationId: string
+  ): Promise<boolean> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+      const conversationDoc = await getDoc(conversationRef);
+
+      if (!conversationDoc.exists()) {
+        return false;
+      }
+
+      const conversationData = conversationDoc.data() as Conversation;
+
+      // Check if user is a participant
+      if (!conversationData.participants.includes(userId)) {
+        return false;
+      }
+
+      // Check if it's a group with restricted messaging
+      if (conversationData.type === 'group' &&
+          conversationData.settings?.onlyAdminsCanMessage &&
+          !conversationData.admins?.includes(userId)) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error checking forward permissions:', error);
+      return false;
+    }
+  }
+
   /**
    * Get user's friends
    */
