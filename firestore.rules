@@ -29,6 +29,8 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       // Allow public read for username checking during registration
       allow read: if true;
+      // Allow authenticated users to update friends array for friend management
+      allow update: if isAuthenticated();
 
       // Active stream tracking subcollection - specific document path
       match /activeStream/current {
@@ -122,7 +124,43 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
-    // FRIENDS COLLECTION - for friend relationships
+    // FRIEND REQUESTS COLLECTION - for friend request management
+    match /friendRequests/{requestId} {
+      // Allow creating if the sender is the authenticated user
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.senderId;
+      
+      // Allow reading if user is sender or recipient
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.senderId || 
+         request.auth.uid == resource.data.recipientId);
+      
+      // Allow updating if user is sender or recipient
+      allow update: if isAuthenticated() && 
+        (request.auth.uid == resource.data.senderId || 
+         request.auth.uid == resource.data.recipientId);
+      
+      // Allow deleting if user is sender or recipient
+      allow delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.senderId || 
+         request.auth.uid == resource.data.recipientId);
+    }
+
+    // FRIENDSHIPS COLLECTION - for established friend relationships
+    match /friendships/{friendshipId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId1 || 
+         request.auth.uid == resource.data.userId2);
+      allow update: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId1 || 
+         request.auth.uid == resource.data.userId2);
+      allow delete: if isAuthenticated() && 
+        (request.auth.uid == resource.data.userId1 || 
+         request.auth.uid == resource.data.userId2);
+    }
+
+    // FRIENDS COLLECTION - for friend relationships (legacy)
     match /friends/{friendshipId} {
       allow read: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||

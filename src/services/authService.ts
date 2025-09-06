@@ -217,7 +217,7 @@ class AuthService {
         await updateProfile(user, { displayName });
       }
 
-      // Create user profile in Firestore with username
+      // Create user profile in Firestore with username and messaging fields
       const userProfile = {
         uid: user.uid,
         email: user.email,
@@ -227,7 +227,30 @@ class AuthService {
         gold: 1000, // Starting gold
         gems: 50,   // Starting gems
         level: 1,
+
+        // Presence and status
+        status: 'online' as const,
+        isOnline: true,
+        lastActivity: new Date(),
+
+        // Privacy settings
+        allowFriendRequests: true,
+        allowMessagesFromStrangers: false,
+        showOnlineStatus: true,
+
+        // Friend system
         friends: [],
+        blockedUsers: [],
+
+        // Profile customization
+        bio: '',
+        customStatus: '',
+
+        // Search fields (lowercase for case-insensitive search)
+        displayNameLower: (displayName || user.displayName || 'User').toLowerCase(),
+        usernameLower: (username || `user_${user.uid.substring(0, 8)}`).toLowerCase(),
+        emailLower: (user.email || '').toLowerCase(),
+
         createdAt: new Date(),
         lastSeen: new Date()
       };

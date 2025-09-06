@@ -9,6 +9,8 @@ export interface ChatHeaderProps {
   avatar: string;
   status: 'online' | 'offline' | 'busy' | 'idle';
   isCloseFriend?: boolean;
+  isTyping?: boolean;
+  lastSeen?: string;
   onBack: () => void;
   onProfile: () => void;
   onOptions: () => void;
@@ -18,13 +20,15 @@ export interface ChatHeaderProps {
 /**
  * Modern chat header component with user info and actions
  */
-const ChatHeader = ({ 
-  name, 
-  avatar, 
+const ChatHeader = ({
+  name,
+  avatar,
   status,
   isCloseFriend = false,
-  onBack, 
-  onProfile, 
+  isTyping = false,
+  lastSeen,
+  onBack,
+  onProfile,
   onOptions,
   onToggleCloseFriend
 }: ChatHeaderProps) => {
@@ -42,12 +46,14 @@ const ChatHeader = ({
   };
   
   const getStatusText = () => {
+    if (isTyping) return 'typing...';
+
     switch(status) {
       case 'online': return 'Online';
       case 'busy': return 'Do not disturb';
       case 'idle': return 'Away';
-      case 'offline': return 'Offline';
-      default: return 'Offline';
+      case 'offline': return lastSeen || 'Offline';
+      default: return lastSeen || 'Offline';
     }
   };
 

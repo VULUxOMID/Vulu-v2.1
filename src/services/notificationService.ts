@@ -653,19 +653,26 @@ class NotificationService {
     fromUserAvatar?: string,
     mutualFriends: number = 0
   ): Promise<string> {
+    // Prepare data object, filtering out undefined values
+    const notificationData: any = {
+      fromUserId,
+      fromUserName,
+      mutualFriends,
+      status: 'pending'
+    };
+
+    // Only include fromUserAvatar if it's defined
+    if (fromUserAvatar !== undefined && fromUserAvatar !== null) {
+      notificationData.fromUserAvatar = fromUserAvatar;
+    }
+
     const notification: Omit<FriendRequestNotification, 'id' | 'timestamp'> = {
       userId: toUserId,
       type: 'friend_request',
       title: 'New Friend Request',
       message: `${fromUserName} sent you a friend request`,
       read: false,
-      data: {
-        fromUserId,
-        fromUserName,
-        fromUserAvatar,
-        mutualFriends,
-        status: 'pending'
-      }
+      data: notificationData
     };
 
     return this.createNotification(notification);
@@ -683,20 +690,27 @@ class NotificationService {
     isPremiumViewer: boolean = false,
     visitCount: number = 1
   ): Promise<string> {
+    // Prepare data object, filtering out undefined values
+    const notificationData: any = {
+      viewerId,
+      viewerName,
+      isGhostMode,
+      isPremiumViewer,
+      visitCount
+    };
+
+    // Only include viewerAvatar if it's defined
+    if (viewerAvatar !== undefined && viewerAvatar !== null) {
+      notificationData.viewerAvatar = viewerAvatar;
+    }
+
     const notification: Omit<ProfileViewNotification, 'id' | 'timestamp'> = {
       userId: profileOwnerId,
       type: 'profile_view',
       title: isGhostMode ? 'Anonymous Profile View' : 'Profile View',
       message: isGhostMode ? 'Someone viewed your profile anonymously' : `${viewerName} viewed your profile`,
       read: false,
-      data: {
-        viewerId,
-        viewerName,
-        viewerAvatar,
-        isGhostMode,
-        isPremiumViewer,
-        visitCount
-      }
+      data: notificationData
     };
 
     return this.createNotification(notification);
@@ -714,19 +728,30 @@ class NotificationService {
     targetRoute?: string,
     targetParams?: any
   ): Promise<string> {
+    // Prepare data object, filtering out undefined values
+    const notificationData: any = {
+      adminId,
+      adminName
+    };
+
+    // Only include optional fields if they're defined
+    if (adminAvatar !== undefined && adminAvatar !== null) {
+      notificationData.adminAvatar = adminAvatar;
+    }
+    if (targetRoute !== undefined && targetRoute !== null) {
+      notificationData.targetRoute = targetRoute;
+    }
+    if (targetParams !== undefined && targetParams !== null) {
+      notificationData.targetParams = targetParams;
+    }
+
     const notification: Omit<AnnouncementNotification, 'id' | 'timestamp'> = {
       userId,
       type: 'announcement',
       title: 'New Announcement',
       message,
       read: false,
-      data: {
-        adminId,
-        adminName,
-        adminAvatar,
-        targetRoute,
-        targetParams
-      }
+      data: notificationData
     };
 
     return this.createNotification(notification);

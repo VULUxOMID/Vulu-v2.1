@@ -13,16 +13,19 @@ import {
   TextInput,
   Animated,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import CommonHeader from '../components/CommonHeader';
 import { firestoreService } from '../services/firestoreService';
+import { messagingService } from '../services/messagingService';
+import { presenceService } from '../services/presenceService';
 import { useAuth } from '../context/AuthContext';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { LoadingState, ErrorState, EmptyState } from '../components/ErrorHandling';
-import { Conversation } from '../services/types';
+import { Conversation, AppUser } from '../services/types';
 import { FirebaseErrorHandler } from '../utils/firebaseErrorHandler';
 
 const { width, height } = Dimensions.get('window');
@@ -87,13 +90,17 @@ const conversationToChatPreview = (conversation: Conversation, currentUserId: st
   const lastMessage = conversation.lastMessage;
   const unreadCount = conversation.unreadCount?.[currentUserId] || 0;
 
+  // Get the other participant's user ID (not the conversation ID)
+  const otherUserId = conversation.participants.find(p => p !== currentUserId);
+  if (!otherUserId) return null;
+
   return {
-    id: conversation.id,
+    id: otherUserId, // Use the other user's ID, not the conversation ID
     name: otherParticipant.name,
     lastMessage: lastMessage?.text || 'No messages yet',
     timestamp: formatTimestamp(conversation.lastMessageTime),
     avatar: otherParticipant.avatar,
-    status: 'online', // TODO: Get real user status
+    status: 'offline', // Default to offline, will be updated by presence service
     unreadCount: unreadCount,
     isCloseFriend: false, // TODO: Implement close friends logic
     isMuted: false, // TODO: Implement mute logic
@@ -156,6 +163,7 @@ const DirectMessagesScreen = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [activeFriends, setActiveFriends] = useState<ChatPreview[]>([]);
+  const [onlineFriends, setOnlineFriends] = useState<AppUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isGuestUser, setIsGuestUser] = useState(false);
@@ -163,9 +171,10 @@ const DirectMessagesScreen = () => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const searchAnimation = useRef(new Animated.Value(0)).current;
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const presenceUnsubscribeRef = useRef<(() => void) | null>(null);
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load conversations from Firebase with real-time updates
+  // Load conversations and initialize presence
   useEffect(() => {
     const loadConversations = async () => {
       if (!currentUser) {
@@ -189,6 +198,13 @@ const DirectMessagesScreen = () => {
         return;
       }
 
+      // Initialize presence service
+      try {
+        await presenceService.initialize(currentUser.uid);
+      } catch (error) {
+        console.warn('Failed to initialize presence service:', error);
+      }
+
       try {
         setIsLoading(true);
         setError(null);
@@ -202,7 +218,7 @@ const DirectMessagesScreen = () => {
         }, 5000); // 5 second timeout
 
         // Set up real-time listener for conversations with error handling
-        unsubscribeRef.current = firestoreService.onUserConversations(
+        unsubscribeRef.current = messagingService.onUserConversations(
           currentUser.uid,
           (updatedConversations) => {
             // Clear the loading timeout since we got data
@@ -220,40 +236,61 @@ const DirectMessagesScreen = () => {
 
             setChats(chatPreviews);
 
-            // Extract active friends (online friends) for the "Active Now" section
-            const onlineFriends = chatPreviews.filter(chat =>
-              chat.status === 'online' || chat.status === 'busy'
-            );
-            setActiveFriends(onlineFriends);
+            // Set initial active friends (will be updated by presence service)
+            setActiveFriends([]);
 
             setIsLoading(false);
-          },
-          (error) => {
-            // Clear the loading timeout since we got an error
-            if (loadingTimeoutRef.current) {
-              clearTimeout(loadingTimeoutRef.current);
-              loadingTimeoutRef.current = null;
-            }
-
-            console.error('Error in conversations listener:', error);
-
-            // Handle Firebase permission errors specifically
-            const errorInfo = FirebaseErrorHandler.handleError(error);
-
-            if (FirebaseErrorHandler.isPermissionError(error)) {
-              setError('Unable to access your messages. Please sign in again or check your account permissions.');
-              // Optionally, you could trigger a re-authentication flow here
-              // router.push('/auth');
-            } else if (FirebaseErrorHandler.isNetworkError(error)) {
-              setError('Network connection issue. Please check your internet connection and try again.');
-            } else {
-              setError(errorInfo.userFriendlyMessage);
-            }
-
-            setIsLoading(false);
-            FirebaseErrorHandler.logError('DirectMessagesScreen.onUserConversations', error, { userId: currentUser.uid });
           }
         );
+
+        // Load and listen to online friends separately
+        try {
+          const onlineFriendsData = await presenceService.getOnlineFriends(currentUser.uid);
+          setOnlineFriends(onlineFriendsData);
+
+          // Convert online friends to ChatPreview format for Active Now section
+          const activeFriendsData = onlineFriendsData.map(friend => ({
+            id: friend.uid,
+            name: friend.displayName || friend.username || 'Unknown',
+            avatar: friend.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
+            lastMessage: 'Active now',
+            timestamp: 'now',
+            status: 'online' as const,
+            unreadCount: 0,
+            isCloseFriend: false,
+            level: 1
+          }));
+          setActiveFriends(activeFriendsData);
+
+          // Set up presence listener for online friends
+          const friendIds = onlineFriendsData.map(friend => friend.uid);
+          if (friendIds.length > 0) {
+            const presenceUnsubscribe = presenceService.onMultipleUsersPresence(friendIds, (presenceMap) => {
+              const updatedOnlineFriends = onlineFriendsData.filter(friend => {
+                const presence = presenceMap.get(friend.uid);
+                return presence?.isOnline;
+              });
+              setOnlineFriends(updatedOnlineFriends);
+
+              // Update active friends list
+              const updatedActiveFriends = updatedOnlineFriends.map(friend => ({
+                id: friend.uid,
+                name: friend.displayName || friend.username || 'Unknown',
+                avatar: friend.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
+                lastMessage: 'Active now',
+                timestamp: 'now',
+                status: 'online' as const,
+                unreadCount: 0,
+                isCloseFriend: false,
+                level: 1
+              }));
+              setActiveFriends(updatedActiveFriends);
+            });
+            presenceUnsubscribeRef.current = presenceUnsubscribe;
+          }
+        } catch (presenceError) {
+          console.warn('Failed to load online friends:', presenceError);
+        }
 
       } catch (error: any) {
         console.error('Error loading conversations:', error);
@@ -276,12 +313,19 @@ const DirectMessagesScreen = () => {
         unsubscribeRef.current();
         unsubscribeRef.current = null;
       }
+      if (presenceUnsubscribeRef.current) {
+        presenceUnsubscribeRef.current();
+        presenceUnsubscribeRef.current = null;
+      }
+
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
       }
     };
   }, [currentUser]);
+
+
 
   // Animate search bar
   const toggleSearch = (active: boolean) => {
@@ -299,6 +343,10 @@ const DirectMessagesScreen = () => {
     outputRange: [60, width - 32],
   });
   
+
+
+
+
   // Filter chats based on search query
   const getFilteredChats = () => {
     if (!searchQuery.trim()) return chats;
@@ -327,13 +375,26 @@ const DirectMessagesScreen = () => {
   
   // Navigate to chat screen
   const navigateToChat = (item: ChatPreview) => {
+    console.log('🚀 Navigating to chat with item:', item);
+
+    // Validate required parameters
+    if (!item.id || !item.name) {
+      console.error('❌ Missing required chat parameters:', item);
+      return;
+    }
+
+    const navParams = {
+      userId: item.id,
+      name: item.name,
+      avatar: item.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg',
+      source: 'direct-messages'
+    };
+
+    console.log('📤 Navigation params:', navParams);
+
     router.push({
       pathname: '/(main)/chat',
-      params: {
-        userId: item.id,
-        name: item.name,
-        avatar: item.avatar
-      }
+      params: navParams
     });
   };
   
@@ -355,6 +416,8 @@ const DirectMessagesScreen = () => {
     );
   };
 
+
+
   // Enhanced renderChatItem based on new design
   const renderChatItem = ({ item }: { item: ChatPreview }) => {
     return (
@@ -367,6 +430,10 @@ const DirectMessagesScreen = () => {
         <View style={styles.chatItemAvatarContainer}>
           <Image source={{ uri: item.avatar }} style={styles.chatItemAvatar} />
           <StatusIndicator status={item.status} />
+          {/* Online indicator */}
+          {item.status === 'online' && (
+            <View style={styles.onlineIndicator} />
+          )}
         </View>
 
         {/* Chat Info */}
@@ -437,9 +504,19 @@ const DirectMessagesScreen = () => {
       >
         {/* Header with Search */}
         <View style={styles.headerContainer}>
-          <CommonHeader 
+          <CommonHeader
             title={isSearchActive ? "" : "Messages"}
             rightIcons={[
+              {
+                name: "person-add",
+                onPress: () => router.push('/friend-requests'),
+                color: "#FFFFFF"
+              },
+              {
+                name: "search",
+                onPress: () => router.push('/user-search'),
+                color: "#FFFFFF"
+              },
               {
                 name: "settings",
                 onPress: () => console.log("Settings pressed"),
@@ -497,7 +574,9 @@ const DirectMessagesScreen = () => {
             />
           </View>
         )}
-        
+
+
+
         {/* Recent Chats Header */}
         <View style={styles.messagesHeaderContainer}>
           <Text style={styles.sectionTitle}>Recent Chats</Text>
@@ -721,6 +800,17 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
   },
+  onlineIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+    borderWidth: 2,
+    borderColor: '#131318',
+  },
   chatItemInfo: {
     flex: 1,
     marginRight: 8,
@@ -839,6 +929,8 @@ const styles = StyleSheet.create({
   starIcon: {
     marginLeft: 6,
   },
+
+
 });
 
 export default DirectMessagesScreen; 

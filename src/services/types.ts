@@ -40,29 +40,135 @@ export interface UnifiedMessage {
   measure?: (callback: (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => void) => void;
 }
 
-// Conversation interface for direct messages
+// Enhanced Conversation interface for direct messages
 export interface Conversation {
   id: string;
   participants: string[];
   participantNames: { [userId: string]: string };
   participantAvatars: { [userId: string]: string };
+  participantStatus: { [userId: string]: UserStatus };
   lastMessage?: {
     text: string;
     senderId: string;
     senderName: string;
     timestamp: Timestamp;
+    messageId: string;
+    type: MessageType;
   };
   lastMessageTime: Timestamp;
   unreadCount: { [userId: string]: number };
+  lastReadTimestamp: { [userId: string]: Timestamp };
+  typingUsers: { [userId: string]: Timestamp }; // Track who's typing
+  isArchived: { [userId: string]: boolean };
+  isMuted: { [userId: string]: boolean };
+  isPinned: { [userId: string]: boolean };
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
 
-// User interface (unified)
+// Direct Message interface
+export interface DirectMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  recipientId: string;
+  text: string;
+  type: MessageType;
+  status: MessageStatus;
+  timestamp: Timestamp;
+  editedAt?: Timestamp;
+  isEdited: boolean;
+  isDeleted: boolean;
+  deletedAt?: Timestamp;
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    senderName: string;
+    text: string;
+  };
+  attachments?: MessageAttachment[];
+  mentions?: MessageMention[];
+  reactions?: MessageReaction[];
+}
+
+// Message status for delivery tracking
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+
+// Message types
+export type MessageType = 'text' | 'image' | 'file' | 'system' | 'deleted';
+
+// User status for presence
+export type UserStatus = 'online' | 'offline' | 'away' | 'busy';
+
+// Message attachments
+export interface MessageAttachment {
+  id: string;
+  type: 'image' | 'file' | 'audio' | 'video';
+  url: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+  width?: number;
+  height?: number;
+  duration?: number; // For audio/video
+}
+
+// Message mentions
+export interface MessageMention {
+  userId: string;
+  username: string;
+  displayName: string;
+  startIndex: number;
+  endIndex: number;
+}
+
+// Message reactions
+export interface MessageReaction {
+  emoji: string;
+  userIds: string[];
+  count: number;
+}
+
+// Friend request system
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  recipientId: string;
+  recipientName: string;
+  recipientAvatar?: string;
+  status: FriendRequestStatus;
+  message?: string;
+  createdAt: Timestamp;
+  respondedAt?: Timestamp;
+}
+
+export type FriendRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+
+// Friendship interface
+export interface Friendship {
+  id: string;
+  userId1: string;
+  userId2: string;
+  user1Name: string;
+  user2Name: string;
+  user1Avatar?: string;
+  user2Avatar?: string;
+  status: 'active' | 'blocked';
+  createdAt: Timestamp;
+  blockedBy?: string;
+  blockedAt?: Timestamp;
+}
+
+// Enhanced User interface (unified)
 export interface AppUser {
   uid: string;
   email: string;
   displayName: string;
+  username?: string;
   photoURL?: string;
   gold: number;
   gems: number;
@@ -70,6 +176,29 @@ export interface AppUser {
   createdAt: Timestamp;
   lastSeen: Timestamp;
   isGuest?: boolean;
+
+  // Presence and status
+  status: UserStatus;
+  isOnline: boolean;
+  lastActivity: Timestamp;
+
+  // Privacy settings
+  allowFriendRequests: boolean;
+  allowMessagesFromStrangers: boolean;
+  showOnlineStatus: boolean;
+
+  // Friend system
+  friends: string[]; // Array of friend user IDs
+  blockedUsers: string[]; // Array of blocked user IDs
+
+  // Profile customization
+  bio?: string;
+  customStatus?: string;
+
+  // Search fields (lowercase for case-insensitive search)
+  displayNameLower: string;
+  usernameLower?: string;
+  emailLower: string;
 }
 
 // Chat preview for DirectMessagesScreen

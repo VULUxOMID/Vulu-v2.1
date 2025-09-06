@@ -109,17 +109,42 @@ class SocialAuthService {
       await authService.clearGuestUser();
 
       // Create or update user profile in Firestore
+      const displayName = firebaseUser.displayName || userInfo.data.user.name || 'Google User';
+      const username = `google_${firebaseUser.uid.substring(0, 8)}`;
       const userProfile = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
-        displayName: firebaseUser.displayName || userInfo.data.user.name || 'Google User',
-        username: `google_${firebaseUser.uid.substring(0, 8)}`,
+        displayName,
+        username,
         photoURL: firebaseUser.photoURL || userInfo.data.user.photo,
         provider: 'google' as const,
         gold: 1000, // Starting gold
         gems: 50,   // Starting gems
         level: 1,
+
+        // Presence and status
+        status: 'online' as const,
+        isOnline: true,
+        lastActivity: new Date(),
+
+        // Privacy settings
+        allowFriendRequests: true,
+        allowMessagesFromStrangers: false,
+        showOnlineStatus: true,
+
+        // Friend system
         friends: [],
+        blockedUsers: [],
+
+        // Profile customization
+        bio: '',
+        customStatus: '',
+
+        // Search fields (lowercase for case-insensitive search)
+        displayNameLower: displayName.toLowerCase(),
+        usernameLower: username.toLowerCase(),
+        emailLower: (firebaseUser.email || '').toLowerCase(),
+
         createdAt: new Date(),
         lastSeen: new Date()
       };
@@ -195,17 +220,41 @@ class SocialAuthService {
         : firebaseUser.displayName || 'Apple User';
 
       // Create or update user profile in Firestore
+      const username = `apple_${firebaseUser.uid.substring(0, 8)}`;
       const userProfile = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || credential.email,
         displayName,
-        username: `apple_${firebaseUser.uid.substring(0, 8)}`,
+        username,
         photoURL: firebaseUser.photoURL,
         provider: 'apple' as const,
         gold: 1000, // Starting gold
         gems: 50,   // Starting gems
         level: 1,
+
+        // Presence and status
+        status: 'online' as const,
+        isOnline: true,
+        lastActivity: new Date(),
+
+        // Privacy settings
+        allowFriendRequests: true,
+        allowMessagesFromStrangers: false,
+        showOnlineStatus: true,
+
+        // Friend system
         friends: [],
+        blockedUsers: [],
+
+        // Profile customization
+        bio: '',
+        customStatus: '',
+
+        // Search fields (lowercase for case-insensitive search)
+        displayNameLower: displayName.toLowerCase(),
+        usernameLower: username.toLowerCase(),
+        emailLower: (firebaseUser.email || credential.email || '').toLowerCase(),
+
         createdAt: new Date(),
         lastSeen: new Date()
       };

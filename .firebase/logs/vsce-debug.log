@@ -442,3 +442,37 @@ I0905 19:31:18.517383   22595 dev.go:102] Listening on address (HTTP + gRPC): 12
  {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0905 19:31:18.720024   22595 engine.go:171] [/emulator/vulugo-v100 22ea] ExecuteGraphqlRead IntrospectionQuery: succeeded. \n"}}
 [debug] [2025-09-05T17:31:18.762Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
 [debug] [2025-09-05T17:31:18.763Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[debug] [2025-09-05T21:47:08.007Z] [Firebase Plugin] Value of process.env.MONOSPACE_ENV: undefined
+[debug] [2025-09-05T21:47:08.007Z] [Firebase Plugin] requireAuthWrapper
+[debug] [2025-09-05T21:47:08.008Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-05T21:47:08.008Z] > authorizing via signed-in user (vulu.studio@gmail.com)
+[debug] [2025-09-05T21:47:08.008Z] Checked if tokens are valid: false, expires at: 1757096977750
+[debug] [2025-09-05T21:47:08.008Z] Checked if tokens are valid: false, expires at: 1757096977750
+[debug] [2025-09-05T21:47:08.008Z] > refreshing access token with scopes: []
+[debug] [2025-09-05T21:47:08.009Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-09-05T21:47:08.009Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-05T21:47:08.011Z] [Firebase Plugin] Value of process.env.MONOSPACE_ENV: undefined
+[debug] [2025-09-05T21:47:08.011Z] [Firebase Plugin] requireAuthWrapper
+[debug] [2025-09-05T21:47:08.011Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-05T21:47:08.012Z] > authorizing via signed-in user (vulu.studio@gmail.com)
+[debug] [2025-09-05T21:47:08.012Z] Checked if tokens are valid: false, expires at: 1757096977750
+[debug] [2025-09-05T21:47:08.012Z] Checked if tokens are valid: false, expires at: 1757096977750
+[debug] [2025-09-05T21:47:08.012Z] > refreshing access token with scopes: []
+[debug] [2025-09-05T21:47:08.012Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-09-05T21:47:08.012Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-05T21:47:08.178Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-09-05T21:47:08.178Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-05T21:47:08.191Z] [Firebase Plugin] User found:  vulu.studio@gmail.com
+[info] [Firebase Plugin] (Core:Project) New user detected, fetching projects
+[debug] [2025-09-05T21:47:08.192Z] Checked if tokens are valid: true, expires at: 1757112427178
+[debug] [2025-09-05T21:47:08.194Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2025-09-05T21:47:08.199Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-09-05T21:47:08.199Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-05T21:47:08.207Z] [Firebase Plugin] User found:  vulu.studio@gmail.com
+[info] [Firebase Plugin] (Core:Project) New user detected, fetching projects
+[debug] [2025-09-05T21:47:08.208Z] Checked if tokens are valid: true, expires at: 1757112427199
+[debug] [2025-09-05T21:47:08.208Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2025-09-05T21:47:08.919Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2025-09-05T21:47:08.919Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[debug] [2025-09-05T21:47:08.940Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2025-09-05T21:47:08.940Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]

@@ -274,15 +274,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             if (profile) {
               setUserProfile(profile);
             } else {
-              // Create new user profile
+              // Create new user profile with messaging fields
+              const displayName = firebaseUser.displayName || 'User';
+              const username = `user_${firebaseUser.uid.substring(0, 8)}`;
               const newProfile = {
                 uid: firebaseUser.uid,
                 email: firebaseUser.email || '',
-                displayName: firebaseUser.displayName || 'User',
+                displayName,
+                username,
                 photoURL: firebaseUser.photoURL || undefined,
                 gold: 1000,
                 gems: 50,
                 level: 1,
+
+                // Presence and status
+                status: 'online' as const,
+                isOnline: true,
+                lastActivity: new Date(),
+
+                // Privacy settings
+                allowFriendRequests: true,
+                allowMessagesFromStrangers: false,
+                showOnlineStatus: true,
+
+                // Friend system
+                friends: [],
+                blockedUsers: [],
+
+                // Profile customization
+                bio: '',
+                customStatus: '',
+
+                // Search fields (lowercase for case-insensitive search)
+                displayNameLower: displayName.toLowerCase(),
+                usernameLower: username.toLowerCase(),
+                emailLower: (firebaseUser.email || '').toLowerCase(),
               };
               try {
                 await firestoreService.createUser(newProfile);

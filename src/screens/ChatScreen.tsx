@@ -31,9 +31,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import Message from '../components/Message';
 import ChatHeader from '../components/ChatHeader';
 import ChatFooter from '../components/ChatFooter';
+import TypingIndicator from '../components/TypingIndicator';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { firestoreService } from '../services/firestoreService';
-import { UnifiedMessage, MessageConverter } from '../services/types';
+import { messagingService } from '../services/messagingService';
+import { presenceService, PresenceService } from '../services/presenceService';
+import { UnifiedMessage, MessageConverter, DirectMessage } from '../services/types';
 import { ChatOperations, chatSubscriptionManager } from '../utils/chatUtils';
 import { useAuth } from '../context/AuthContext';
 import { LoadingState, ErrorState, MessageSkeletonLoader, useErrorHandler } from '../components/ErrorHandling';
@@ -224,7 +227,16 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
   // Legacy state for backward compatibility
   const [isCloseFriend, setIsCloseFriend] = useState(false);
-  
+
+  // Real-time features state
+  const [isTyping, setIsTyping] = useState(false);
+  const [otherUserTyping, setOtherUserTyping] = useState(false);
+  const [otherUserOnline, setOtherUserOnline] = useState(false);
+  const [lastSeen, setLastSeen] = useState<string>('');
+
+  // Typing timeout ref
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Create animations for the swipe back gesture
   const [backgroundOpacity] = useState(new Animated.Value(0));
   const [screenTranslate] = useState(new Animated.Value(0));
@@ -297,47 +309,73 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         setIsLoading(true);
         clearError();
 
-        // Create or get conversation
-        const conversation = await firestoreService.getConversationByParticipants([currentUser.uid, userId]);
+        // Create or get conversation using new messaging service
+        const newConversationId = await messagingService.createOrGetConversation(
+          currentUser.uid,
+          userId,
+          currentUser.displayName || 'You',
+          name,
+          currentUser.photoURL,
+          avatar
+        );
 
         if (!isMounted) return;
 
-        if (conversation) {
-          setConversationId(conversation.id);
+        setConversationId(newConversationId);
 
-          // Load existing messages
-          const existingMessages = await firestoreService.getConversationMessages(conversation.id);
-          const unifiedMessages = existingMessages.map(MessageConverter.fromDirectMessage);
+        // Load existing messages
+        const existingMessages = await messagingService.getConversationMessages(newConversationId);
+        const unifiedMessages = existingMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
 
-          if (isMounted) {
-            setMessages(unifiedMessages);
-          }
-
-          // Set up real-time listener
-          unsubscribeMessages = firestoreService.onConversationMessages(conversation.id, (newMessages) => {
-            if (!isMounted) return;
-            const unifiedMessages = newMessages.map(MessageConverter.fromDirectMessage);
-            setMessages(unifiedMessages);
-          });
-
-        } else {
-          // Create new conversation
-          const newConversationId = await firestoreService.createConversation(
-            [currentUser.uid, userId],
-            {
-              [currentUser.uid]: currentUser.displayName || 'You',
-              [userId]: name
-            },
-            {
-              [currentUser.uid]: currentUser.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
-              [userId]: avatar || 'https://randomuser.me/api/portraits/women/2.jpg'
-            }
-          );
-
-          if (isMounted) {
-            setConversationId(newConversationId);
-          }
+        if (isMounted) {
+          setMessages(unifiedMessages.reverse()); // Reverse to show newest at bottom
         }
+
+        // Set up real-time listener for messages
+        unsubscribeMessages = messagingService.onConversationMessages(newConversationId, (newMessages: DirectMessage[]) => {
+          if (!isMounted) return;
+          const unifiedMessages = newMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
+          setMessages(unifiedMessages.reverse()); // Reverse to show newest at bottom
+        });
+
+        // Set up real-time listener for conversation updates (typing indicators)
+        const conversationUnsubscribe = messagingService.onUserConversations(currentUser.uid, (conversations) => {
+          if (!isMounted) return;
+          const currentConversation = conversations.find(conv => conv.id === newConversationId);
+          if (currentConversation) {
+            // Check if other user is typing
+            const otherUserTypingTimestamp = currentConversation.typingUsers[userId];
+            if (otherUserTypingTimestamp) {
+              const now = new Date();
+              const typingTime = otherUserTypingTimestamp.toDate();
+              const timeDiff = now.getTime() - typingTime.getTime();
+              // Consider user typing if timestamp is within last 5 seconds
+              setOtherUserTyping(timeDiff < 5000);
+            } else {
+              setOtherUserTyping(false);
+            }
+          }
+        });
+
+        // Mark messages as read when conversation loads
+        await messagingService.markMessagesAsRead(newConversationId, currentUser.uid);
+
+        // Set up presence tracking for the other user
+        const presenceUnsubscribe = presenceService.onUserPresence(userId, (userData) => {
+          if (!isMounted) return;
+          setOtherUserOnline(userData.isOnline || false);
+          setLastSeen(PresenceService.getLastSeenText(userData.lastSeen, userData.isOnline || false));
+        });
+
+        // Store all unsubscribe functions
+        unsubscribeMessages = (() => {
+          const originalUnsubscribe = unsubscribeMessages;
+          return () => {
+            if (originalUnsubscribe) originalUnsubscribe();
+            presenceUnsubscribe();
+            conversationUnsubscribe();
+          };
+        })();
 
       } catch (error: any) {
         console.error('Error loading conversation:', error);
@@ -363,6 +401,11 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           chatSubscriptionManager.unsubscribe(`conversation-${currentConversationId}`);
         }
         unsubscribeMessages();
+      }
+      // Clean up typing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
       }
     };
   }, [userId, currentUser, name, avatar]);
@@ -453,7 +496,12 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           ListHeaderComponent={() => (
             <View style={styles.listHeader}>
               {renderDateSeparator('Today')}
-          </View>
+            </View>
+          )}
+          ListFooterComponent={() => (
+            otherUserTyping ? (
+              <TypingIndicator userName={name} avatar={avatar} />
+            ) : null
           )}
         />
       );
@@ -495,18 +543,19 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       return;
     }
 
-    const messageData = {
-      senderId: currentUser.uid,
-      senderName: currentUser.displayName || 'You',
-      senderAvatar: currentUser.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
-      recipientId: userId,
-      text: text.trim()
-    };
-
     // Use the error handling wrapper
     await withErrorHandling(
       async () => {
-        await ChatOperations.sendMessage(conversationId, messageData);
+        await messagingService.sendMessage(
+          conversationId,
+          currentUser.uid,
+          currentUser.displayName || 'You',
+          userId,
+          text.trim(),
+          'text',
+          currentUser.photoURL
+        );
+
         // Messages will be updated via real-time listener
         setTimeout(() => {
           scrollToBottom();
@@ -514,6 +563,36 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       },
       'Failed to send message'
     );
+  };
+
+  // Handle typing indicators
+  const handleTypingStart = async () => {
+    if (!conversationId || !currentUser) return;
+
+    setIsTyping(true);
+    await messagingService.updateTypingStatus(conversationId, currentUser.uid, true);
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing after 3 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      handleTypingStop();
+    }, 3000);
+  };
+
+  const handleTypingStop = async () => {
+    if (!conversationId || !currentUser) return;
+
+    setIsTyping(false);
+    await messagingService.updateTypingStatus(conversationId, currentUser.uid, false);
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
   };
 
   // Toggle close friend status
@@ -546,8 +625,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         <ChatHeader
           name={name}
           avatar={avatar}
-          status="online"
+          status={otherUserOnline ? "online" : "offline"}
           isCloseFriend={isCloseFriend}
+          isTyping={otherUserTyping}
+          lastSeen={lastSeen}
           onBack={handleNavigation}
           onProfile={() => {}}
           onOptions={() => {}}
@@ -579,7 +660,11 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         )}
         
         {/* Message Input Bar */}
-        <ChatFooter onSendMessage={handleSendMessage} />
+        <ChatFooter
+          onSendMessage={handleSendMessage}
+          onTypingStart={handleTypingStart}
+          onTypingStop={handleTypingStop}
+        />
       </Animated.View>
     </View>
   );
@@ -587,15 +672,45 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
 // New wrapper component to handle route props
 const ChatScreen = (props: any) => {
-  // Extract params from route - might need adjustment depending on navigator version
-  const { userId, name, avatar, goBack, goToDMs, source } = props.route?.params || {};
+  // Extract params from route - handle both navigation patterns
+  const routeParams = props.route?.params || props;
+  
+  // Handle different parameter structures
+  let userId, name, avatar, goBack, goToDMs, source;
+  
+  if (routeParams.recipientId) {
+    // New pattern: { recipientId, recipientName, recipientAvatar, conversationId }
+    userId = routeParams.recipientId;
+    name = routeParams.recipientName;
+    avatar = routeParams.recipientAvatar;
+    source = routeParams.conversationId ? 'conversation' : 'direct';
+    goBack = () => router.back(); // Default goBack function
+  } else {
+    // Legacy pattern: { userId, name, avatar, goBack, goToDMs, source }
+    userId = routeParams.userId;
+    name = routeParams.name;
+    avatar = routeParams.avatar;
+    goBack = routeParams.goBack;
+    goToDMs = routeParams.goToDMs;
+    source = routeParams.source;
+  }
 
   // Basic validation or default values
-  if (!userId || !name || !goBack) {
+  if (!userId || !name) {
     // Handle missing required props - maybe show an error or return null
-    console.error("ChatScreen received invalid props:", props.route?.params);
+    console.error("ChatScreen received invalid props:", routeParams);
     // You might want a more user-friendly error display here
-    return <View><Text>Error loading chat.</Text></View>; 
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+        <Text style={{ color: '#fff', fontSize: 16 }}>Error loading chat.</Text>
+        <Text style={{ color: '#666', fontSize: 14, marginTop: 8 }}>Missing required information</Text>
+      </View>
+    ); 
+  }
+
+  // Provide default goBack if not provided
+  if (!goBack) {
+    goBack = () => router.back();
   }
 
   return (

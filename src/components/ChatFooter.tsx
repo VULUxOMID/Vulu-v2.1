@@ -4,16 +4,34 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 interface ChatFooterProps {
   onSendMessage: (text: string) => void;
+  onTypingStart?: () => void;
+  onTypingStop?: () => void;
 }
 
-const ChatFooter = ({ onSendMessage }: ChatFooterProps) => {
+const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop }: ChatFooterProps) => {
   const [message, setMessage] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
   const handleSend = () => {
     if (message.trim().length > 0) {
       onSendMessage(message.trim());
       setMessage('');
+      setIsTyping(false);
+      onTypingStop?.();
       Keyboard.dismiss();
+    }
+  };
+
+  const handleTextChange = (text: string) => {
+    setMessage(text);
+
+    // Handle typing indicators
+    if (text.length > 0 && !isTyping) {
+      setIsTyping(true);
+      onTypingStart?.();
+    } else if (text.length === 0 && isTyping) {
+      setIsTyping(false);
+      onTypingStop?.();
     }
   };
 
@@ -29,7 +47,7 @@ const ChatFooter = ({ onSendMessage }: ChatFooterProps) => {
           placeholder="Message..."
           placeholderTextColor="rgba(255,255,255,0.4)"
           value={message}
-          onChangeText={setMessage}
+          onChangeText={handleTextChange}
           multiline
           maxLength={1000}
           returnKeyType="default"

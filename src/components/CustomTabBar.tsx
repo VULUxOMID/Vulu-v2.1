@@ -46,11 +46,6 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
   // Flatten tabBarStyle to handle objects, arrays, and StyleSheet IDs
   const flattenedTabBarStyle = StyleSheet.flatten(activeOptions.tabBarStyle);
 
-  // If the active route's tabBarStyle is set to display: 'none', hide the tab bar
-  if (flattenedTabBarStyle && flattenedTabBarStyle.display === 'none') {
-    return null;
-  }
-
   // Memoize the icon component generator to prevent recreating functions on every render
   const getIconComponent = useMemo(() => (routeName: string, isFocused: boolean, badge: number | undefined) => {
     const color = isFocused ? "#FFFFFF" : "rgba(211, 210, 210, 0.6)";
@@ -110,6 +105,11 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
         return null;
     }
   }, [profileImage, profileStatusColor, counts]);
+
+  // If the active route's tabBarStyle is set to display: 'none', hide the tab bar
+  if (flattenedTabBarStyle && flattenedTabBarStyle.display === 'none') {
+    return null;
+  }
 
   return (
     <View style={styles.container}>
