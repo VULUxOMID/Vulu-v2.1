@@ -21,6 +21,7 @@ interface MessageProps {
   onEditPress?: () => void; // For editing
   onDeletePress?: () => void; // For deleting
   onPinPress?: () => void; // For pinning
+  onForwardPress?: () => void; // For forwarding
   currentUserId?: string; // For read receipts
   message?: any; // Full message object
 }

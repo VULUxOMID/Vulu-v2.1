@@ -811,6 +811,13 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
               }
             }
           }}
+          onForwardPress={() => {
+            const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
+            if (originalMessage) {
+              setSelectedMessagesForForwarding([originalMessage]);
+              setShowMessageForwarding(true);
+            }
+          }}
           currentUserId={user?.uid}
           message={messages.find(m => m.id === messageComponentFormat.id)}
         />
