@@ -1156,6 +1156,22 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             applyCustomization(customization);
           }}
         />
+
+        {/* Message Forwarding Modal */}
+        <MessageForwarding
+          visible={showMessageForwarding}
+          onClose={() => {
+            setShowMessageForwarding(false);
+            setSelectedMessagesForForwarding([]);
+          }}
+          messages={selectedMessagesForForwarding}
+          currentConversationId={conversationId || ''}
+          onForwardComplete={(targetConversations) => {
+            console.log(`Messages forwarded to ${targetConversations.length} conversations`);
+            setShowMessageForwarding(false);
+            setSelectedMessagesForForwarding([]);
+          }}
+        />
       </Animated.View>
     </View>
   );

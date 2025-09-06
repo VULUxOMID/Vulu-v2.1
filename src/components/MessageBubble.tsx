@@ -13,6 +13,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import MessageReply from './MessageReply';
 import AttachmentPreview from './AttachmentPreview';
 import MessageStatus from './MessageStatus';
+import ForwardedMessage from './ForwardedMessage';
 
 const { width } = Dimensions.get('window');
 
@@ -68,7 +69,9 @@ export interface MessageBubbleProps {
   onEditPress?: () => void;
   onDeletePress?: () => void;
   onPinPress?: () => void;
+  onForwardPress?: () => void;
   isPinned?: boolean;
+  isForwarded?: boolean;
 }
 
 const MessageBubble = ({
@@ -94,7 +97,9 @@ const MessageBubble = ({
   onEditPress,
   onDeletePress,
   onPinPress,
+  onForwardPress,
   isPinned = false,
+  isForwarded = false,
 }: MessageBubbleProps) => {
   
   // Render text with mentions highlighted
@@ -206,8 +211,28 @@ const MessageBubble = ({
     );
   };
   
+  // If this is a forwarded message, render it with ForwardedMessage component
+  if (isForwarded && message?.forwardedFrom) {
+    return (
+      <Animated.View
+        style={[
+          styles.container,
+          isCurrentUser ? styles.containerCurrentUser : styles.containerOtherUser,
+          { transform: [{ scale }] }
+        ]}
+      >
+        <ForwardedMessage
+          message={message}
+          onPress={onPress}
+          onLongPress={onLongPress}
+          isCurrentUser={isCurrentUser}
+        />
+      </Animated.View>
+    );
+  }
+
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.container,
         isCurrentUser ? styles.containerCurrentUser : styles.containerOtherUser,

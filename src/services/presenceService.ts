@@ -7,19 +7,51 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  setDoc,
+  deleteDoc,
+  orderBy,
+  limit
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { AppState, AppStateStatus } from 'react-native';
 import { UserStatus, AppUser } from './types';
 
+// Device session interface for multi-device support
+interface DeviceSession {
+  deviceId: string;
+  deviceType: 'mobile' | 'web' | 'desktop';
+  lastSeen: Timestamp;
+  status: UserStatus;
+  appVersion?: string;
+  platform?: string;
+}
+
+// Enhanced presence data
+interface EnhancedPresenceData {
+  userId: string;
+  status: UserStatus;
+  lastSeen: Timestamp;
+  isOnline: boolean;
+  devices: { [deviceId: string]: DeviceSession };
+  totalDevices: number;
+  primaryDevice?: string;
+}
+
 export class PresenceService {
   private static instance: PresenceService;
   private currentUserId: string | null = null;
+  private currentDeviceId: string;
   private presenceListeners: Map<string, () => void> = new Map();
   private appStateSubscription: any = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private connectionCheckInterval: NodeJS.Timeout | null = null;
   private isActive = false;
+  private isOnline = true;
+  private lastHeartbeat: number = 0;
+  private heartbeatFrequency = 15000; // 15 seconds (reduced from 30)
+  private connectionCheckFrequency = 5000; // 5 seconds
+  private offlineThreshold = 45000; // 45 seconds (3 missed heartbeats)
 
   static getInstance(): PresenceService {
     if (!PresenceService.instance) {

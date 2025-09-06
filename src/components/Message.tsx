@@ -107,9 +107,11 @@ const Message = ({
             onEditPress={onEditPress}
             onDeletePress={onDeletePress}
             onPinPress={onPinPress}
+            onForwardPress={onForwardPress}
             currentUserId={currentUserId || ''}
             message={message}
             isPinned={message?.isPinned || false}
+            isForwarded={message?.forwardedFrom ? true : false}
           />
         </View>
       </View>
