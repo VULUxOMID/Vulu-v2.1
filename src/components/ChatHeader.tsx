@@ -11,9 +11,13 @@ export interface ChatHeaderProps {
   isCloseFriend?: boolean;
   isTyping?: boolean;
   lastSeen?: string;
+  isGroup?: boolean;
+  memberCount?: number;
   onBack: () => void;
   onProfile: () => void;
   onOptions: () => void;
+  onPinnedMessages?: () => void;
+  onCustomization?: () => void;
   onToggleCloseFriend?: () => void;
 }
 
@@ -27,9 +31,13 @@ const ChatHeader = ({
   isCloseFriend = false,
   isTyping = false,
   lastSeen,
+  isGroup = false,
+  memberCount,
   onBack,
   onProfile,
   onOptions,
+  onPinnedMessages,
+  onCustomization,
   onToggleCloseFriend
 }: ChatHeaderProps) => {
   const insets = useSafeAreaInsets();
@@ -46,6 +54,11 @@ const ChatHeader = ({
   };
   
   const getStatusText = () => {
+    if (isGroup) {
+      if (isTyping) return 'typing...';
+      return memberCount ? `${memberCount} member${memberCount !== 1 ? 's' : ''}` : 'Group';
+    }
+
     if (isTyping) return 'typing...';
 
     switch(status) {
@@ -85,16 +98,30 @@ const ChatHeader = ({
           activeOpacity={0.7}
         >
           <View style={styles.avatarContainer}>
-            <Image 
-              source={{ uri: avatar }} 
-              style={styles.avatar}
-            />
-            <View 
-              style={[
-                styles.statusIndicator, 
-                { backgroundColor: getStatusColor() }
-              ]} 
-            />
+            {avatar ? (
+              <Image
+                source={{ uri: avatar }}
+                style={styles.avatar}
+              />
+            ) : (
+              <View style={[styles.avatar, styles.defaultAvatar]}>
+                {isGroup ? (
+                  <MaterialIcons name="group" size={24} color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.avatarText}>
+                    {name.charAt(0).toUpperCase()}
+                  </Text>
+                )}
+              </View>
+            )}
+            {!isGroup && (
+              <View
+                style={[
+                  styles.statusIndicator,
+                  { backgroundColor: getStatusColor() }
+                ]}
+              />
+            )}
           </View>
           
           <View style={styles.nameStatusContainer}>
@@ -125,14 +152,26 @@ const ChatHeader = ({
             </View>
           </View>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.optionsButton} 
-          onPress={onOptions}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <MaterialIcons name="more-vert" size={24} color="#FFF" />
-        </TouchableOpacity>
+
+        <View style={styles.rightActions}>
+          {onPinnedMessages && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onPinnedMessages}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons name="push-pin" size={22} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.optionsButton}
+            onPress={onOptions}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialIcons name="more-vert" size={24} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
       
       <View style={styles.divider} />
@@ -187,6 +226,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.1)'
   },
+  defaultAvatar: {
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
   statusIndicator: {
     position: 'absolute',
     bottom: 0,
@@ -224,13 +273,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'rgba(255,255,255,0.6)'
   },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   optionsButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8
   },
   divider: {
     height: 1,

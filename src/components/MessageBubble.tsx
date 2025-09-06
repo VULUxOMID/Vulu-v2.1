@@ -67,6 +67,8 @@ export interface MessageBubbleProps {
   onReplyPress?: (messageId: string) => void;
   onEditPress?: () => void;
   onDeletePress?: () => void;
+  onPinPress?: () => void;
+  isPinned?: boolean;
 }
 
 const MessageBubble = ({
@@ -91,6 +93,8 @@ const MessageBubble = ({
   onReplyPress,
   onEditPress,
   onDeletePress,
+  onPinPress,
+  isPinned = false,
 }: MessageBubbleProps) => {
   
   // Render text with mentions highlighted
@@ -224,6 +228,12 @@ const MessageBubble = ({
             styles.bubble,
             isCurrentUser ? styles.bubbleCurrentUser : styles.bubbleOtherUser
           ]}>
+            {isPinned && (
+              <View style={styles.pinnedIndicator}>
+                <MaterialIcons name="push-pin" size={14} color="#007AFF" />
+                <Text style={styles.pinnedText}>Pinned</Text>
+              </View>
+            )}
             {renderReplyReference()}
             {renderAttachments()}
             {renderTextWithMentions()}
@@ -413,6 +423,22 @@ const styles = StyleSheet.create({
   reactionCount: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.8)',
+  },
+  pinnedIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  pinnedText: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
+    marginLeft: 4,
   },
 });
 

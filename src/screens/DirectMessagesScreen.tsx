@@ -27,6 +27,7 @@ import { useAuth } from '../context/AuthContext';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { useErrorReporting } from '../hooks/useErrorReporting';
 import { LoadingState, ErrorState, EmptyState } from '../components/ErrorHandling';
+import GroupChatCreation from '../components/GroupChatCreation';
 import { Conversation, AppUser } from '../services/types';
 import { FirebaseErrorHandler } from '../utils/firebaseErrorHandler';
 
@@ -177,6 +178,7 @@ const DirectMessagesScreen = () => {
   const [isGuestUser, setIsGuestUser] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [showGroupCreation, setShowGroupCreation] = useState(false);
   const searchAnimation = useRef(new Animated.Value(0)).current;
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const presenceUnsubscribeRef = useRef<(() => void) | null>(null);
@@ -420,25 +422,7 @@ const DirectMessagesScreen = () => {
   };
 
   const handleCreateGroup = () => {
-    console.log("Group Chat Pressed");
-
-    // Show detailed coming soon alert with planned features
-    Alert.alert(
-      "Group Chat Coming Soon! 🎉",
-      "We're working on group chat functionality that will include:\n\n" +
-      "• Create groups with multiple participants\n" +
-      "• Group admin controls\n" +
-      "• Shared media and files\n" +
-      "• Group notifications settings\n" +
-      "• Custom group avatars\n\n" +
-      "Stay tuned for this exciting feature!",
-      [
-        {
-          text: "Got it!",
-          style: "default"
-        }
-      ]
-    );
+    setShowGroupCreation(true);
   };
   
   // Navigate to chat screen
@@ -575,6 +559,11 @@ const DirectMessagesScreen = () => {
           <CommonHeader
             title={isSearchActive ? "" : "Messages"}
             rightIcons={[
+              {
+                name: "group-add",
+                onPress: () => setShowGroupCreation(true),
+                color: "#FFFFFF"
+              },
               {
                 name: "person-add",
                 onPress: () => router.push('/friend-requests'),
@@ -725,6 +714,26 @@ const DirectMessagesScreen = () => {
             <MaterialIcons name="group-add" size={28} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
+
+        {/* Group Chat Creation Modal */}
+        <GroupChatCreation
+          visible={showGroupCreation}
+          onClose={() => setShowGroupCreation(false)}
+          onGroupCreated={(conversationId) => {
+            console.log('Group created:', conversationId);
+            // Navigate to the new group chat
+            router.push({
+              pathname: '/(main)/chat',
+              params: {
+                userId: 'group',
+                name: 'New Group',
+                avatar: '',
+                source: 'group-creation',
+                conversationId: conversationId,
+              },
+            });
+          }}
+        />
       </LinearGradient>
     </SafeAreaView>
   );

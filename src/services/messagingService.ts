@@ -18,7 +18,8 @@ import {
   runTransaction,
   arrayUnion,
   arrayRemove,
-  writeBatch
+  writeBatch,
+  deleteField
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import {
@@ -1826,6 +1827,613 @@ export class MessagingService {
       icon: 'done',
       color: '#666', // Gray for sent
     };
+  }
+
+  // ==================== GROUP CHAT MANAGEMENT ====================
+
+  /**
+   * Create a new group conversation
+   */
+  async createGroupConversation(
+    name: string,
+    description: string,
+    participantIds: string[],
+    creatorId: string,
+    creatorName: string,
+    avatar?: string
+  ): Promise<string> {
+    try {
+      // Include creator in participants
+      const allParticipants = [creatorId, ...participantIds.filter(id => id !== creatorId)];
+
+      // Get participant info
+      const participantNames: { [key: string]: string } = {};
+      const participantAvatars: { [key: string]: string } = {};
+      const participantStatus: { [key: string]: any } = {};
+
+      // Add creator info
+      participantNames[creatorId] = creatorName;
+      participantStatus[creatorId] = { isOnline: true, lastSeen: serverTimestamp() };
+
+      // Get other participants' info
+      for (const participantId of participantIds) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', participantId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            participantNames[participantId] = userData.displayName || userData.email || 'Unknown User';
+            participantAvatars[participantId] = userData.avatar || '';
+            participantStatus[participantId] = { isOnline: false, lastSeen: serverTimestamp() };
+          }
+        } catch (error) {
+          console.warn(`Failed to get user info for ${participantId}:`, error);
+          participantNames[participantId] = 'Unknown User';
+          participantStatus[participantId] = { isOnline: false, lastSeen: serverTimestamp() };
+        }
+      }
+
+      const conversationData: Partial<Conversation> = {
+        participants: allParticipants,
+        participantNames,
+        participantAvatars,
+        participantStatus,
+        type: 'group',
+        name,
+        description,
+        avatar: avatar || '',
+        createdBy: creatorId,
+        admins: [creatorId], // Creator is the first admin
+        settings: {
+          allowMembersToAddOthers: true,
+          allowMembersToEditInfo: false,
+          onlyAdminsCanMessage: false,
+        },
+        lastMessage: {
+          text: `${creatorName} created the group`,
+          senderId: 'system',
+          senderName: 'System',
+          timestamp: serverTimestamp() as Timestamp,
+          messageId: '',
+          type: 'system',
+        },
+        lastMessageTime: serverTimestamp() as Timestamp,
+        unreadCount: Object.fromEntries(allParticipants.map(id => [id, 0])),
+        lastReadTimestamp: Object.fromEntries(allParticipants.map(id => [id, serverTimestamp() as Timestamp])),
+        typingUsers: {},
+        isArchived: Object.fromEntries(allParticipants.map(id => [id, false])),
+        isMuted: Object.fromEntries(allParticipants.map(id => [id, false])),
+        isPinned: Object.fromEntries(allParticipants.map(id => [id, false])),
+        createdAt: serverTimestamp() as Timestamp,
+        updatedAt: serverTimestamp() as Timestamp,
+        inviteCode: this.generateInviteCode(),
+      };
+
+      const conversationRef = await addDoc(collection(db, 'conversations'), conversationData);
+
+      // Send system message about group creation
+      await this.sendSystemMessage(
+        conversationRef.id,
+        `${creatorName} created the group "${name}"`,
+        creatorId
+      );
+
+      console.log(`✅ Group conversation created: ${conversationRef.id}`);
+      return conversationRef.id;
+    } catch (error: any) {
+      console.error('Error creating group conversation:', error);
+      throw new Error(`Failed to create group conversation: ${error.message}`);
+    }
+  }
+
+  /**
+   * Add participants to group conversation
+   */
+  async addParticipantsToGroup(
+    conversationId: string,
+    participantIds: string[],
+    addedBy: string,
+    addedByName: string
+  ): Promise<void> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+
+      await runTransaction(db, async (transaction) => {
+        const conversationDoc = await transaction.get(conversationRef);
+
+        if (!conversationDoc.exists()) {
+          throw new Error('Conversation not found');
+        }
+
+        const conversationData = conversationDoc.data() as Conversation;
+
+        // Check if it's a group conversation
+        if (conversationData.type !== 'group') {
+          throw new Error('Can only add participants to group conversations');
+        }
+
+        // Check permissions
+        const isAdmin = conversationData.admins?.includes(addedBy);
+        const canAddMembers = conversationData.settings?.allowMembersToAddOthers;
+
+        if (!isAdmin && !canAddMembers) {
+          throw new Error('You do not have permission to add members to this group');
+        }
+
+        // Filter out participants who are already in the group
+        const newParticipants = participantIds.filter(id =>
+          !conversationData.participants.includes(id)
+        );
+
+        if (newParticipants.length === 0) {
+          return; // No new participants to add
+        }
+
+        // Get new participants' info
+        const updatedParticipantNames = { ...conversationData.participantNames };
+        const updatedParticipantAvatars = { ...conversationData.participantAvatars };
+        const updatedParticipantStatus = { ...conversationData.participantStatus };
+        const updatedUnreadCount = { ...conversationData.unreadCount };
+        const updatedLastReadTimestamp = { ...conversationData.lastReadTimestamp };
+        const updatedIsArchived = { ...conversationData.isArchived };
+        const updatedIsMuted = { ...conversationData.isMuted };
+        const updatedIsPinned = { ...conversationData.isPinned };
+
+        for (const participantId of newParticipants) {
+          try {
+            const userDoc = await transaction.get(doc(db, 'users', participantId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              updatedParticipantNames[participantId] = userData.displayName || userData.email || 'Unknown User';
+              updatedParticipantAvatars[participantId] = userData.avatar || '';
+            } else {
+              updatedParticipantNames[participantId] = 'Unknown User';
+            }
+          } catch (error) {
+            console.warn(`Failed to get user info for ${participantId}:`, error);
+            updatedParticipantNames[participantId] = 'Unknown User';
+          }
+
+          updatedParticipantStatus[participantId] = { isOnline: false, lastSeen: serverTimestamp() };
+          updatedUnreadCount[participantId] = 0;
+          updatedLastReadTimestamp[participantId] = serverTimestamp() as Timestamp;
+          updatedIsArchived[participantId] = false;
+          updatedIsMuted[participantId] = false;
+          updatedIsPinned[participantId] = false;
+        }
+
+        // Update conversation
+        transaction.update(conversationRef, {
+          participants: [...conversationData.participants, ...newParticipants],
+          participantNames: updatedParticipantNames,
+          participantAvatars: updatedParticipantAvatars,
+          participantStatus: updatedParticipantStatus,
+          unreadCount: updatedUnreadCount,
+          lastReadTimestamp: updatedLastReadTimestamp,
+          isArchived: updatedIsArchived,
+          isMuted: updatedIsMuted,
+          isPinned: updatedIsPinned,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      // Send system message about new participants
+      const participantNames = participantIds.map(id =>
+        // We'll need to get the names, for now use placeholder
+        'New Member'
+      ).join(', ');
+
+      await this.sendSystemMessage(
+        conversationId,
+        `${addedByName} added ${participantNames} to the group`,
+        addedBy
+      );
+
+      console.log(`✅ Added ${participantIds.length} participants to group ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error adding participants to group:', error);
+      throw new Error(`Failed to add participants: ${error.message}`);
+    }
+  }
+
+  /**
+   * Remove participant from group conversation
+   */
+  async removeParticipantFromGroup(
+    conversationId: string,
+    participantId: string,
+    removedBy: string,
+    removedByName: string
+  ): Promise<void> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+
+      await runTransaction(db, async (transaction) => {
+        const conversationDoc = await transaction.get(conversationRef);
+
+        if (!conversationDoc.exists()) {
+          throw new Error('Conversation not found');
+        }
+
+        const conversationData = conversationDoc.data() as Conversation;
+
+        // Check if it's a group conversation
+        if (conversationData.type !== 'group') {
+          throw new Error('Can only remove participants from group conversations');
+        }
+
+        // Check permissions (admins can remove anyone, users can only remove themselves)
+        const isAdmin = conversationData.admins?.includes(removedBy);
+        const isSelfRemoval = participantId === removedBy;
+
+        if (!isAdmin && !isSelfRemoval) {
+          throw new Error('You do not have permission to remove this member');
+        }
+
+        // Check if participant is in the group
+        if (!conversationData.participants.includes(participantId)) {
+          throw new Error('User is not a member of this group');
+        }
+
+        // Remove participant
+        const updatedParticipants = conversationData.participants.filter(id => id !== participantId);
+
+        // Remove from admins if they were an admin
+        const updatedAdmins = conversationData.admins?.filter(id => id !== participantId) || [];
+
+        // Clean up participant-specific data
+        const updatedParticipantNames = { ...conversationData.participantNames };
+        const updatedParticipantAvatars = { ...conversationData.participantAvatars };
+        const updatedParticipantStatus = { ...conversationData.participantStatus };
+        const updatedUnreadCount = { ...conversationData.unreadCount };
+        const updatedLastReadTimestamp = { ...conversationData.lastReadTimestamp };
+        const updatedIsArchived = { ...conversationData.isArchived };
+        const updatedIsMuted = { ...conversationData.isMuted };
+        const updatedIsPinned = { ...conversationData.isPinned };
+
+        delete updatedParticipantNames[participantId];
+        delete updatedParticipantAvatars[participantId];
+        delete updatedParticipantStatus[participantId];
+        delete updatedUnreadCount[participantId];
+        delete updatedLastReadTimestamp[participantId];
+        delete updatedIsArchived[participantId];
+        delete updatedIsMuted[participantId];
+        delete updatedIsPinned[participantId];
+
+        // Update conversation
+        transaction.update(conversationRef, {
+          participants: updatedParticipants,
+          admins: updatedAdmins,
+          participantNames: updatedParticipantNames,
+          participantAvatars: updatedParticipantAvatars,
+          participantStatus: updatedParticipantStatus,
+          unreadCount: updatedUnreadCount,
+          lastReadTimestamp: updatedLastReadTimestamp,
+          isArchived: updatedIsArchived,
+          isMuted: updatedIsMuted,
+          isPinned: updatedIsPinned,
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      // Send system message about participant removal
+      const participantName = participantId; // We'll need to get the actual name
+      const action = participantId === removedBy ? 'left' : 'was removed from';
+
+      await this.sendSystemMessage(
+        conversationId,
+        `${participantName} ${action} the group`,
+        removedBy
+      );
+
+      console.log(`✅ Removed participant ${participantId} from group ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error removing participant from group:', error);
+      throw new Error(`Failed to remove participant: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update group information
+   */
+  async updateGroupInfo(
+    conversationId: string,
+    updates: {
+      name?: string;
+      description?: string;
+      avatar?: string;
+    },
+    updatedBy: string,
+    updatedByName: string
+  ): Promise<void> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+
+      await runTransaction(db, async (transaction) => {
+        const conversationDoc = await transaction.get(conversationRef);
+
+        if (!conversationDoc.exists()) {
+          throw new Error('Conversation not found');
+        }
+
+        const conversationData = conversationDoc.data() as Conversation;
+
+        // Check if it's a group conversation
+        if (conversationData.type !== 'group') {
+          throw new Error('Can only update group conversations');
+        }
+
+        // Check permissions
+        const isAdmin = conversationData.admins?.includes(updatedBy);
+        const canEditInfo = conversationData.settings?.allowMembersToEditInfo;
+
+        if (!isAdmin && !canEditInfo) {
+          throw new Error('You do not have permission to edit group information');
+        }
+
+        // Update group info
+        const updateData: any = {
+          updatedAt: serverTimestamp(),
+        };
+
+        if (updates.name !== undefined) {
+          updateData.name = updates.name;
+        }
+        if (updates.description !== undefined) {
+          updateData.description = updates.description;
+        }
+        if (updates.avatar !== undefined) {
+          updateData.avatar = updates.avatar;
+        }
+
+        transaction.update(conversationRef, updateData);
+      });
+
+      // Send system message about group info update
+      const changes = [];
+      if (updates.name) changes.push('name');
+      if (updates.description) changes.push('description');
+      if (updates.avatar) changes.push('photo');
+
+      await this.sendSystemMessage(
+        conversationId,
+        `${updatedByName} updated the group ${changes.join(' and ')}`,
+        updatedBy
+      );
+
+      console.log(`✅ Updated group info for ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error updating group info:', error);
+      throw new Error(`Failed to update group info: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate invite code for group
+   */
+  private generateInviteCode(): string {
+    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  }
+
+  /**
+   * Send system message
+   */
+  private async sendSystemMessage(
+    conversationId: string,
+    text: string,
+    triggeredBy: string
+  ): Promise<void> {
+    try {
+      const messageData: Partial<DirectMessage> = {
+        text,
+        senderId: 'system',
+        senderName: 'System',
+        timestamp: serverTimestamp() as Timestamp,
+        type: 'system',
+        status: 'sent',
+        isEdited: false,
+        isDeleted: false,
+        reactions: [],
+        attachments: [],
+      };
+
+      const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+      await addDoc(messagesRef, messageData);
+
+      // Update conversation's last message
+      const conversationRef = doc(db, 'conversations', conversationId);
+      await updateDoc(conversationRef, {
+        lastMessage: {
+          text,
+          senderId: 'system',
+          senderName: 'System',
+          timestamp: serverTimestamp(),
+          messageId: '',
+          type: 'system',
+        },
+        lastMessageTime: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error('Error sending system message:', error);
+    }
+  }
+
+  // ==================== MESSAGE PINNING ====================
+
+  /**
+   * Pin a message in a conversation
+   */
+  async pinMessage(
+    conversationId: string,
+    messageId: string,
+    userId: string,
+    userName: string
+  ): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+
+        // Check if message is already pinned
+        if (messageData.isPinned) {
+          throw new Error('Message is already pinned');
+        }
+
+        // Check if user has permission to pin (for now, any participant can pin)
+        const conversationRef = doc(db, 'conversations', conversationId);
+        const conversationDoc = await transaction.get(conversationRef);
+
+        if (!conversationDoc.exists()) {
+          throw new Error('Conversation not found');
+        }
+
+        const conversationData = conversationDoc.data() as Conversation;
+
+        if (!conversationData.participants.includes(userId)) {
+          throw new Error('You do not have permission to pin messages in this conversation');
+        }
+
+        // Pin the message
+        transaction.update(messageRef, {
+          isPinned: true,
+          pinnedBy: userId,
+          pinnedAt: serverTimestamp(),
+        });
+      });
+
+      console.log(`✅ Message ${messageId} pinned in conversation ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error pinning message:', error);
+      throw new Error(`Failed to pin message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Unpin a message in a conversation
+   */
+  async unpinMessage(
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+
+        // Check if message is pinned
+        if (!messageData.isPinned) {
+          throw new Error('Message is not pinned');
+        }
+
+        // Check if user has permission to unpin
+        const conversationRef = doc(db, 'conversations', conversationId);
+        const conversationDoc = await transaction.get(conversationRef);
+
+        if (!conversationDoc.exists()) {
+          throw new Error('Conversation not found');
+        }
+
+        const conversationData = conversationDoc.data() as Conversation;
+
+        if (!conversationData.participants.includes(userId)) {
+          throw new Error('You do not have permission to unpin messages in this conversation');
+        }
+
+        // Only the person who pinned it or group admins can unpin
+        const isOriginalPinner = messageData.pinnedBy === userId;
+        const isGroupAdmin = conversationData.type === 'group' && conversationData.admins?.includes(userId);
+
+        if (!isOriginalPinner && !isGroupAdmin) {
+          throw new Error('You can only unpin messages you pinned yourself');
+        }
+
+        // Unpin the message
+        transaction.update(messageRef, {
+          isPinned: false,
+          pinnedBy: deleteField(),
+          pinnedAt: deleteField(),
+        });
+      });
+
+      console.log(`✅ Message ${messageId} unpinned in conversation ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error unpinning message:', error);
+      throw new Error(`Failed to unpin message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get pinned messages in a conversation
+   */
+  async getPinnedMessages(conversationId: string): Promise<DirectMessage[]> {
+    try {
+      const messagesQuery = query(
+        collection(db, 'conversations', conversationId, 'messages'),
+        where('isPinned', '==', true),
+        orderBy('pinnedAt', 'desc'),
+        limit(50) // Limit to 50 pinned messages
+      );
+
+      const messagesSnapshot = await getDocs(messagesQuery);
+      const pinnedMessages: DirectMessage[] = [];
+
+      messagesSnapshot.forEach((doc) => {
+        const messageData = doc.data() as DirectMessage;
+        pinnedMessages.push({
+          ...messageData,
+          id: doc.id,
+        });
+      });
+
+      console.log(`✅ Retrieved ${pinnedMessages.length} pinned messages from conversation ${conversationId}`);
+      return pinnedMessages;
+    } catch (error: any) {
+      console.error('Error getting pinned messages:', error);
+      throw new Error(`Failed to get pinned messages: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if user can pin messages in conversation
+   */
+  async canPinMessages(conversationId: string, userId: string): Promise<boolean> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+      const conversationDoc = await getDoc(conversationRef);
+
+      if (!conversationDoc.exists()) {
+        return false;
+      }
+
+      const conversationData = conversationDoc.data() as Conversation;
+
+      // Check if user is a participant
+      if (!conversationData.participants.includes(userId)) {
+        return false;
+      }
+
+      // For now, all participants can pin messages
+      // In the future, this could be restricted based on group settings
+      return true;
+    } catch (error) {
+      console.error('Error checking pin permissions:', error);
+      return false;
+    }
   }
 
   /**

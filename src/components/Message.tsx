@@ -20,6 +20,7 @@ interface MessageProps {
   onLongPress?: () => void; // For message options
   onEditPress?: () => void; // For editing
   onDeletePress?: () => void; // For deleting
+  onPinPress?: () => void; // For pinning
   currentUserId?: string; // For read receipts
   message?: any; // Full message object
 }
@@ -104,8 +105,10 @@ const Message = ({
             onReplyPress={onReplyPress}
             onEditPress={onEditPress}
             onDeletePress={onDeletePress}
+            onPinPress={onPinPress}
             currentUserId={currentUserId || ''}
             message={message}
+            isPinned={message?.isPinned || false}
           />
         </View>
       </View>

@@ -36,6 +36,10 @@ import ReplyInput from '../components/ReplyInput';
 import MessageEditModal from '../components/MessageEditModal';
 import MessageDeleteModal from '../components/MessageDeleteModal';
 import AttachmentPicker from '../components/AttachmentPicker';
+import GroupChatInfo from '../components/GroupChatInfo';
+import MessageSearch from '../components/MessageSearch';
+import PinnedMessages from '../components/PinnedMessages';
+import ChatCustomization from '../components/ChatCustomization';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { firestoreService } from '../services/firestoreService';
 import { messagingService } from '../services/messagingService';
@@ -52,6 +56,8 @@ import { useMessageDeletion } from '../hooks/useMessageDeletion';
 import { useAttachments } from '../hooks/useAttachments';
 import { useReadReceipts } from '../hooks/useReadReceipts';
 import { useTypingIndicator } from '../hooks/useTypingIndicator';
+import { useMessagePinning } from '../hooks/useMessagePinning';
+import { useChatTheme } from '../hooks/useChatTheme';
 import { MessageValidator } from '../utils/chatUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -321,6 +327,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   });
 
   const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [showMessageSearch, setShowMessageSearch] = useState(false);
+  const [showPinnedMessages, setShowPinnedMessages] = useState(false);
+  const [showChatCustomization, setShowChatCustomization] = useState(false);
 
   // Read receipts
   const {
@@ -362,6 +372,38 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     conversationId: conversationId || '',
     typingTimeout: 3000,
     updateInterval: 1000,
+  });
+
+  // Message pinning
+  const {
+    pinMessage,
+    unpinMessage,
+    togglePin,
+    pinMessageWithConfirmation,
+    canUnpinMessage
+  } = useMessagePinning({
+    conversationId: conversationId || '',
+    onPinStatusChange: (messageId, isPinned) => {
+      // Update the message in the local state
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
+          msg.id === messageId
+            ? { ...msg, isPinned }
+            : msg
+        )
+      );
+    }
+  });
+
+  // Chat theme and customization
+  const {
+    currentTheme,
+    currentCustomization,
+    applyTheme,
+    applyCustomization,
+    getDynamicStyles,
+  } = useChatTheme({
+    conversationId: conversationId || undefined,
   });
 
   // Legacy state for backward compatibility
@@ -743,6 +785,16 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
               startDelete(originalMessage);
             }
           }}
+          onPinPress={() => {
+            const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
+            if (originalMessage) {
+              if (originalMessage.isPinned) {
+                unpinMessage(originalMessage);
+              } else {
+                pinMessageWithConfirmation(originalMessage);
+              }
+            }
+          }}
           currentUserId={user?.uid}
           message={messages.find(m => m.id === messageComponentFormat.id)}
         />
@@ -798,8 +850,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             </View>
           )}
           ListFooterComponent={() => (
-            otherUserTyping ? (
-              <TypingIndicator userName={name} avatar={avatar} />
+            isAnyoneTyping ? (
+              <TypingIndicator typingUsers={typingUsers} />
             ) : null
           )}
         />
@@ -910,8 +962,21 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           isTyping={otherUserTyping}
           lastSeen={lastSeen}
           onBack={handleNavigation}
-          onProfile={() => {}}
-          onOptions={() => {}}
+          isGroup={false} // TODO: Detect if this is a group conversation
+          memberCount={undefined} // TODO: Get member count for groups
+          onProfile={() => {
+            // TODO: Show group info for groups, user profile for direct messages
+            setShowGroupInfo(true);
+          }}
+          onOptions={() => {
+            setShowMessageSearch(true);
+          }}
+          onPinnedMessages={() => {
+            setShowPinnedMessages(true);
+          }}
+          onCustomization={() => {
+            setShowChatCustomization(true);
+          }}
           onToggleCloseFriend={handleToggleCloseFriend}
         />
         
@@ -1014,6 +1079,41 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             if (success) {
               setShowAttachmentPicker(false);
             }
+          }}
+        />
+
+        {/* Group Chat Info Modal */}
+        <GroupChatInfo
+          visible={showGroupInfo}
+          onClose={() => setShowGroupInfo(false)}
+          conversation={null} // TODO: Pass actual conversation data for groups
+          onLeaveGroup={() => {
+            // TODO: Handle leaving group and navigate back
+            console.log('Left group');
+          }}
+        />
+
+        {/* Message Search Modal */}
+        <MessageSearch
+          visible={showMessageSearch}
+          onClose={() => setShowMessageSearch(false)}
+          conversationId={conversationId || undefined}
+          onMessageSelect={(result) => {
+            setShowMessageSearch(false);
+            // TODO: Navigate to the selected message
+            console.log('Selected message:', result);
+          }}
+        />
+
+        {/* Pinned Messages Modal */}
+        <PinnedMessages
+          visible={showPinnedMessages}
+          onClose={() => setShowPinnedMessages(false)}
+          conversationId={conversationId || ''}
+          onMessageSelect={(message) => {
+            // Navigate to the selected message
+            console.log('Navigate to pinned message:', message.id);
+            setShowPinnedMessages(false);
           }}
         />
       </Animated.View>

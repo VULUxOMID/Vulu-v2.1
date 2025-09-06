@@ -64,6 +64,23 @@ export interface Conversation {
   isPinned: { [userId: string]: boolean };
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  // Group-specific fields
+  type?: 'direct' | 'group';
+  name?: string; // For group chats
+  avatar?: string; // For group chats
+  description?: string; // For group chats
+  createdBy?: string;
+  admins?: string[]; // User IDs of group admins
+  settings?: {
+    allowMembersToAddOthers: boolean;
+    allowMembersToEditInfo: boolean;
+    onlyAdminsCanMessage: boolean;
+  };
+  inviteCode?: string; // For group invite links
+
+  // Chat customization
+  theme?: ChatTheme;
+  customization?: ChatCustomization;
 }
 
 // Direct Message interface
@@ -104,6 +121,11 @@ export interface DirectMessage {
   readAt?: { [userId: string]: Timestamp };
   deliveredTo?: string[];
   deliveredAt?: { [userId: string]: Timestamp };
+
+  // Message pinning
+  isPinned?: boolean;
+  pinnedBy?: string;
+  pinnedAt?: Timestamp;
 }
 
 // Message status for delivery tracking
@@ -114,6 +136,43 @@ export type MessageType = 'text' | 'image' | 'file' | 'system' | 'deleted';
 
 // User status for presence
 export type UserStatus = 'online' | 'offline' | 'away' | 'busy';
+
+// Chat themes
+export type ChatThemeType = 'default' | 'dark' | 'ocean' | 'forest' | 'sunset' | 'custom';
+
+export interface ChatTheme {
+  type: ChatThemeType;
+  name: string;
+  colors: {
+    background: string;
+    messageBackground: string;
+    currentUserMessageBackground: string;
+    otherUserMessageBackground: string;
+    text: string;
+    currentUserText: string;
+    otherUserText: string;
+    timestamp: string;
+    inputBackground: string;
+    inputText: string;
+    headerBackground: string;
+    headerText: string;
+    accent: string;
+  };
+  wallpaper?: {
+    type: 'color' | 'gradient' | 'image';
+    value: string | string[]; // Color hex, gradient colors array, or image URL
+    opacity?: number;
+  };
+}
+
+export interface ChatCustomization {
+  fontSize: 'small' | 'medium' | 'large';
+  messageSpacing: 'compact' | 'normal' | 'spacious';
+  showTimestamps: boolean;
+  showAvatars: boolean;
+  bubbleStyle: 'rounded' | 'square' | 'minimal';
+  animationsEnabled: boolean;
+}
 
 // Message attachments
 export interface MessageAttachment {
