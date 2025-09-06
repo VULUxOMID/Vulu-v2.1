@@ -7,129 +7,85 @@ export default function Chat() {
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams();
-  const [isValidParams, setIsValidParams] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(Date.now());
 
-  // Extract and validate parameters
+  // Extract and validate parameters with proper defaults
   const userId = typeof params.userId === 'string' ? params.userId : '';
   const name = typeof params.name === 'string' ? params.name : '';
-  const avatar = typeof params.avatar === 'string' ? params.avatar : '';
-  const source = typeof params.source === 'string' ? params.source : '';
+  const avatar = typeof params.avatar === 'string' ? params.avatar : 'https://randomuser.me/api/portraits/lego/1.jpg';
+  const source = typeof params.source === 'string' ? params.source : 'direct-messages';
 
-  // Force refresh when screen comes into focus
-  useFocusEffect(
-    React.useCallback(() => {
-      // This will force the ChatScreen to remount when the screen comes into focus
-      setRefreshKey(Date.now());
-      return () => {
-        // Any cleanup if needed
-      };
-    }, [])
-  );
+  // Validate required parameters immediately
+  const isValidParams = Boolean(userId && name);
 
-  // Validate required parameters
+  // Log parameters for debugging
   useEffect(() => {
-    // Short timeout to ensure the component is mounted
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-      
-      // Check if we have the minimum required parameters
-      if (!userId || !name) {
-        console.error('Missing required chat parameters:', { userId, name, avatar });
-        setIsValidParams(false);
-      } else {
-        setIsValidParams(true);
-      }
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, [userId, name, avatar]);
+    console.log('Chat screen params:', { userId, name, avatar, source, isValidParams });
+  }, [userId, name, avatar, source, isValidParams]);
 
-  // Enhanced handler for back navigation that respects the source
+  // Simplified navigation handlers
   const handleGoBack = () => {
-    // Navigate to the direct messages screen instead of home
-    if (source === 'live') {
-      // Navigate to home screen since live screen has been removed
+    try {
+      if (source === 'notifications') {
+        router.push('/(main)/notifications');
+      } else if (source === 'live') {
+        router.push('/(main)');
+      } else {
+        // Default to direct messages
+        router.push('/(main)/directmessages');
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback to main screen
       router.push('/(main)');
-      return true; // Prevent default behavior
-    } else if (source === 'notifications') {
-      router.push('/(main)/notifications');
-      return true;
-    } else {
-      // Navigate to direct messages screen - use the correct path
-      router.push('/(main)/directmessages'); // Use the actual file name
-      return true; // Prevent default behavior
     }
   };
 
-  // Navigate directly to direct messages screen with correct route
   const goToDMs = () => {
-    router.push('/(main)/directmessages'); // Use the actual file name
-    return true;
+    try {
+      router.push('/(main)/directmessages');
+    } catch (error) {
+      console.error('Navigation error:', error);
+      router.push('/(main)');
+    }
   };
 
-  // Set up hardware back button and gesture handlers
+  // Set up hardware back button handler
   useEffect(() => {
-    // Handle hardware back button (Android)
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', handleGoBack);
-
-    // Handle gesture navigation
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      // Prevent default behavior
-      e.preventDefault();
-      
-      // Use our custom navigation logic
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
       handleGoBack();
+      return true; // Prevent default behavior
     });
 
-    // Clean up listeners
-    return () => {
-      backHandler.remove();
-      unsubscribe();
-    };
-  }, [navigation, source]);
-
-  // Show loading state
-  if (isLoading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#6E69F4" />
-      </View>
-    );
-  }
+    return () => backHandler.remove();
+  }, [source]);
 
   // Show error state if parameters are invalid
   if (!isValidParams) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <Text style={styles.errorText}>Error loading chat</Text>
-        <Text style={styles.subErrorText}>Missing required information</Text>
-        <View style={styles.buttonContainer}>
-          <Text style={styles.backButton} onPress={handleGoBack}>
-            Go back to messages
-          </Text>
-        </View>
+        <Text style={styles.subErrorText}>Missing required information (userId: {userId}, name: {name})</Text>
+        <Text style={styles.backButton} onPress={handleGoBack}>
+          Go back to messages
+        </Text>
       </View>
     );
   }
 
-  // Render chat screen if parameters are valid
+  // Render chat screen with valid parameters
   return (
     <View style={styles.container}>
-      {/* Configure Stack.Screen for both button and gesture navigation */}
-      <Stack.Screen 
+      <Stack.Screen
         options={{
           headerShown: false,
           gestureEnabled: true,
-        }} 
+        }}
       />
-      
-      <ChatScreen 
-        key={`chat-${userId}-${refreshKey}`}
+
+      <ChatScreen
         userId={userId}
         name={name}
-        avatar={avatar || 'https://randomuser.me/api/portraits/lego/1.jpg'} // Fallback avatar
+        avatar={avatar}
         goBack={handleGoBack}
         goToDMs={goToDMs}
         source={source}
@@ -146,21 +102,20 @@ const styles = StyleSheet.create({
   centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
   },
   errorText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subErrorText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
     marginBottom: 24,
-  },
-  buttonContainer: {
-    marginTop: 16,
-    padding: 12,
+    textAlign: 'center',
   },
   backButton: {
     color: '#6E69F4',
@@ -168,5 +123,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     padding: 12,
+    marginTop: 16,
   }
-}); 
+});

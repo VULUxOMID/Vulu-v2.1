@@ -32,6 +32,10 @@ import Message from '../components/Message';
 import ChatHeader from '../components/ChatHeader';
 import ChatFooter from '../components/ChatFooter';
 import TypingIndicator from '../components/TypingIndicator';
+import ReplyInput from '../components/ReplyInput';
+import MessageEditModal from '../components/MessageEditModal';
+import MessageDeleteModal from '../components/MessageDeleteModal';
+import AttachmentPicker from '../components/AttachmentPicker';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { firestoreService } from '../services/firestoreService';
 import { messagingService } from '../services/messagingService';
@@ -40,6 +44,14 @@ import { UnifiedMessage, MessageConverter, DirectMessage } from '../services/typ
 import { ChatOperations, chatSubscriptionManager } from '../utils/chatUtils';
 import { useAuth } from '../context/AuthContext';
 import { LoadingState, ErrorState, MessageSkeletonLoader, useErrorHandler } from '../components/ErrorHandling';
+import { useErrorReporting } from '../hooks/useErrorReporting';
+import { useMessageReactions } from '../hooks/useMessageReactions';
+import { useMessageReplies } from '../hooks/useMessageReplies';
+import { useMessageEditing } from '../hooks/useMessageEditing';
+import { useMessageDeletion } from '../hooks/useMessageDeletion';
+import { useAttachments } from '../hooks/useAttachments';
+import { useReadReceipts } from '../hooks/useReadReceipts';
+import { useTypingIndicator } from '../hooks/useTypingIndicator';
 import { MessageValidator } from '../utils/chatUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -217,13 +229,140 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   const { canSendMessages } = useGuestRestrictions();
   const { user: currentUser } = useAuth();
 
+  // Validate required props
+  useEffect(() => {
+    if (!userId || !name) {
+      console.error('ChatScreen: Missing required props', { userId, name, avatar, source });
+    }
+  }, [userId, name, avatar, source]);
+
   // Real chat state
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Pagination state
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [messageCursor, setMessageCursor] = useState<string | undefined>(undefined);
+
   // Error handling
   const { error, loading: sendingMessage, handleError, clearError, withErrorHandling } = useErrorHandler();
+  const { reportError } = useErrorReporting('ChatScreen');
+
+  // Message reactions
+  const { toggleReaction } = useMessageReactions({
+    conversationId: conversationId || '',
+    onReactionUpdate: () => {
+      // The real-time listener should handle updates automatically
+      console.log('Reaction updated in conversation:', conversationId);
+    }
+  });
+
+  // Message replies
+  const {
+    replyingTo,
+    startReply,
+    cancelReply,
+    sendReply,
+    navigateToOriginalMessage
+  } = useMessageReplies({
+    conversationId: conversationId || '',
+    onReplyUpdate: () => {
+      // The real-time listener should handle updates automatically
+      console.log('Reply sent in conversation:', conversationId);
+    }
+  });
+
+  // Message editing
+  const {
+    editingMessage,
+    startEdit,
+    cancelEdit,
+    saveEdit,
+    canEditMessage
+  } = useMessageEditing({
+    conversationId: conversationId || '',
+    onEditComplete: () => {
+      // The real-time listener should handle updates automatically
+      console.log('Message edited in conversation:', conversationId);
+    }
+  });
+
+  // Message deletion
+  const {
+    deletingMessage,
+    startDelete,
+    cancelDelete,
+    deleteForEveryone,
+    deleteForMe,
+    isDeletedForUser
+  } = useMessageDeletion({
+    conversationId: conversationId || '',
+    onDeleteComplete: () => {
+      // The real-time listener should handle updates automatically
+      console.log('Message deleted in conversation:', conversationId);
+    }
+  });
+
+  // Attachments
+  const {
+    isUploading,
+    selectedAttachment,
+    selectAttachment,
+    clearAttachment,
+    sendWithAttachment
+  } = useAttachments({
+    conversationId: conversationId || '',
+    onAttachmentSent: () => {
+      // The real-time listener should handle updates automatically
+      console.log('Attachment sent in conversation:', conversationId);
+    }
+  });
+
+  const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
+
+  // Read receipts
+  const {
+    markAsRead,
+    getUnreadMessages,
+    getMessageStatus
+  } = useReadReceipts({
+    conversationId: conversationId || '',
+    messages: messages,
+    onStatusUpdate: () => {
+      // The real-time listener should handle updates automatically
+      console.log('Read receipt status updated in conversation:', conversationId);
+    }
+  });
+
+  // Auto-mark messages as read when they are viewed
+  useEffect(() => {
+    if (messages.length > 0 && conversationId && user) {
+      const unreadMessageIds = getUnreadMessages();
+      if (unreadMessageIds.length > 0) {
+        // Mark messages as read after a short delay to ensure they're actually viewed
+        const timer = setTimeout(() => {
+          markAsRead(unreadMessageIds);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [messages, conversationId, user, getUnreadMessages, markAsRead]);
+
+  // Enhanced typing indicator
+  const {
+    typingUsers,
+    isAnyoneTyping,
+    handleTextChange: handleTypingTextChange,
+    addTypingUser,
+    removeTypingUser
+  } = useTypingIndicator({
+    conversationId: conversationId || '',
+    typingTimeout: 3000,
+    updateInterval: 1000,
+  });
 
   // Legacy state for backward compatibility
   const [isCloseFriend, setIsCloseFriend] = useState(false);
@@ -233,6 +372,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   const [otherUserTyping, setOtherUserTyping] = useState(false);
   const [otherUserOnline, setOtherUserOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState<string>('');
+  const [renderError, setRenderError] = useState(false);
 
   // Typing timeout ref
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -323,19 +463,51 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
         setConversationId(newConversationId);
 
-        // Load existing messages
-        const existingMessages = await messagingService.getConversationMessages(newConversationId);
-        const unifiedMessages = existingMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
+        // Load existing messages with pagination
+        const messageResult = await messagingService.getConversationMessages(newConversationId, 30); // Load 30 initial messages
+        // Filter out deleted messages for current user
+        const filteredMessages = messageResult.messages.filter((msg: DirectMessage) => !isDeletedForUser(msg));
+        const unifiedMessages = filteredMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
 
         if (isMounted) {
-          setMessages(unifiedMessages.reverse()); // Reverse to show newest at bottom
+          // Sort messages by timestamp ascending (oldest first) for proper chronological display
+          const sortedMessages = unifiedMessages.sort((a, b) => {
+            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+            return timeA - timeB; // Ascending order (oldest first)
+          });
+
+          setMessages(sortedMessages);
+          setHasMoreMessages(messageResult.hasMore);
+          setMessageCursor(messageResult.nextCursor);
+
+          // Auto-scroll to bottom after initial load
+          setTimeout(() => {
+            scrollToBottom();
+          }, 200);
         }
 
         // Set up real-time listener for messages
         unsubscribeMessages = messagingService.onConversationMessages(newConversationId, (newMessages: DirectMessage[]) => {
           if (!isMounted) return;
-          const unifiedMessages = newMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
-          setMessages(unifiedMessages.reverse()); // Reverse to show newest at bottom
+
+          // Convert messages to unified format, filtering out deleted messages
+          const filteredMessages = newMessages.filter((msg: DirectMessage) => !isDeletedForUser(msg));
+          const unifiedMessages = filteredMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
+
+          // Sort messages by timestamp ascending (oldest first) for proper chronological display
+          const sortedMessages = unifiedMessages.sort((a, b) => {
+            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+            return timeA - timeB; // Ascending order (oldest first)
+          });
+
+          setMessages(sortedMessages);
+
+          // Auto-scroll to bottom when new messages arrive
+          setTimeout(() => {
+            scrollToBottom();
+          }, 100);
         });
 
         // Set up real-time listener for conversation updates (typing indicators)
@@ -379,8 +551,27 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
       } catch (error: any) {
         console.error('Error loading conversation:', error);
+
+        // Enhanced error reporting
+        reportError(error, {
+          action: 'loadConversation',
+          userId,
+          conversationId: newConversationId,
+          component: 'ChatScreen'
+        });
+
         if (isMounted) {
-          handleError('Failed to load conversation');
+          // Provide more specific error messages
+          let errorMessage = 'Failed to load conversation';
+          if (error.code === 'permission-denied') {
+            errorMessage = 'Permission denied. Please check your access rights.';
+          } else if (error.code === 'unavailable') {
+            errorMessage = 'Service temporarily unavailable. Please try again.';
+          } else if (error.message?.includes('network')) {
+            errorMessage = 'Network error. Please check your connection.';
+          }
+
+          handleError(errorMessage);
         }
       } finally {
         if (isMounted) {
@@ -391,28 +582,94 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
     loadConversation();
 
-    // Cleanup function
+    // Comprehensive cleanup function
     return () => {
+      console.log('🧹 ChatScreen cleanup started for conversation:', conversationId);
       isMounted = false;
+
+      // Clean up message listener
       if (unsubscribeMessages) {
-        // Capture the current conversationId to avoid stale closure
-        const currentConversationId = conversationId;
-        if (currentConversationId) {
-          chatSubscriptionManager.unsubscribe(`conversation-${currentConversationId}`);
+        try {
+          unsubscribeMessages();
+        } catch (error) {
+          console.warn('Error cleaning up message listener:', error);
         }
-        unsubscribeMessages();
       }
+
+      // Clean up conversation-specific listeners
+      if (conversationId) {
+        try {
+          chatSubscriptionManager.unsubscribe(`conversation-${conversationId}`);
+          messagingService.cleanupConversationListeners(conversationId);
+        } catch (error) {
+          console.warn('Error cleaning up conversation listeners:', error);
+        }
+      }
+
       // Clean up typing timeout
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
         typingTimeoutRef.current = null;
       }
+
+      console.log('✅ ChatScreen cleanup completed');
     };
   }, [userId, currentUser, name, avatar]);
 
   // Chat functionality references and handlers
   const flatListRef = useRef<FlatList>(null);
   const { scrollToBottom } = useScrollToBottom(flatListRef);
+
+  // Load more messages (pagination)
+  const loadMoreMessages = async () => {
+    if (!conversationId || !hasMoreMessages || isLoadingMore || !messageCursor) {
+      return;
+    }
+
+    try {
+      setIsLoadingMore(true);
+      const messageResult = await messagingService.getConversationMessages(conversationId, 20, messageCursor);
+      // Filter out deleted messages for current user
+      const filteredMessages = messageResult.messages.filter((msg: DirectMessage) => !isDeletedForUser(msg));
+      const newUnifiedMessages = filteredMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
+
+      if (newUnifiedMessages.length > 0) {
+        // Sort new messages
+        const sortedNewMessages = newUnifiedMessages.sort((a, b) => {
+          const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
+          const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+          return timeA - timeB;
+        });
+
+        // Prepend older messages to the beginning of the array
+        setMessages(prevMessages => [...sortedNewMessages, ...prevMessages]);
+        setHasMoreMessages(messageResult.hasMore);
+        setMessageCursor(messageResult.nextCursor);
+      }
+    } catch (error: any) {
+      console.error('Error loading more messages:', error);
+
+      // Enhanced error reporting for pagination
+      reportError(error, {
+        action: 'loadMoreMessages',
+        conversationId,
+        cursor: messageCursor,
+        component: 'ChatScreen'
+      });
+
+      // Show user-friendly error message
+      let errorMessage = 'Failed to load older messages';
+      if (error.code === 'permission-denied') {
+        errorMessage = 'Permission denied while loading messages';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Network error while loading messages';
+      }
+
+      handleError(errorMessage);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
   
   // Navigation handler that respects the source parameter
   const handleNavigation = useCallback(() => {
@@ -459,6 +716,35 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           showName={!isGroupedMessage}
           userName={messageComponentFormat.userName}
           userAvatar={messageComponentFormat.userAvatar}
+          onReactionPress={(emoji: string) => {
+            toggleReaction(messageComponentFormat.id.toString(), emoji);
+          }}
+          onReplyPress={(messageId: string) => {
+            navigateToOriginalMessage(messageId);
+          }}
+          onLongPress={() => {
+            // Show message options including reply, edit, and delete
+            const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
+            if (originalMessage) {
+              // For now, just start reply. In a full implementation,
+              // you'd show an action sheet with Reply/Edit/Delete options
+              startReply(originalMessage);
+            }
+          }}
+          onEditPress={() => {
+            const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
+            if (originalMessage) {
+              startEdit(originalMessage);
+            }
+          }}
+          onDeletePress={() => {
+            const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
+            if (originalMessage) {
+              startDelete(originalMessage);
+            }
+          }}
+          currentUserId={user?.uid}
+          message={messages.find(m => m.id === messageComponentFormat.id)}
         />
       </View>
     );
@@ -493,8 +779,21 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           windowSize={10}
           removeClippedSubviews={true}
           updateCellsBatchingPeriod={100}
+          onRefresh={hasMoreMessages ? loadMoreMessages : undefined}
+          refreshing={isLoadingMore}
           ListHeaderComponent={() => (
             <View style={styles.listHeader}>
+              {hasMoreMessages && (
+                <TouchableOpacity
+                  onPress={loadMoreMessages}
+                  style={styles.loadMoreButton}
+                  disabled={isLoadingMore}
+                >
+                  <Text style={styles.loadMoreText}>
+                    {isLoadingMore ? 'Loading...' : 'Load older messages'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               {renderDateSeparator('Today')}
             </View>
           )}
@@ -565,34 +864,15 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     );
   };
 
-  // Handle typing indicators
+  // Handle typing indicators (legacy - now using enhanced typing hook)
   const handleTypingStart = async () => {
-    if (!conversationId || !currentUser) return;
-
-    setIsTyping(true);
-    await messagingService.updateTypingStatus(conversationId, currentUser.uid, true);
-
-    // Clear existing timeout
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    // Set timeout to stop typing after 3 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      handleTypingStop();
-    }, 3000);
+    // This is now handled by the useTypingIndicator hook
+    console.log('Typing started (handled by hook)');
   };
 
   const handleTypingStop = async () => {
-    if (!conversationId || !currentUser) return;
-
-    setIsTyping(false);
-    await messagingService.updateTypingStatus(conversationId, currentUser.uid, false);
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
+    // This is now handled by the useTypingIndicator hook
+    console.log('Typing stopped (handled by hook)');
   };
 
   // Toggle close friend status
@@ -659,11 +939,82 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           safeRenderMessages()
         )}
         
+        {/* Reply Input */}
+        <ReplyInput
+          replyTo={replyingTo}
+          onCancelReply={cancelReply}
+          visible={!!replyingTo}
+        />
+
         {/* Message Input Bar */}
         <ChatFooter
-          onSendMessage={handleSendMessage}
+          onSendMessage={async (message: string) => {
+            if (selectedAttachment) {
+              // Send with attachment
+              const success = await sendWithAttachment(message);
+              if (!success) {
+                // If attachment failed, fall back to regular message
+                handleSendMessage(message);
+              }
+            } else if (replyingTo) {
+              // Send as reply
+              const success = await sendReply(message);
+              if (!success) {
+                // If reply failed, fall back to regular message
+                handleSendMessage(message);
+              }
+            } else {
+              // Send as regular message
+              handleSendMessage(message);
+            }
+          }}
           onTypingStart={handleTypingStart}
           onTypingStop={handleTypingStop}
+          onAttachmentPress={() => setShowAttachmentPicker(true)}
+          onTextChange={handleTypingTextChange}
+        />
+
+        {/* Message Edit Modal */}
+        {editingMessage && (
+          <MessageEditModal
+            visible={!!editingMessage}
+            messageId={editingMessage.id || ''}
+            conversationId={conversationId || ''}
+            currentText={editingMessage.text}
+            onClose={cancelEdit}
+            onEditComplete={() => {
+              // The real-time listener should handle updates automatically
+              console.log('Message edit completed');
+            }}
+          />
+        )}
+
+        {/* Message Delete Modal */}
+        {deletingMessage && (
+          <MessageDeleteModal
+            visible={!!deletingMessage}
+            messageId={deletingMessage.id || ''}
+            conversationId={conversationId || ''}
+            messageText={deletingMessage.text}
+            isOwnMessage={deletingMessage.senderId === user?.uid}
+            onClose={cancelDelete}
+            onDeleteComplete={() => {
+              // The real-time listener should handle updates automatically
+              console.log('Message delete completed');
+            }}
+          />
+        )}
+
+        {/* Attachment Picker Modal */}
+        <AttachmentPicker
+          visible={showAttachmentPicker}
+          onClose={() => setShowAttachmentPicker(false)}
+          onAttachmentSelected={(attachment) => {
+            const success = selectAttachment(attachment);
+            if (success) {
+              setShowAttachmentPicker(false);
+            }
+          }}
         />
       </Animated.View>
     </View>
@@ -893,5 +1244,49 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: 'bold',
   },
-});export default ChatScreen;
+  loadMoreButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginVertical: 8,
+    backgroundColor: 'rgba(110, 105, 244, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(110, 105, 244, 0.3)',
+  },
+  loadMoreText: {
+    color: '#6E69F4',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+});
+
+// Main ChatScreen component with proper prop validation
+const ChatScreenWrapper = (props: ChatScreenProps) => {
+  // Validate and sanitize props
+  const sanitizedProps: ChatScreenProps = {
+    userId: props.userId || '',
+    name: props.name || 'Unknown User',
+    avatar: props.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg',
+    goBack: props.goBack || (() => console.warn('No goBack function provided')),
+    goToDMs: props.goToDMs,
+    source: props.source || 'unknown'
+  };
+
+  // Don't render if critical props are missing
+  if (!sanitizedProps.userId || !sanitizedProps.name) {
+    console.error('ChatScreen: Critical props missing', props);
+    return (
+      <View style={{ flex: 1, backgroundColor: '#131318', justifyContent: 'center', alignItems: 'center' }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 16, textAlign: 'center' }}>
+          Unable to load chat{'\n'}Missing user information
+        </Text>
+      </View>
+    );
+  }
+
+  return <ChatScreenInternal {...sanitizedProps} />;
+};
+
+export default ChatScreenWrapper;
 

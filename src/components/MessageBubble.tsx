@@ -1,15 +1,18 @@
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  Image, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
   Dimensions,
   Animated,
   Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import MessageReply from './MessageReply';
+import AttachmentPreview from './AttachmentPreview';
+import MessageStatus from './MessageStatus';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +52,8 @@ export interface MessageBubbleProps {
   isCurrentUser: boolean;
   senderName: string;
   senderAvatar: string;
+  currentUserId: string;
+  message?: any; // Full message object for status
   attachments?: Attachment[];
   reactions?: Reaction[];
   replyTo?: Reply;
@@ -59,6 +64,9 @@ export interface MessageBubbleProps {
   onLongPress: () => void;
   onReactionPress?: (reaction: string) => void;
   onAttachmentPress?: (attachment: Attachment) => void;
+  onReplyPress?: (messageId: string) => void;
+  onEditPress?: () => void;
+  onDeletePress?: () => void;
 }
 
 const MessageBubble = ({
@@ -68,6 +76,8 @@ const MessageBubble = ({
   isCurrentUser,
   senderName,
   senderAvatar,
+  currentUserId,
+  message,
   attachments = [],
   reactions = [],
   replyTo,
@@ -78,6 +88,9 @@ const MessageBubble = ({
   onLongPress,
   onReactionPress,
   onAttachmentPress,
+  onReplyPress,
+  onEditPress,
+  onDeletePress,
 }: MessageBubbleProps) => {
   
   // Render text with mentions highlighted
@@ -130,50 +143,23 @@ const MessageBubble = ({
   // Render attachments
   const renderAttachments = () => {
     if (!attachments || attachments.length === 0) return null;
-    
+
     return (
       <View style={styles.attachmentsContainer}>
-        {attachments.map((attachment) => {
-          if (attachment.type === 'image' || attachment.type === 'gif') {
-            // Calculate aspect ratio and width for the image
-            const imageWidth = Math.min(width * 0.6, 280);
-            const aspectRatio = attachment.width && attachment.height 
-              ? attachment.width / attachment.height 
-              : 1.5;
-              
-            return (
-              <TouchableOpacity
-                key={attachment.id}
-                style={[
-                  styles.imageAttachment,
-                  { width: imageWidth, height: imageWidth / aspectRatio }
-                ]}
-                onPress={() => onAttachmentPress && onAttachmentPress(attachment)}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={{ uri: attachment.url }}
-                  style={styles.attachmentImage}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
-            );
-          }
-          
-          // Fallback for other file types
-          return (
-            <TouchableOpacity
-              key={attachment.id}
-              style={styles.fileAttachment}
-              onPress={() => onAttachmentPress && onAttachmentPress(attachment)}
-            >
-              <MaterialIcons name="attach-file" size={20} color="#FFF" />
-              <Text style={styles.fileAttachmentText} numberOfLines={1}>
-                {attachment.filename || 'Attachment'}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        {attachments.map((attachment) => (
+          <AttachmentPreview
+            key={attachment.id}
+            attachment={{
+              id: attachment.id,
+              type: attachment.type === 'gif' ? 'image' : attachment.type,
+              url: attachment.url,
+              name: attachment.name || attachment.filename || 'Unknown file',
+              size: attachment.size,
+              mimeType: attachment.mimeType,
+            }}
+            onPress={() => onAttachmentPress && onAttachmentPress(attachment)}
+          />
+        ))}
       </View>
     );
   };
@@ -181,22 +167,18 @@ const MessageBubble = ({
   // Render reply reference
   const renderReplyReference = () => {
     if (!replyTo) return null;
-    
+
     return (
-      <View 
-        style={[
-          styles.replyContainer,
-          isCurrentUser ? styles.replyContainerCurrentUser : styles.replyContainerOtherUser
-        ]}
-      >
-        <View style={styles.replyBar} />
-        <View style={styles.replyContent}>
-          <Text style={styles.replySenderName}>{replyTo.senderName}</Text>
-          <Text style={styles.replyText} numberOfLines={1}>
-            {replyTo.text}
-          </Text>
-        </View>
-      </View>
+      <MessageReply
+        replyTo={{
+          messageId: replyTo.id,
+          senderId: replyTo.senderId,
+          senderName: replyTo.senderName,
+          text: replyTo.text,
+        }}
+        onReplyPress={onReplyPress}
+        isCurrentUser={isCurrentUser}
+      />
     );
   };
   
@@ -251,6 +233,13 @@ const MessageBubble = ({
                 <Text style={styles.editedText}>Edited</Text>
               )}
               <Text style={styles.timestamp}>{timestamp}</Text>
+              {message && (
+                <MessageStatus
+                  message={message}
+                  currentUserId={currentUserId}
+                  isCurrentUser={isCurrentUser}
+                />
+              )}
             </View>
           </View>
         </TouchableOpacity>

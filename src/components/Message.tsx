@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View, Image, Text } from 'react-native';
 import MessageBubble from './MessageBubble';
+import MessageReactions from './MessageReactions';
 
 interface MessageProps {
   id: number | string;
@@ -14,20 +15,34 @@ interface MessageProps {
   showName?: boolean;   // Optional, defaults to true
   userName?: string;    // Optional, defaults to type-based name
   userAvatar?: string;  // Optional, defaults to type-based avatar
+  onReactionPress?: (emoji: string) => void; // For reactions
+  onReplyPress?: (messageId: string) => void; // For replies
+  onLongPress?: () => void; // For message options
+  onEditPress?: () => void; // For editing
+  onDeletePress?: () => void; // For deleting
+  currentUserId?: string; // For read receipts
+  message?: any; // Full message object
 }
 
-const Message = ({ 
-  id, 
-  text, 
-  time, 
-  type, 
-  status, 
-  reactions = [], 
+const Message = ({
+  id,
+  text,
+  time,
+  type,
+  status,
+  reactions = [],
   attachments = [],
   showAvatar = true,
   showName = true,
   userName,
-  userAvatar
+  userAvatar,
+  onReactionPress,
+  onReplyPress,
+  onLongPress,
+  onEditPress,
+  onDeletePress,
+  currentUserId,
+  message
 }: MessageProps) => {
   const isCurrentUser = type === 'sent';
   
@@ -70,10 +85,10 @@ const Message = ({
             isCurrentUser={false} // Always false for Discord-style
             senderName={displayName}
             senderAvatar={avatarUri}
-            reactions={reactions.map(r => ({ 
-              emoji: r.emoji || '👍', 
-              count: r.count || 1, 
-              userIds: r.userIds || ['user1'] 
+            reactions={reactions.map(r => ({
+              emoji: r.emoji || '👍',
+              count: r.count || 1,
+              userIds: r.userIds || ['user1']
             }))}
             attachments={attachments.map(a => ({
               id: a.id || Date.now().toString(),
@@ -84,7 +99,13 @@ const Message = ({
               height: a.height
             }))}
             onPress={() => {}}
-            onLongPress={() => {}}
+            onLongPress={onLongPress || (() => {})}
+            onReactionPress={onReactionPress}
+            onReplyPress={onReplyPress}
+            onEditPress={onEditPress}
+            onDeletePress={onDeletePress}
+            currentUserId={currentUserId || ''}
+            message={message}
           />
         </View>
       </View>

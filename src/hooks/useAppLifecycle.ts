@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppStateStatus } from 'react-native';
 import { appLifecycleService, AppLifecycleCallbacks } from '../services/appLifecycleService';
+import { messagingService } from '../services/messagingService';
 
 export interface UseAppLifecycleOptions {
   onAppStateChange?: (nextAppState: AppStateStatus) => void;
@@ -78,6 +79,18 @@ export const useAppLifecycle = (options: UseAppLifecycleOptions = {}) => {
 
       onBackgroundTransition: () => {
         console.log('📱 [USE_LIFECYCLE] Background transition');
+
+        // Clean up messaging listeners when app goes to background
+        try {
+          const activeCount = messagingService.getActiveListenerCount();
+          if (activeCount > 0) {
+            console.log(`🧹 [USE_LIFECYCLE] Cleaning up ${activeCount} messaging listeners`);
+            messagingService.cleanupAllListeners();
+          }
+        } catch (error) {
+          console.warn('Error cleaning up messaging listeners on background:', error);
+        }
+
         onBackgroundTransition?.();
       },
 
@@ -138,6 +151,19 @@ export const useAppLifecycle = (options: UseAppLifecycleOptions = {}) => {
   };
 
   const handleMemoryWarning = () => {
+    console.log('⚠️ [USE_LIFECYCLE] Memory warning - cleaning up messaging listeners');
+
+    // Clean up messaging listeners on memory warning
+    try {
+      const activeCount = messagingService.getActiveListenerCount();
+      if (activeCount > 0) {
+        console.log(`🧹 [USE_LIFECYCLE] Memory cleanup: removing ${activeCount} messaging listeners`);
+        messagingService.cleanupAllListeners();
+      }
+    } catch (error) {
+      console.warn('Error cleaning up messaging listeners on memory warning:', error);
+    }
+
     appLifecycleService.handleMemoryWarning();
   };
 

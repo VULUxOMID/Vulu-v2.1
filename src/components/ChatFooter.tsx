@@ -6,9 +6,11 @@ interface ChatFooterProps {
   onSendMessage: (text: string) => void;
   onTypingStart?: () => void;
   onTypingStop?: () => void;
+  onAttachmentPress?: () => void;
+  onTextChange?: (text: string) => void;
 }
 
-const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop }: ChatFooterProps) => {
+const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPress, onTextChange }: ChatFooterProps) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
@@ -25,7 +27,10 @@ const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop }: ChatFooterPr
   const handleTextChange = (text: string) => {
     setMessage(text);
 
-    // Handle typing indicators
+    // Call external text change handler (for enhanced typing)
+    onTextChange?.(text);
+
+    // Handle typing indicators (legacy)
     if (text.length > 0 && !isTyping) {
       setIsTyping(true);
       onTypingStart?.();
@@ -38,8 +43,8 @@ const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop }: ChatFooterPr
   return (
     <View style={styles.container}>
       <View style={styles.inputContainer}>
-        <TouchableOpacity style={styles.iconButton}>
-          <MaterialIcons name="add" size={24} color="#6E69F4" />
+        <TouchableOpacity style={styles.iconButton} onPress={onAttachmentPress}>
+          <MaterialIcons name="attach-file" size={24} color="#6E69F4" />
         </TouchableOpacity>
         
         <TextInput

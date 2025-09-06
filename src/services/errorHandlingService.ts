@@ -10,6 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export interface ErrorContext {
   userId?: string;
   streamId?: string;
+  conversationId?: string;
+  messageId?: string;
   action?: string;
   component?: string;
   additionalData?: any;
@@ -587,6 +589,176 @@ class ErrorHandlingService {
    */
   isReady(): boolean {
     return this.isInitialized;
+  }
+
+  // ==================== MESSAGING-SPECIFIC ERROR HANDLING ====================
+
+  /**
+   * Handle messaging service errors with specific recovery actions
+   */
+  async handleMessagingError(
+    error: Error,
+    context: ErrorContext,
+    options?: {
+      showAlert?: boolean;
+      severity?: 'low' | 'medium' | 'high' | 'critical';
+      recoveryActions?: RecoveryAction[];
+    }
+  ): Promise<void> {
+    const { showAlert = true, severity = 'medium', recoveryActions = [] } = options || {};
+
+    // Log the error
+    await this.logError(error, context, severity);
+
+    // Add messaging-specific breadcrumb
+    addBreadcrumb({
+      message: `Messaging Error: ${error.message}`,
+      category: 'messaging',
+      level: severity === 'critical' ? 'error' : 'warning',
+      data: context,
+    });
+
+    if (showAlert) {
+      const defaultRecoveryActions = this.getDefaultMessagingRecoveryActions(context);
+      const allActions = [...recoveryActions, ...defaultRecoveryActions];
+
+      if (allActions.length > 0) {
+        this.showErrorWithRecovery(error.message, allActions);
+      } else {
+        this.showSimpleError(error.message);
+      }
+    }
+  }
+
+  /**
+   * Get default recovery actions for messaging errors
+   */
+  private getDefaultMessagingRecoveryActions(context: ErrorContext): RecoveryAction[] {
+    const actions: RecoveryAction[] = [];
+
+    // Add retry action for most messaging operations
+    if (context.action && ['sendMessage', 'loadMessages', 'createConversation'].includes(context.action)) {
+      actions.push({
+        type: 'retry',
+        label: 'Try Again',
+        action: () => {
+          console.log('Retry action triggered for:', context.action);
+          // The actual retry logic should be implemented by the calling component
+        }
+      });
+    }
+
+    // Add refresh action for conversation loading errors
+    if (context.action === 'loadConversations') {
+      actions.push({
+        type: 'refresh',
+        label: 'Refresh',
+        action: () => {
+          console.log('Refresh action triggered');
+          // The actual refresh logic should be implemented by the calling component
+        }
+      });
+    }
+
+    return actions;
+  }
+
+  /**
+   * Show simple error alert
+   */
+  private showSimpleError(message: string): void {
+    Alert.alert(
+      'Error',
+      message,
+      [{ text: 'OK', style: 'default' }]
+    );
+  }
+
+  /**
+   * Show error alert with recovery actions
+   */
+  private showErrorWithRecovery(message: string, actions: RecoveryAction[]): void {
+    const alertActions = actions.map(action => ({
+      text: action.label,
+      onPress: action.action,
+      style: action.type === 'retry' ? 'default' : 'cancel' as any
+    }));
+
+    // Add dismiss option
+    alertActions.push({
+      text: 'Dismiss',
+      style: 'cancel' as any
+    });
+
+    Alert.alert(
+      'Something went wrong',
+      message,
+      alertActions
+    );
+  }
+
+  /**
+   * Handle network-related messaging errors
+   */
+  async handleNetworkError(context: ErrorContext): Promise<void> {
+    await this.handleMessagingError(
+      new Error('Network connection failed. Please check your internet connection.'),
+      { ...context, action: 'networkError' },
+      {
+        severity: 'high',
+        recoveryActions: [
+          {
+            type: 'retry',
+            label: 'Retry',
+            action: () => console.log('Network retry triggered')
+          }
+        ]
+      }
+    );
+  }
+
+  /**
+   * Handle Firebase permission errors
+   */
+  async handlePermissionError(context: ErrorContext): Promise<void> {
+    await this.handleMessagingError(
+      new Error('Permission denied. You may need to log in again.'),
+      { ...context, action: 'permissionError' },
+      {
+        severity: 'critical',
+        recoveryActions: [
+          {
+            type: 'logout',
+            label: 'Sign In Again',
+            action: () => console.log('Logout/signin triggered')
+          }
+        ]
+      }
+    );
+  }
+
+  /**
+   * Handle message sending failures
+   */
+  async handleMessageSendError(error: Error, context: ErrorContext, retryFn?: () => Promise<void>): Promise<void> {
+    const recoveryActions: RecoveryAction[] = [];
+
+    if (retryFn) {
+      recoveryActions.push({
+        type: 'retry',
+        label: 'Retry Send',
+        action: retryFn
+      });
+    }
+
+    await this.handleMessagingError(
+      error,
+      { ...context, action: 'sendMessage' },
+      {
+        severity: 'medium',
+        recoveryActions
+      }
+    );
   }
 }
 

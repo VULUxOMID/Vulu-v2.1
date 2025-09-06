@@ -11,6 +11,7 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   onSnapshot,
   serverTimestamp,
   Timestamp,
@@ -23,6 +24,7 @@ import { db, auth } from './firebase';
 import {
   Conversation,
   DirectMessage,
+  MessageReaction,
   FriendRequest,
   Friendship,
   AppUser,
@@ -37,12 +39,352 @@ export class MessagingService {
   private conversationListeners: Map<string, () => void> = new Map();
   private messageListeners: Map<string, () => void> = new Map();
   private presenceListeners: Map<string, () => void> = new Map();
+  private activeListeners: Set<string> = new Set(); // Track all active listeners
+
+  // Listener pooling and optimization
+  private listenerPool: Map<string, {
+    unsubscribe: () => void;
+    subscribers: Set<string>;
+    lastUsed: number;
+  }> = new Map();
+  private maxPoolSize = 50;
+  private poolCleanupInterval = 5 * 60 * 1000; // 5 minutes
+  private cleanupTimer?: NodeJS.Timeout;
 
   static getInstance(): MessagingService {
     if (!MessagingService.instance) {
       MessagingService.instance = new MessagingService();
+      MessagingService.instance.initializeListenerOptimization();
     }
     return MessagingService.instance;
+  }
+
+  /**
+   * Initialize listener optimization and cleanup
+   */
+  private initializeListenerOptimization(): void {
+    // Set up periodic cleanup of unused listeners
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupUnusedListeners();
+    }, this.poolCleanupInterval);
+
+    console.log('📡 Messaging service listener optimization initialized');
+  }
+
+  // ==================== CONVERSATION SETTINGS ====================
+
+  /**
+   * Update conversation settings for a user
+   */
+  async updateConversationSettings(
+    conversationId: string,
+    userId: string,
+    settings: {
+      isCloseFriend?: boolean;
+      isMuted?: boolean;
+      isPinned?: boolean;
+    }
+  ): Promise<void> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+      const updateData: any = {};
+
+      if (settings.isCloseFriend !== undefined) {
+        updateData[`closeFriends.${userId}`] = settings.isCloseFriend;
+      }
+      if (settings.isMuted !== undefined) {
+        updateData[`mutedBy.${userId}`] = settings.isMuted;
+      }
+      if (settings.isPinned !== undefined) {
+        updateData[`pinnedBy.${userId}`] = settings.isPinned;
+      }
+
+      updateData.updatedAt = serverTimestamp();
+
+      await updateDoc(conversationRef, updateData);
+      console.log('✅ Conversation settings updated:', settings);
+    } catch (error: any) {
+      console.error('Error updating conversation settings:', error);
+      throw new Error(`Failed to update conversation settings: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get conversation settings for a user
+   */
+  async getConversationSettings(conversationId: string, userId: string): Promise<{
+    isCloseFriend: boolean;
+    isMuted: boolean;
+    isPinned: boolean;
+  }> {
+    try {
+      const conversationRef = doc(db, 'conversations', conversationId);
+      const conversationSnap = await getDoc(conversationRef);
+
+      if (!conversationSnap.exists()) {
+        return { isCloseFriend: false, isMuted: false, isPinned: false };
+      }
+
+      const data = conversationSnap.data();
+      return {
+        isCloseFriend: data.closeFriends?.[userId] || false,
+        isMuted: data.mutedBy?.[userId] || false,
+        isPinned: data.pinnedBy?.[userId] || false,
+      };
+    } catch (error: any) {
+      console.error('Error getting conversation settings:', error);
+      return { isCloseFriend: false, isMuted: false, isPinned: false };
+    }
+  }
+
+  // ==================== LISTENER OPTIMIZATION ====================
+
+  /**
+   * Get or create a pooled listener for conversations
+   */
+  private getPooledConversationListener(
+    userId: string,
+    callback: (conversations: Conversation[]) => void
+  ): () => void {
+    const poolKey = `conversations-${userId}`;
+    const subscriberId = `${Date.now()}-${Math.random()}`;
+
+    // Check if listener already exists in pool
+    if (this.listenerPool.has(poolKey)) {
+      const pooledListener = this.listenerPool.get(poolKey)!;
+      pooledListener.subscribers.add(subscriberId);
+      pooledListener.lastUsed = Date.now();
+
+      console.log(`📡 Reusing pooled conversation listener for user ${userId}`);
+
+      // Return unsubscribe function for this subscriber
+      return () => {
+        pooledListener.subscribers.delete(subscriberId);
+        if (pooledListener.subscribers.size === 0) {
+          // No more subscribers, remove from pool after delay
+          setTimeout(() => {
+            if (pooledListener.subscribers.size === 0) {
+              pooledListener.unsubscribe();
+              this.listenerPool.delete(poolKey);
+              console.log(`📡 Removed unused conversation listener for user ${userId}`);
+            }
+          }, 30000); // 30 second delay
+        }
+      };
+    }
+
+    // Create new pooled listener
+    const conversationsRef = collection(db, 'conversations');
+    const q = query(
+      conversationsRef,
+      where('participants', 'array-contains', userId)
+    );
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const allConversations = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Conversation[];
+
+      // Filter and sort conversations
+      const activeConversations = allConversations
+        .filter(conversation =>
+          !conversation.isArchived || !conversation.isArchived[userId]
+        )
+        .sort((a, b) => {
+          let timeA: Date, timeB: Date;
+          try {
+            timeA = a.lastMessageTime?.toDate ? a.lastMessageTime.toDate() :
+                   a.lastMessageTime instanceof Date ? a.lastMessageTime : new Date(0);
+          } catch { timeA = new Date(0); }
+          try {
+            timeB = b.lastMessageTime?.toDate ? b.lastMessageTime.toDate() :
+                   b.lastMessageTime instanceof Date ? b.lastMessageTime : new Date(0);
+          } catch { timeB = new Date(0); }
+          return timeB.getTime() - timeA.getTime();
+        });
+
+      callback(activeConversations);
+    }, (error) => {
+      console.error('Error in pooled conversation listener:', error);
+      callback([]);
+    });
+
+    // Add to pool
+    const pooledListener = {
+      unsubscribe,
+      subscribers: new Set([subscriberId]),
+      lastUsed: Date.now()
+    };
+
+    this.listenerPool.set(poolKey, pooledListener);
+    console.log(`📡 Created new pooled conversation listener for user ${userId}`);
+
+    // Return unsubscribe function for this subscriber
+    return () => {
+      pooledListener.subscribers.delete(subscriberId);
+      if (pooledListener.subscribers.size === 0) {
+        setTimeout(() => {
+          if (pooledListener.subscribers.size === 0) {
+            pooledListener.unsubscribe();
+            this.listenerPool.delete(poolKey);
+            console.log(`📡 Removed unused conversation listener for user ${userId}`);
+          }
+        }, 30000);
+      }
+    };
+  }
+
+  /**
+   * Clean up unused listeners from the pool
+   */
+  private cleanupUnusedListeners(): void {
+    const now = Date.now();
+    const maxAge = 10 * 60 * 1000; // 10 minutes
+    let cleanedCount = 0;
+
+    for (const [key, listener] of this.listenerPool.entries()) {
+      if (listener.subscribers.size === 0 && (now - listener.lastUsed) > maxAge) {
+        listener.unsubscribe();
+        this.listenerPool.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned up ${cleanedCount} unused listeners from pool`);
+    }
+
+    // Also enforce max pool size
+    if (this.listenerPool.size > this.maxPoolSize) {
+      const sortedEntries = Array.from(this.listenerPool.entries())
+        .sort(([, a], [, b]) => a.lastUsed - b.lastUsed);
+
+      const toRemove = sortedEntries.slice(0, this.listenerPool.size - this.maxPoolSize);
+      for (const [key, listener] of toRemove) {
+        listener.unsubscribe();
+        this.listenerPool.delete(key);
+      }
+
+      console.log(`🧹 Enforced pool size limit, removed ${toRemove.length} oldest listeners`);
+    }
+  }
+
+  /**
+   * Get listener pool statistics
+   */
+  getListenerStats(): {
+    poolSize: number;
+    activeListeners: number;
+    totalSubscribers: number;
+  } {
+    let totalSubscribers = 0;
+    for (const listener of this.listenerPool.values()) {
+      totalSubscribers += listener.subscribers.size;
+    }
+
+    return {
+      poolSize: this.listenerPool.size,
+      activeListeners: this.activeListeners.size,
+      totalSubscribers
+    };
+  }
+
+  // ==================== MEMORY LEAK PREVENTION ====================
+
+  /**
+   * Clean up all listeners for a specific user
+   */
+  cleanupUserListeners(userId: string): void {
+    // Clean up conversation listeners
+    const conversationKey = `conversations-${userId}`;
+    if (this.conversationListeners.has(conversationKey)) {
+      this.conversationListeners.get(conversationKey)?.();
+      this.conversationListeners.delete(conversationKey);
+      this.activeListeners.delete(conversationKey);
+    }
+
+    // Clean up presence listeners
+    if (this.presenceListeners.has(userId)) {
+      this.presenceListeners.get(userId)?.();
+      this.presenceListeners.delete(userId);
+      this.activeListeners.delete(`presence-${userId}`);
+    }
+  }
+
+  /**
+   * Clean up all listeners for a specific conversation
+   */
+  cleanupConversationListeners(conversationId: string): void {
+    if (this.messageListeners.has(conversationId)) {
+      this.messageListeners.get(conversationId)?.();
+      this.messageListeners.delete(conversationId);
+      this.activeListeners.delete(`messages-${conversationId}`);
+    }
+  }
+
+  /**
+   * Clean up all active listeners (use when app is closing or user logs out)
+   */
+  cleanupAllListeners(): void {
+    // Clean up conversation listeners
+    this.conversationListeners.forEach((unsubscribe) => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.warn('Error cleaning up conversation listener:', error);
+      }
+    });
+    this.conversationListeners.clear();
+
+    // Clean up message listeners
+    this.messageListeners.forEach((unsubscribe) => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.warn('Error cleaning up message listener:', error);
+      }
+    });
+    this.messageListeners.clear();
+
+    // Clean up presence listeners
+    this.presenceListeners.forEach((unsubscribe) => {
+      try {
+        unsubscribe();
+      } catch (error) {
+        console.warn('Error cleaning up presence listener:', error);
+      }
+    });
+    this.presenceListeners.clear();
+
+    // Clean up listener pool
+    this.listenerPool.forEach((listener, key) => {
+      try {
+        listener.unsubscribe();
+        console.log(`🧹 Cleaned up pooled listener: ${key}`);
+      } catch (error) {
+        console.error(`Error cleaning up pooled listener ${key}:`, error);
+      }
+    });
+    this.listenerPool.clear();
+
+    // Clear cleanup timer
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = undefined;
+    }
+
+    // Clear active listeners set
+    this.activeListeners.clear();
+
+    console.log('✅ All messaging service listeners cleaned up');
+  }
+
+  /**
+   * Get count of active listeners (for debugging)
+   */
+  getActiveListenerCount(): number {
+    return this.activeListeners.size;
   }
 
   // ==================== CONVERSATION MANAGEMENT ====================
@@ -192,56 +534,17 @@ export class MessagingService {
   }
 
   /**
-   * Listen to user's conversations in real-time
+   * Listen to user's conversations in real-time (optimized with pooling)
    */
   onUserConversations(userId: string, callback: (conversations: Conversation[]) => void): () => void {
-    const conversationsRef = collection(db, 'conversations');
-    // Simple query to avoid indexing requirements - only filter by participants
-    const q = query(
-      conversationsRef,
-      where('participants', 'array-contains', userId)
-    );
+    // Use pooled listener for better performance
+    const unsubscribe = this.getPooledConversationListener(userId, callback);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const allConversations = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Conversation[];
+    // Track the listener
+    const listenerKey = `conversations-${userId}`;
+    this.conversationListeners.set(listenerKey, unsubscribe);
+    this.activeListeners.add(listenerKey);
 
-      // Filter out archived conversations and sort by lastMessageTime in memory
-      const activeConversations = allConversations
-        .filter(conversation =>
-          !conversation.isArchived || !conversation.isArchived[userId]
-        )
-        .sort((a, b) => {
-          // Handle different timestamp formats safely
-          let timeA: Date;
-          let timeB: Date;
-
-          try {
-            timeA = a.lastMessageTime?.toDate ? a.lastMessageTime.toDate() :
-                   a.lastMessageTime instanceof Date ? a.lastMessageTime : new Date(0);
-          } catch {
-            timeA = new Date(0);
-          }
-
-          try {
-            timeB = b.lastMessageTime?.toDate ? b.lastMessageTime.toDate() :
-                   b.lastMessageTime instanceof Date ? b.lastMessageTime : new Date(0);
-          } catch {
-            timeB = new Date(0);
-          }
-
-          return timeB.getTime() - timeA.getTime(); // Descending order (newest first)
-        });
-
-      callback(activeConversations);
-    }, (error) => {
-      console.error('Error listening to conversations:', error);
-      callback([]);
-    });
-
-    this.conversationListeners.set(userId, unsubscribe);
     return unsubscribe;
   }
 
@@ -322,72 +625,199 @@ export class MessagingService {
       });
     } catch (error: any) {
       console.error('Error sending message:', error);
-      throw new Error(`Failed to send message: ${error.message}`);
+
+      // Enhanced error handling with specific error types
+      let errorMessage = 'Failed to send message';
+      if (error.code === 'permission-denied') {
+        errorMessage = 'Permission denied. Please check your access rights.';
+      } else if (error.code === 'unavailable') {
+        errorMessage = 'Service temporarily unavailable. Please try again.';
+      } else if (error.code === 'deadline-exceeded') {
+        errorMessage = 'Request timed out. Please check your connection.';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+
+      throw new Error(errorMessage);
     }
   }
 
   /**
-   * Get messages for a conversation
+   * Get messages for a conversation with cursor-based pagination
+   * Uses optimized query strategy to avoid Firebase composite index requirement
    */
-  async getConversationMessages(conversationId: string, limitCount: number = 50): Promise<DirectMessage[]> {
+  async getConversationMessages(
+    conversationId: string,
+    limitCount: number = 50,
+    cursor?: string // Document ID to start after
+  ): Promise<{
+    messages: DirectMessage[];
+    hasMore: boolean;
+    nextCursor?: string;
+  }> {
     try {
       const messagesRef = collection(db, `conversations/${conversationId}/messages`);
 
-      // Simplified query to avoid index requirement - filter deleted messages in memory
-      const q = query(
-        messagesRef,
-        orderBy('timestamp', 'desc'),
-        limit(limitCount * 2) // Get more to account for deleted messages
-      );
+      // Strategy 1: Try optimized query with composite index (if available)
+      try {
+        let optimizedQuery = query(
+          messagesRef,
+          where('isDeleted', '==', false),
+          orderBy('timestamp', 'desc'),
+          limit(limitCount + 1) // Get one extra to check if there are more
+        );
 
-      const querySnapshot = await getDocs(q);
-      const allMessages = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as DirectMessage[];
+        // Add cursor if provided
+        if (cursor) {
+          const cursorDoc = await getDoc(doc(messagesRef, cursor));
+          if (cursorDoc.exists()) {
+            optimizedQuery = query(
+              messagesRef,
+              where('isDeleted', '==', false),
+              orderBy('timestamp', 'desc'),
+              startAfter(cursorDoc),
+              limit(limitCount + 1)
+            );
+          }
+        }
 
-      // Filter out deleted messages and limit results
-      return allMessages
-        .filter(msg => !msg.isDeleted)
-        .slice(0, limitCount);
+        const querySnapshot = await getDocs(optimizedQuery);
+        const docs = querySnapshot.docs;
+        const hasMore = docs.length > limitCount;
+        const messages = docs.slice(0, limitCount).map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as DirectMessage[];
+
+        const nextCursor = hasMore ? docs[limitCount - 1].id : undefined;
+
+        return { messages, hasMore, nextCursor };
+
+      } catch (indexError: any) {
+        // Strategy 2: Fallback to memory filtering if index doesn't exist
+        console.log('Using fallback query strategy (no composite index)');
+
+        let fallbackQuery = query(
+          messagesRef,
+          orderBy('timestamp', 'desc'),
+          limit(Math.min((limitCount + 1) * 3, 200)) // Get more to account for deleted messages
+        );
+
+        // Add cursor if provided
+        if (cursor) {
+          const cursorDoc = await getDoc(doc(messagesRef, cursor));
+          if (cursorDoc.exists()) {
+            fallbackQuery = query(
+              messagesRef,
+              orderBy('timestamp', 'desc'),
+              startAfter(cursorDoc),
+              limit(Math.min((limitCount + 1) * 3, 200))
+            );
+          }
+        }
+
+        const querySnapshot = await getDocs(fallbackQuery);
+        const allMessages = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as DirectMessage[];
+
+        // Filter out deleted messages
+        const filteredMessages = allMessages.filter(msg => !msg.isDeleted);
+        const hasMore = filteredMessages.length > limitCount;
+        const messages = filteredMessages.slice(0, limitCount);
+        const nextCursor = hasMore && messages.length > 0 ? messages[messages.length - 1].id : undefined;
+
+        return { messages, hasMore, nextCursor };
+      }
     } catch (error: any) {
       console.error('Error getting conversation messages:', error);
-      return [];
+      return { messages: [], hasMore: false };
     }
+  }
+
+  /**
+   * Get messages for a conversation (backward compatibility)
+   * @deprecated Use getConversationMessages with pagination instead
+   */
+  async getConversationMessagesLegacy(conversationId: string, limitCount: number = 50): Promise<DirectMessage[]> {
+    const result = await this.getConversationMessages(conversationId, limitCount);
+    return result.messages;
   }
 
   /**
    * Listen to conversation messages in real-time
+   * Uses optimized query strategy with fallback for missing composite index
    */
   onConversationMessages(conversationId: string, callback: (messages: DirectMessage[]) => void): () => void {
     const messagesRef = collection(db, `conversations/${conversationId}/messages`);
 
-    // Simplified query to avoid index requirement - filter deleted messages in memory
-    const q = query(
-      messagesRef,
-      orderBy('timestamp', 'desc'),
-      limit(100) // Get more to account for deleted messages
-    );
+    // Strategy 1: Try optimized query with composite index (if available)
+    const tryOptimizedListener = () => {
+      const optimizedQuery = query(
+        messagesRef,
+        where('isDeleted', '==', false),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+      );
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const allMessages = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as DirectMessage[];
+      return onSnapshot(optimizedQuery, (querySnapshot) => {
+        const messages = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as DirectMessage[];
+        callback(messages);
+      }, (error) => {
+        console.log('Optimized query failed, using fallback strategy');
+        // Switch to fallback strategy
+        setupFallbackListener();
+      });
+    };
 
-      // Filter out deleted messages and limit results
-      const filteredMessages = allMessages
-        .filter(msg => !msg.isDeleted)
-        .slice(0, 50);
+    // Strategy 2: Fallback to memory filtering
+    const setupFallbackListener = () => {
+      const fallbackQuery = query(
+        messagesRef,
+        orderBy('timestamp', 'desc'),
+        limit(100) // Get more to account for deleted messages
+      );
 
-      callback(filteredMessages);
-    }, (error) => {
-      console.error('Error listening to messages:', error);
-      callback([]);
-    });
+      const unsubscribe = onSnapshot(fallbackQuery, (querySnapshot) => {
+        const allMessages = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as DirectMessage[];
 
-    this.messageListeners.set(conversationId, unsubscribe);
-    return unsubscribe;
+        // Filter out deleted messages and limit results
+        const filteredMessages = allMessages
+          .filter(msg => !msg.isDeleted)
+          .slice(0, 50);
+
+        callback(filteredMessages);
+      }, (error) => {
+        console.error('Error listening to messages:', error);
+        callback([]);
+      });
+
+      // Track the listener
+      const listenerKey = `messages-${conversationId}`;
+      this.messageListeners.set(conversationId, unsubscribe);
+      this.activeListeners.add(listenerKey);
+      console.log(`📡 Started message listener for conversation ${conversationId}`);
+      return unsubscribe;
+    };
+
+    // Try optimized first, fallback if needed
+    try {
+      const unsubscribe = tryOptimizedListener();
+      const listenerKey = `messages-${conversationId}`;
+      this.messageListeners.set(conversationId, unsubscribe);
+      this.activeListeners.add(listenerKey);
+      console.log(`📡 Started optimized message listener for conversation ${conversationId}`);
+      return unsubscribe;
+    } catch (error) {
+      return setupFallbackListener();
+    }
   }
 
   // ==================== MESSAGE STATUS & READ RECEIPTS ====================
@@ -584,6 +1014,818 @@ export class MessagingService {
       console.error('Error getting friend requests:', error);
       return [];
     }
+  }
+
+  /**
+   * Get friend request status between two users
+   */
+  async getFriendRequestStatus(currentUserId: string, otherUserId: string): Promise<{
+    status: 'none' | 'sent' | 'received' | 'friends';
+    requestId?: string;
+  }> {
+    try {
+      // First check if they're already friends
+      const areFriends = await this.areUsersFriends(currentUserId, otherUserId);
+      if (areFriends) {
+        return { status: 'friends' };
+      }
+
+      // Check for pending request sent by current user
+      const sentRequest = await this.findExistingFriendRequest(currentUserId, otherUserId);
+      if (sentRequest) {
+        return { status: 'sent', requestId: sentRequest.id };
+      }
+
+      // Check for pending request received by current user
+      const receivedRequest = await this.findExistingFriendRequest(otherUserId, currentUserId);
+      if (receivedRequest) {
+        return { status: 'received', requestId: receivedRequest.id };
+      }
+
+      return { status: 'none' };
+    } catch (error: any) {
+      console.error('Error getting friend request status:', error);
+      return { status: 'none' };
+    }
+  }
+
+  // ==================== MESSAGE REACTIONS ====================
+
+  /**
+   * Add or remove a reaction to a message
+   */
+  async toggleMessageReaction(
+    conversationId: string,
+    messageId: string,
+    emoji: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+        const reactions = messageData.reactions || [];
+
+        // Find existing reaction for this emoji
+        const existingReactionIndex = reactions.findIndex(r => r.emoji === emoji);
+
+        if (existingReactionIndex >= 0) {
+          // Reaction exists, toggle user's participation
+          const reaction = reactions[existingReactionIndex];
+          const userIndex = reaction.userIds.indexOf(userId);
+
+          if (userIndex >= 0) {
+            // User already reacted, remove their reaction
+            reaction.userIds.splice(userIndex, 1);
+            reaction.count = reaction.userIds.length;
+
+            // Remove reaction if no users left
+            if (reaction.count === 0) {
+              reactions.splice(existingReactionIndex, 1);
+            }
+          } else {
+            // User hasn't reacted, add their reaction
+            reaction.userIds.push(userId);
+            reaction.count = reaction.userIds.length;
+          }
+        } else {
+          // New reaction, create it
+          reactions.push({
+            emoji,
+            userIds: [userId],
+            count: 1
+          });
+        }
+
+        // Update the message with new reactions
+        transaction.update(messageRef, { reactions });
+      });
+
+      console.log(`✅ Toggled reaction ${emoji} for message ${messageId}`);
+    } catch (error: any) {
+      console.error('Error toggling message reaction:', error);
+      throw new Error(`Failed to toggle reaction: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get reactions for a specific message
+   */
+  async getMessageReactions(conversationId: string, messageId: string): Promise<MessageReaction[]> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return [];
+      }
+
+      const messageData = messageDoc.data() as DirectMessage;
+      return messageData.reactions || [];
+    } catch (error: any) {
+      console.error('Error getting message reactions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get users who reacted with a specific emoji
+   */
+  async getReactionUsers(
+    conversationId: string,
+    messageId: string,
+    emoji: string
+  ): Promise<string[]> {
+    try {
+      const reactions = await this.getMessageReactions(conversationId, messageId);
+      const reaction = reactions.find(r => r.emoji === emoji);
+      return reaction ? reaction.userIds : [];
+    } catch (error: any) {
+      console.error('Error getting reaction users:', error);
+      return [];
+    }
+  }
+
+  // ==================== MESSAGE REPLIES ====================
+
+  /**
+   * Send a reply to a specific message
+   */
+  async sendReplyMessage(
+    conversationId: string,
+    replyToMessageId: string,
+    messageText: string,
+    senderId: string,
+    senderName: string
+  ): Promise<void> {
+    try {
+      // First get the original message to reply to
+      const originalMessageRef = doc(db, 'conversations', conversationId, 'messages', replyToMessageId);
+      const originalMessageDoc = await getDoc(originalMessageRef);
+
+      if (!originalMessageDoc.exists()) {
+        throw new Error('Original message not found');
+      }
+
+      const originalMessage = originalMessageDoc.data() as DirectMessage;
+
+      // Create reply message with reference to original
+      const replyMessage: Omit<DirectMessage, 'id'> = {
+        senderId,
+        senderName,
+        text: messageText,
+        timestamp: serverTimestamp() as Timestamp,
+        type: 'text',
+        status: 'sent',
+        isEdited: false,
+        isDeleted: false,
+        replyTo: {
+          messageId: replyToMessageId,
+          senderId: originalMessage.senderId,
+          senderName: originalMessage.senderName,
+          text: originalMessage.text.length > 100
+            ? originalMessage.text.substring(0, 100) + '...'
+            : originalMessage.text
+        }
+      };
+
+      // Send the reply message
+      const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+      await addDoc(messagesRef, replyMessage);
+
+      // Update conversation's last message
+      const conversationRef = doc(db, 'conversations', conversationId);
+      await updateDoc(conversationRef, {
+        lastMessage: messageText,
+        lastMessageTime: serverTimestamp(),
+        lastMessageSenderId: senderId
+      });
+
+      console.log(`✅ Reply sent to message ${replyToMessageId} in conversation ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error sending reply message:', error);
+      throw new Error(`Failed to send reply: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get the original message that was replied to
+   */
+  async getOriginalMessage(conversationId: string, messageId: string): Promise<DirectMessage | null> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return null;
+      }
+
+      return { id: messageDoc.id, ...messageDoc.data() } as DirectMessage;
+    } catch (error: any) {
+      console.error('Error getting original message:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all replies to a specific message
+   */
+  async getMessageReplies(conversationId: string, messageId: string): Promise<DirectMessage[]> {
+    try {
+      const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+      const q = query(
+        messagesRef,
+        where('replyTo.messageId', '==', messageId),
+        orderBy('timestamp', 'asc')
+      );
+
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as DirectMessage[];
+    } catch (error: any) {
+      console.error('Error getting message replies:', error);
+      return [];
+    }
+  }
+
+  // ==================== MESSAGE EDITING ====================
+
+  /**
+   * Edit a message
+   */
+  async editMessage(
+    conversationId: string,
+    messageId: string,
+    newText: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+
+        // Check if user owns the message
+        if (messageData.senderId !== userId) {
+          throw new Error('You can only edit your own messages');
+        }
+
+        // Check if message is too old to edit (24 hours)
+        const messageTime = messageData.timestamp?.toDate ? messageData.timestamp.toDate() : new Date(messageData.timestamp);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - messageTime.getTime()) / (1000 * 60 * 60);
+
+        if (hoursDiff > 24) {
+          throw new Error('Messages can only be edited within 24 hours');
+        }
+
+        // Store original text in edit history if this is the first edit
+        const editHistory = messageData.editHistory || [];
+        if (!messageData.isEdited) {
+          editHistory.push({
+            text: messageData.text,
+            editedAt: messageData.timestamp,
+            version: 1
+          });
+        }
+
+        // Add new version to edit history
+        editHistory.push({
+          text: newText,
+          editedAt: serverTimestamp() as Timestamp,
+          version: editHistory.length + 1
+        });
+
+        // Update the message
+        transaction.update(messageRef, {
+          text: newText,
+          isEdited: true,
+          editedAt: serverTimestamp(),
+          editHistory
+        });
+      });
+
+      console.log(`✅ Message ${messageId} edited successfully`);
+    } catch (error: any) {
+      console.error('Error editing message:', error);
+      throw new Error(`Failed to edit message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get message edit history
+   */
+  async getMessageEditHistory(conversationId: string, messageId: string): Promise<any[]> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return [];
+      }
+
+      const messageData = messageDoc.data() as DirectMessage;
+      return messageData.editHistory || [];
+    } catch (error: any) {
+      console.error('Error getting message edit history:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if message can be edited
+   */
+  async canEditMessage(conversationId: string, messageId: string, userId: string): Promise<{
+    canEdit: boolean;
+    reason?: string;
+  }> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return { canEdit: false, reason: 'Message not found' };
+      }
+
+      const messageData = messageDoc.data() as DirectMessage;
+
+      // Check ownership
+      if (messageData.senderId !== userId) {
+        return { canEdit: false, reason: 'You can only edit your own messages' };
+      }
+
+      // Check if message is deleted
+      if (messageData.isDeleted) {
+        return { canEdit: false, reason: 'Cannot edit deleted messages' };
+      }
+
+      // Check time limit (24 hours)
+      const messageTime = messageData.timestamp?.toDate ? messageData.timestamp.toDate() : new Date(messageData.timestamp);
+      const now = new Date();
+      const hoursDiff = (now.getTime() - messageTime.getTime()) / (1000 * 60 * 60);
+
+      if (hoursDiff > 24) {
+        return { canEdit: false, reason: 'Messages can only be edited within 24 hours' };
+      }
+
+      return { canEdit: true };
+    } catch (error: any) {
+      console.error('Error checking if message can be edited:', error);
+      return { canEdit: false, reason: 'Error checking edit permissions' };
+    }
+  }
+
+  // ==================== MESSAGE DELETION ====================
+
+  /**
+   * Delete a message for everyone
+   */
+  async deleteMessageForEveryone(
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+
+        // Check if user owns the message
+        if (messageData.senderId !== userId) {
+          throw new Error('You can only delete your own messages');
+        }
+
+        // Check if message is too old to delete (24 hours)
+        const messageTime = messageData.timestamp?.toDate ? messageData.timestamp.toDate() : new Date(messageData.timestamp);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - messageTime.getTime()) / (1000 * 60 * 60);
+
+        if (hoursDiff > 24) {
+          throw new Error('Messages can only be deleted within 24 hours');
+        }
+
+        // Mark message as deleted for everyone
+        transaction.update(messageRef, {
+          isDeleted: true,
+          deletedAt: serverTimestamp(),
+          text: 'This message was deleted',
+          deletedBy: userId,
+          deletionType: 'everyone'
+        });
+      });
+
+      console.log(`✅ Message ${messageId} deleted for everyone`);
+    } catch (error: any) {
+      console.error('Error deleting message for everyone:', error);
+      throw new Error(`Failed to delete message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Delete a message for current user only
+   */
+  async deleteMessageForMe(
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+
+        // Add user to deletedFor array
+        const deletedFor = messageData.deletedFor || [];
+        if (!deletedFor.includes(userId)) {
+          deletedFor.push(userId);
+        }
+
+        transaction.update(messageRef, {
+          deletedFor,
+          [`deletedForTimestamp.${userId}`]: serverTimestamp()
+        });
+      });
+
+      console.log(`✅ Message ${messageId} deleted for user ${userId}`);
+    } catch (error: any) {
+      console.error('Error deleting message for user:', error);
+      throw new Error(`Failed to delete message: ${error.message}`);
+    }
+  }
+
+  /**
+   * Check if message can be deleted
+   */
+  async canDeleteMessage(
+    conversationId: string,
+    messageId: string,
+    userId: string
+  ): Promise<{
+    canDeleteForEveryone: boolean;
+    canDeleteForMe: boolean;
+    reason?: string;
+  }> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return {
+          canDeleteForEveryone: false,
+          canDeleteForMe: false,
+          reason: 'Message not found'
+        };
+      }
+
+      const messageData = messageDoc.data() as DirectMessage;
+
+      // Check if already deleted for everyone
+      if (messageData.isDeleted) {
+        return {
+          canDeleteForEveryone: false,
+          canDeleteForMe: false,
+          reason: 'Message already deleted'
+        };
+      }
+
+      // Check if already deleted for this user
+      const deletedFor = messageData.deletedFor || [];
+      if (deletedFor.includes(userId)) {
+        return {
+          canDeleteForEveryone: false,
+          canDeleteForMe: false,
+          reason: 'Message already deleted for you'
+        };
+      }
+
+      const isOwner = messageData.senderId === userId;
+      let canDeleteForEveryone = false;
+
+      if (isOwner) {
+        // Check time limit for delete for everyone (24 hours)
+        const messageTime = messageData.timestamp?.toDate ? messageData.timestamp.toDate() : new Date(messageData.timestamp);
+        const now = new Date();
+        const hoursDiff = (now.getTime() - messageTime.getTime()) / (1000 * 60 * 60);
+
+        canDeleteForEveryone = hoursDiff <= 24;
+      }
+
+      return {
+        canDeleteForEveryone,
+        canDeleteForMe: true, // Anyone can delete for themselves
+      };
+    } catch (error: any) {
+      console.error('Error checking delete permissions:', error);
+      return {
+        canDeleteForEveryone: false,
+        canDeleteForMe: false,
+        reason: 'Error checking permissions'
+      };
+    }
+  }
+
+  // ==================== FILE ATTACHMENTS ====================
+
+  /**
+   * Upload file attachment to Firebase Storage
+   */
+  async uploadAttachment(
+    conversationId: string,
+    file: {
+      uri: string;
+      name: string;
+      type: string;
+      size: number;
+    },
+    userId: string
+  ): Promise<{
+    downloadURL: string;
+    fileName: string;
+    fileSize: number;
+    fileType: string;
+  }> {
+    try {
+      // Create a unique filename
+      const timestamp = Date.now();
+      const fileExtension = file.name.split('.').pop() || '';
+      const fileName = `${timestamp}_${userId}_${file.name}`;
+      const filePath = `conversations/${conversationId}/attachments/${fileName}`;
+
+      // For now, return a mock response since we need Firebase Storage setup
+      // In a real implementation, you would:
+      // 1. Upload to Firebase Storage
+      // 2. Get download URL
+      // 3. Return the attachment info
+
+      console.log(`📎 Mock upload: ${file.name} (${file.size} bytes) to ${filePath}`);
+
+      return {
+        downloadURL: `https://mock-storage.com/${filePath}`,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+      };
+    } catch (error: any) {
+      console.error('Error uploading attachment:', error);
+      throw new Error(`Failed to upload attachment: ${error.message}`);
+    }
+  }
+
+  /**
+   * Send message with attachment
+   */
+  async sendMessageWithAttachment(
+    conversationId: string,
+    text: string,
+    attachment: {
+      downloadURL: string;
+      fileName: string;
+      fileSize: number;
+      fileType: string;
+    },
+    senderId: string,
+    senderName: string
+  ): Promise<void> {
+    try {
+      const messageData: Partial<DirectMessage> = {
+        text: text || '', // Allow empty text with attachment
+        senderId,
+        senderName,
+        timestamp: serverTimestamp() as Timestamp,
+        isEdited: false,
+        isDeleted: false,
+        reactions: [],
+        attachments: [{
+          id: `attachment_${Date.now()}`,
+          type: attachment.fileType.startsWith('image/') ? 'image' : 'file',
+          url: attachment.downloadURL,
+          name: attachment.fileName,
+          size: attachment.fileSize,
+          mimeType: attachment.fileType,
+        }],
+      };
+
+      // Add message to conversation
+      const messagesRef = collection(db, 'conversations', conversationId, 'messages');
+      await addDoc(messagesRef, messageData);
+
+      // Update conversation's last message
+      const conversationRef = doc(db, 'conversations', conversationId);
+      await updateDoc(conversationRef, {
+        lastMessage: text || `📎 ${attachment.fileName}`,
+        lastMessageTime: serverTimestamp(),
+        lastMessageSenderId: senderId,
+      });
+
+      console.log(`✅ Message with attachment sent to conversation ${conversationId}`);
+    } catch (error: any) {
+      console.error('Error sending message with attachment:', error);
+      throw new Error(`Failed to send message with attachment: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get attachment info
+   */
+  async getAttachmentInfo(attachmentUrl: string): Promise<{
+    isImage: boolean;
+    isVideo: boolean;
+    isDocument: boolean;
+    fileName: string;
+    fileSize?: number;
+  }> {
+    try {
+      // Extract filename from URL
+      const fileName = attachmentUrl.split('/').pop() || 'Unknown file';
+      const extension = fileName.split('.').pop()?.toLowerCase() || '';
+
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+      const videoExtensions = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
+
+      return {
+        isImage: imageExtensions.includes(extension),
+        isVideo: videoExtensions.includes(extension),
+        isDocument: !imageExtensions.includes(extension) && !videoExtensions.includes(extension),
+        fileName,
+      };
+    } catch (error) {
+      console.error('Error getting attachment info:', error);
+      return {
+        isImage: false,
+        isVideo: false,
+        isDocument: true,
+        fileName: 'Unknown file',
+      };
+    }
+  }
+
+  // ==================== READ RECEIPTS ====================
+
+  /**
+   * Get message read status for a conversation
+   */
+  async getMessageReadStatus(conversationId: string, messageId: string): Promise<{
+    isRead: boolean;
+    readBy: string[];
+    readAt?: { [userId: string]: Timestamp };
+  }> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return { isRead: false, readBy: [] };
+      }
+
+      const messageData = messageDoc.data() as DirectMessage;
+      return {
+        isRead: (messageData.readBy?.length || 0) > 0,
+        readBy: messageData.readBy || [],
+        readAt: messageData.readAt || {},
+      };
+    } catch (error: any) {
+      console.error('Error getting message read status:', error);
+      return { isRead: false, readBy: [] };
+    }
+  }
+
+  /**
+   * Get delivery status for a message
+   */
+  async getMessageDeliveryStatus(conversationId: string, messageId: string): Promise<{
+    isDelivered: boolean;
+    deliveredTo: string[];
+    deliveredAt?: { [userId: string]: Timestamp };
+  }> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+      const messageDoc = await getDoc(messageRef);
+
+      if (!messageDoc.exists()) {
+        return { isDelivered: false, deliveredTo: [] };
+      }
+
+      const messageData = messageDoc.data() as DirectMessage;
+      return {
+        isDelivered: (messageData.deliveredTo?.length || 0) > 0,
+        deliveredTo: messageData.deliveredTo || [],
+        deliveredAt: messageData.deliveredAt || {},
+      };
+    } catch (error: any) {
+      console.error('Error getting message delivery status:', error);
+      return { isDelivered: false, deliveredTo: [] };
+    }
+  }
+
+  /**
+   * Mark message as delivered
+   */
+  async markMessageAsDelivered(conversationId: string, messageId: string, userId: string): Promise<void> {
+    try {
+      const messageRef = doc(db, 'conversations', conversationId, 'messages', messageId);
+
+      await runTransaction(db, async (transaction) => {
+        const messageDoc = await transaction.get(messageRef);
+
+        if (!messageDoc.exists()) {
+          throw new Error('Message not found');
+        }
+
+        const messageData = messageDoc.data() as DirectMessage;
+
+        // Don't mark own messages as delivered
+        if (messageData.senderId === userId) {
+          return;
+        }
+
+        const deliveredTo = messageData.deliveredTo || [];
+        const deliveredAt = messageData.deliveredAt || {};
+
+        // Add user to delivered list if not already there
+        if (!deliveredTo.includes(userId)) {
+          deliveredTo.push(userId);
+          deliveredAt[userId] = serverTimestamp() as Timestamp;
+
+          transaction.update(messageRef, {
+            deliveredTo,
+            deliveredAt,
+          });
+        }
+      });
+
+      console.log(`✅ Message ${messageId} marked as delivered for user ${userId}`);
+    } catch (error: any) {
+      console.error('Error marking message as delivered:', error);
+      throw new Error(`Failed to mark message as delivered: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get message status for UI display
+   */
+  getMessageStatusForDisplay(message: DirectMessage, currentUserId: string): {
+    status: 'sending' | 'sent' | 'delivered' | 'read';
+    icon: string;
+    color: string;
+  } {
+    // Only show status for messages sent by current user
+    if (message.senderId !== currentUserId) {
+      return { status: 'sent', icon: '', color: '' };
+    }
+
+    // Check if message is read
+    if (message.readBy && message.readBy.length > 0) {
+      return {
+        status: 'read',
+        icon: 'done-all',
+        color: '#4CAF50', // Green for read
+      };
+    }
+
+    // Check if message is delivered
+    if (message.deliveredTo && message.deliveredTo.length > 0) {
+      return {
+        status: 'delivered',
+        icon: 'done-all',
+        color: '#666', // Gray for delivered
+      };
+    }
+
+    // Message is sent but not delivered
+    return {
+      status: 'sent',
+      icon: 'done',
+      color: '#666', // Gray for sent
+    };
   }
 
   /**

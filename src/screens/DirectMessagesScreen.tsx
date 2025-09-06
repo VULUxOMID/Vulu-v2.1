@@ -13,6 +13,7 @@ import {
   TextInput,
   Animated,
   ScrollView,
+  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -24,6 +25,7 @@ import { messagingService } from '../services/messagingService';
 import { presenceService } from '../services/presenceService';
 import { useAuth } from '../context/AuthContext';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
+import { useErrorReporting } from '../hooks/useErrorReporting';
 import { LoadingState, ErrorState, EmptyState } from '../components/ErrorHandling';
 import { Conversation, AppUser } from '../services/types';
 import { FirebaseErrorHandler } from '../utils/firebaseErrorHandler';
@@ -94,6 +96,11 @@ const conversationToChatPreview = (conversation: Conversation, currentUserId: st
   const otherUserId = conversation.participants.find(p => p !== currentUserId);
   if (!otherUserId) return null;
 
+  // Get conversation settings for current user
+  const isCloseFriend = conversation.closeFriends?.[currentUserId] || false;
+  const isMuted = conversation.mutedBy?.[currentUserId] || false;
+  const isPinned = conversation.pinnedBy?.[currentUserId] || false;
+
   return {
     id: otherUserId, // Use the other user's ID, not the conversation ID
     name: otherParticipant.name,
@@ -102,9 +109,9 @@ const conversationToChatPreview = (conversation: Conversation, currentUserId: st
     avatar: otherParticipant.avatar,
     status: 'offline', // Default to offline, will be updated by presence service
     unreadCount: unreadCount,
-    isCloseFriend: false, // TODO: Implement close friends logic
-    isMuted: false, // TODO: Implement mute logic
-    isPinned: false, // TODO: Implement pin logic
+    isCloseFriend,
+    isMuted,
+    isPinned,
   };
 };
 
@@ -160,6 +167,7 @@ const StatusIndicator = ({ status, size = 'normal' }: { status: ChatPreview['sta
 const DirectMessagesScreen = () => {
   const { user: currentUser } = useAuth();
   const { canAddFriends } = useGuestRestrictions();
+  const { reportError } = useErrorReporting('DirectMessagesScreen');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [chats, setChats] = useState<ChatPreview[]>([]);
   const [activeFriends, setActiveFriends] = useState<ChatPreview[]>([]);
@@ -288,13 +296,38 @@ const DirectMessagesScreen = () => {
             });
             presenceUnsubscribeRef.current = presenceUnsubscribe;
           }
-        } catch (presenceError) {
+        } catch (presenceError: any) {
           console.warn('Failed to load online friends:', presenceError);
+
+          // Report presence loading error
+          reportError(presenceError, {
+            action: 'loadOnlineFriends',
+            userId: currentUser.uid,
+            component: 'DirectMessagesScreen'
+          });
         }
 
       } catch (error: any) {
         console.error('Error loading conversations:', error);
-        setError('Failed to load conversations');
+
+        // Enhanced error reporting
+        reportError(error, {
+          action: 'loadConversations',
+          userId: currentUser.uid,
+          component: 'DirectMessagesScreen'
+        });
+
+        // Provide more specific error messages
+        let errorMessage = 'Failed to load conversations';
+        if (error.code === 'permission-denied') {
+          errorMessage = 'Permission denied. Please sign in again.';
+        } else if (error.code === 'unavailable') {
+          errorMessage = 'Service temporarily unavailable. Please try again.';
+        } else if (error.message?.includes('network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        }
+
+        setError(errorMessage);
         setIsLoading(false);
 
         // Clear timeout on error
@@ -307,21 +340,42 @@ const DirectMessagesScreen = () => {
 
     loadConversations();
 
-    // Cleanup function
+    // Comprehensive cleanup function
     return () => {
+      console.log('🧹 DirectMessagesScreen cleanup started');
+
+      // Clean up conversation listener
       if (unsubscribeRef.current) {
-        unsubscribeRef.current();
-        unsubscribeRef.current = null;
-      }
-      if (presenceUnsubscribeRef.current) {
-        presenceUnsubscribeRef.current();
-        presenceUnsubscribeRef.current = null;
+        try {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        } catch (error) {
+          console.warn('Error cleaning up conversation listener:', error);
+        }
       }
 
+      // Clean up presence listener
+      if (presenceUnsubscribeRef.current) {
+        try {
+          presenceUnsubscribeRef.current();
+          presenceUnsubscribeRef.current = null;
+        } catch (error) {
+          console.warn('Error cleaning up presence listener:', error);
+        }
+      }
+
+      // Clean up timeout
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
       }
+
+      // Clean up messaging service listeners for this user
+      if (currentUser?.uid) {
+        messagingService.cleanupUserListeners(currentUser.uid);
+      }
+
+      console.log('✅ DirectMessagesScreen cleanup completed');
     };
   }, [currentUser]);
 
@@ -366,11 +420,25 @@ const DirectMessagesScreen = () => {
   };
 
   const handleCreateGroup = () => {
-    // TODO: Implement navigation or modal for creating group chat
     console.log("Group Chat Pressed");
-    // For now, show a simple alert to indicate the button is working
-    // In a real implementation, this would open a group creation modal
-    alert("Group chat feature coming soon!");
+
+    // Show detailed coming soon alert with planned features
+    Alert.alert(
+      "Group Chat Coming Soon! 🎉",
+      "We're working on group chat functionality that will include:\n\n" +
+      "• Create groups with multiple participants\n" +
+      "• Group admin controls\n" +
+      "• Shared media and files\n" +
+      "• Group notifications settings\n" +
+      "• Custom group avatars\n\n" +
+      "Stay tuned for this exciting feature!",
+      [
+        {
+          text: "Got it!",
+          style: "default"
+        }
+      ]
+    );
   };
   
   // Navigate to chat screen

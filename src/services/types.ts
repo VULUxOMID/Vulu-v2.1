@@ -82,6 +82,15 @@ export interface DirectMessage {
   isEdited: boolean;
   isDeleted: boolean;
   deletedAt?: Timestamp;
+  deletedBy?: string;
+  deletionType?: 'everyone' | 'me';
+  deletedFor?: string[]; // Array of user IDs who deleted this message for themselves
+  deletedForTimestamp?: { [userId: string]: Timestamp };
+  editHistory?: {
+    text: string;
+    editedAt: Timestamp;
+    version: number;
+  }[];
   replyTo?: {
     messageId: string;
     senderId: string;
@@ -91,6 +100,10 @@ export interface DirectMessage {
   attachments?: MessageAttachment[];
   mentions?: MessageMention[];
   reactions?: MessageReaction[];
+  readBy?: string[];
+  readAt?: { [userId: string]: Timestamp };
+  deliveredTo?: string[];
+  deliveredAt?: { [userId: string]: Timestamp };
 }
 
 // Message status for delivery tracking

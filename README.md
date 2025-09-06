@@ -18,8 +18,17 @@ A sophisticated social streaming platform with enterprise-grade authentication, 
 2. **Deploy Indexes**:
    - In Firebase Console, go to **Firestore Database** → **Indexes**
    - Click the error link in logs or create these indexes manually:
+
+   **Stream Indexes:**
      - `streams`: `isActive` (Ascending) + `startedAt` (Ascending)
      - `streams`: `isActive` (Ascending) + `endedAt` (Ascending)
+
+   **Messaging System Indexes (Required for DM functionality):**
+     - `conversations/{conversationId}/messages`: `isDeleted` (ASC) + `timestamp` (DESC)
+     - `conversations`: `participants` (ARRAY) + `lastMessageTime` (DESC)
+     - `friendRequests`: `recipientId` (ASC) + `status` (ASC) + `createdAt` (DESC)
+     - `friendRequests`: `senderId` (ASC) + `status` (ASC) + `createdAt` (DESC)
+     - `users`: `displayNameLower` (ASC) + `isOnline` (ASC)
 
 3. **Restart the app** to test the fixes
 

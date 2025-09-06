@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { AppUser, FriendRequest } from './types';
+import { messagingService } from './messagingService';
 
 export interface SearchResult extends AppUser {
   isFriend: boolean;
@@ -223,6 +224,34 @@ export class UserSearchService {
     } catch (error: any) {
       console.error(`Error getting ${type} requests:`, error);
       return [];
+    }
+  }
+
+  /**
+   * Enrich a single user with friend request status (optimized version)
+   */
+  async enrichUserWithFriendStatus(user: AppUser, currentUserId: string): Promise<SearchResult> {
+    try {
+      const friendStatus = await messagingService.getFriendRequestStatus(currentUserId, user.uid);
+
+      return {
+        ...user,
+        isFriend: friendStatus.status === 'friends',
+        hasPendingRequest: friendStatus.status === 'sent' || friendStatus.status === 'received',
+        requestSent: friendStatus.status === 'sent',
+        requestReceived: friendStatus.status === 'received',
+        relevanceScore: 0 // Will be calculated separately
+      };
+    } catch (error) {
+      console.error('Error enriching user with friend status:', error);
+      return {
+        ...user,
+        isFriend: false,
+        hasPendingRequest: false,
+        requestSent: false,
+        requestReceived: false,
+        relevanceScore: 0
+      };
     }
   }
 
