@@ -718,3 +718,4 @@ class StreamAnalyticsService {
 }
 
 export default StreamAnalyticsService.getInstance();
+

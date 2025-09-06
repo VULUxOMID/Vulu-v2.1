@@ -578,3 +578,4 @@ class StreamRecordingService {
 }
 
 export default StreamRecordingService.getInstance();
+

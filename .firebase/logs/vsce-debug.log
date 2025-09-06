@@ -476,3 +476,54 @@ I0905 19:31:18.517383   22595 dev.go:102] Listening on address (HTTP + gRPC): 12
 [debug] [2025-09-05T21:47:08.919Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
 [debug] [2025-09-05T21:47:08.940Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
 [debug] [2025-09-05T21:47:08.940Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[info] [Firebase Plugin] Stopping Data Connect toolkit
+[warn] ⚠  Data Connect Emulator has exited upon receiving signal: SIGINT 
+[debug] [2025-09-06T01:30:24.788Z] [Firebase Plugin] Activating Firebase extension.
+[debug] [2025-09-06T01:30:27.271Z] [Firebase Plugin] requireAuthWrapper
+[debug] [2025-09-06T01:30:27.272Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-06T01:30:27.273Z] > authorizing via signed-in user (vulu.studio@gmail.com)
+[debug] [2025-09-06T01:30:27.274Z] Checked if tokens are valid: false, expires at: 1757112427199
+[debug] [2025-09-06T01:30:27.274Z] Checked if tokens are valid: false, expires at: 1757112427199
+[debug] [2025-09-06T01:30:27.274Z] > refreshing access token with scopes: []
+[debug] [2025-09-06T01:30:27.275Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2025-09-06T01:30:27.275Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-06T01:30:27.279Z] [Firebase Plugin] VSCode notification server listening on port 40001
+[info] [Firebase Plugin] Starting Data Connect toolkit (version 2.11.2) on port 50001
+[debug] [2025-09-06T01:30:28.957Z] I0906 03:30:28.922845   60121 control.go:94] [/emulator/vulugo-v100 6fac] UpdateResources(): done
+Schema: sources: schema/schema.gql [1992B] 
+Connector "example": sources: example/mutations.gql [1243B] example/queries.gql [1801B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:28.922845   60121 control.go:94] [/emulator/vulugo-v100 6fac] UpdateResources(): done\nSchema: sources: schema/schema.gql [1992B] \nConnector \"example\": sources: example/mutations.gql [1243B] example/queries.gql [1801B] \n"}}
+[debug] [2025-09-06T01:30:28.958Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"dataconnect"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2025-09-06T01:30:28.958Z] Ignoring unsupported arg: port {"metadata":{"emulator":{"name":"dataconnect"},"message":"Ignoring unsupported arg: port"}}
+[debug] [2025-09-06T01:30:28.958Z] Starting Data Connect Emulator with command {"binary":"/Users/omid/.cache/firebase/emulators/dataconnect-emulator-2.11.2","args":["--logtostderr","-v=2","dev","--listen=localhost:50001","--config_dir=/Users/omid/Downloads/Vulu v2.1/dataconnect","--enable_output_schema_extensions=true","--enable_output_generated_sdk=true"],"optionalArgs":["listen","config_dir","enable_output_schema_extensions","enable_output_generated_sdk"],"joinArgs":true,"shell":false,"port":9399} {"metadata":{"emulator":{"name":"dataconnect"},"message":"Starting Data Connect Emulator with command {\"binary\":\"/Users/omid/.cache/firebase/emulators/dataconnect-emulator-2.11.2\",\"args\":[\"--logtostderr\",\"-v=2\",\"dev\",\"--listen=localhost:50001\",\"--config_dir=/Users/omid/Downloads/Vulu v2.1/dataconnect\",\"--enable_output_schema_extensions=true\",\"--enable_output_generated_sdk=true\"],\"optionalArgs\":[\"listen\",\"config_dir\",\"enable_output_schema_extensions\",\"enable_output_generated_sdk\"],\"joinArgs\":true,\"shell\":false,\"port\":9399}"}}
+[info] i  dataconnect: Data Connect Emulator logging to dataconnect-debug.log {"metadata":{"emulator":{"name":"dataconnect"},"message":"Data Connect Emulator logging to dataconnect-debug.log"}}
+[debug] [2025-09-06T01:30:29.246Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2025-09-06T01:30:29.246Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2025-09-06T01:30:29.255Z] [Firebase Plugin] User found:  vulu.studio@gmail.com
+[info] [Firebase Plugin] (Core:Project) New user detected, fetching projects
+[debug] [2025-09-06T01:30:29.256Z] Checked if tokens are valid: true, expires at: 1757125828246
+[debug] [2025-09-06T01:30:29.257Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects pageSize=1000
+[debug] [2025-09-06T01:30:29.577Z] I0906 03:30:29.575395   60125 load.go:31] Reloading schema and connectors...
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:29.575395   60125 load.go:31] Reloading schema and connectors...\n"}}
+[debug] [2025-09-06T01:30:29.840Z] I0906 03:30:29.840116   60125 control.go:94] [/emulator/vulugo-v100 a4dc] UpdateResources(): done
+Schema: sources: schema/schema.gql [1992B] 
+Connector "example": sources: example/mutations.gql [1243B] example/queries.gql [1801B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:29.840116   60125 control.go:94] [/emulator/vulugo-v100 a4dc] UpdateResources(): done\nSchema: sources: schema/schema.gql [1992B] \nConnector \"example\": sources: example/mutations.gql [1243B] example/queries.gql [1801B] \n"}}
+[debug] [2025-09-06T01:30:29.972Z] I0906 03:30:29.971077   60125 codegen.go:82] [connector "example" javascriptSdk] Generating sources into "/Users/omid/Downloads/Vulu v2.1/src/dataconnect-generated"
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:29.971077   60125 codegen.go:82] [connector \"example\" javascriptSdk] Generating sources into \"/Users/omid/Downloads/Vulu v2.1/src/dataconnect-generated\"\n"}}
+[debug] [2025-09-06T01:30:29.980Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects 200
+[debug] [2025-09-06T01:30:29.980Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects [omitted]
+[debug] [2025-09-06T01:30:29.996Z] I0906 03:30:29.996690   60125 collector.go:107] schema extensions wrote into "/Users/omid/Downloads/Vulu v2.1/dataconnect/.dataconnect/schema"
+Generated sources: prelude.gql [73251B] main/mutation.gql [13679B] main/implicit.gql [1261B] main/input.gql [28173B] main/relation.gql [13742B] main/query.gql [5099B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:29.996690   60125 collector.go:107] schema extensions wrote into \"/Users/omid/Downloads/Vulu v2.1/dataconnect/.dataconnect/schema\"\nGenerated sources: prelude.gql [73251B] main/mutation.gql [13679B] main/implicit.gql [1261B] main/input.gql [28173B] main/relation.gql [13742B] main/query.gql [5099B] \n"}}
+[debug] [2025-09-06T01:30:29.999Z] I0906 03:30:29.999269   60125 collector.go:107] connector "example" javascriptSdk wrote into "/Users/omid/Downloads/Vulu v2.1/src/dataconnect-generated"
+Generated sources: README.md [40931B] react/index.d.ts [3961B] react/index.cjs.js [3439B] esm/index.esm.js [3564B] esm/package.json [17B] index.cjs.js [4054B] package.json [852B] react/package.json [460B] react/esm/package.json [17B] react/esm/index.esm.js [3269B] react/README.md [48299B] index.d.ts [8025B] 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:29.999269   60125 collector.go:107] connector \"example\" javascriptSdk wrote into \"/Users/omid/Downloads/Vulu v2.1/src/dataconnect-generated\"\nGenerated sources: README.md [40931B] react/index.d.ts [3961B] react/index.cjs.js [3439B] esm/index.esm.js [3564B] esm/package.json [17B] index.cjs.js [4054B] package.json [852B] react/package.json [460B] react/esm/package.json [17B] react/esm/index.esm.js [3269B] react/README.md [48299B] index.d.ts [8025B] \n"}}
+[debug] [2025-09-06T01:30:30.006Z] I0906 03:30:30.006377   60125 installsdk.go:55] Package @dataconnect/generated is already installed. Skipping installation
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:30.006377   60125 installsdk.go:55] Package @dataconnect/generated is already installed. Skipping installation\n"}}
+[debug] [2025-09-06T01:30:30.006Z] I0906 03:30:30.006568   60125 load.go:109] Finished reloading
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:30.006568   60125 load.go:109] Finished reloading\n"}}
+[debug] [2025-09-06T01:30:30.015Z] I0906 03:30:30.014576   60125 dev.go:102] Listening on address (HTTP + gRPC): 127.0.0.1:50001
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:30.014576   60125 dev.go:102] Listening on address (HTTP + gRPC): 127.0.0.1:50001\n"}}
+[debug] [2025-09-06T01:30:30.402Z] I0906 03:30:30.402356   60125 engine.go:171] [/emulator/vulugo-v100 a4dc] ExecuteGraphqlRead IntrospectionQuery: succeeded. 
+ {"metadata":{"emulator":{"name":"dataconnect"},"message":"I0906 03:30:30.402356   60125 engine.go:171] [/emulator/vulugo-v100 a4dc] ExecuteGraphqlRead IntrospectionQuery: succeeded. \n"}}

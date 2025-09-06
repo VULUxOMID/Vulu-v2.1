@@ -694,3 +694,4 @@ class VirtualGiftsService {
 }
 
 export default VirtualGiftsService.getInstance();
+
