@@ -34,14 +34,14 @@ const UserSearchScreen = () => {
 
   // Load user suggestions on mount
   useEffect(() => {
-    if (currentUser && canAddFriends) {
+    if (currentUser && canAddFriends()) {
       loadSuggestions();
     }
   }, [currentUser, canAddFriends]);
 
   // Search users with debouncing
   useEffect(() => {
-    if (!searchQuery.trim() || !currentUser || !canAddFriends) {
+    if (!searchQuery.trim() || !currentUser || !canAddFriends()) {
       setSearchResults([]);
       return;
     }
@@ -86,19 +86,19 @@ const UserSearchScreen = () => {
   };
 
   const handleSendFriendRequest = async (user: SearchResult) => {
-    if (!currentUser || !canAddFriends) return;
+    if (!currentUser || !canAddFriends()) return;
 
     try {
       setSendingRequests(prev => new Set(prev).add(user.uid));
 
       await messagingService.sendFriendRequest(
         currentUser.uid,
-        currentUser.displayName,
+        currentUser.displayName || 'User',
         user.uid,
         user.displayName,
         `Hi ${user.displayName}, I'd like to add you as a friend!`,
-        currentUser.photoURL,
-        user.photoURL
+        currentUser.photoURL || undefined,
+        user.photoURL || undefined
       );
 
       // Update the user's status in both search results and suggestions
@@ -128,10 +128,10 @@ const UserSearchScreen = () => {
       const conversationId = await messagingService.createOrGetConversation(
         currentUser.uid,
         user.uid,
-        currentUser.displayName,
+        currentUser.displayName || 'User',
         user.displayName,
-        currentUser.photoURL,
-        user.photoURL
+        currentUser.photoURL || undefined,
+        user.photoURL || undefined
       );
 
       router.push({
@@ -232,8 +232,6 @@ const UserSearchScreen = () => {
     if (searchQuery.trim()) {
       return (
         <EmptyState
-          icon="search"
-          title="No users found"
           message={`No users found matching "${searchQuery}"`}
         />
       );
@@ -241,14 +239,12 @@ const UserSearchScreen = () => {
 
     return (
       <EmptyState
-        icon="people"
-        title="Discover new friends"
         message="Search for users by username or display name to connect with them"
       />
     );
   };
 
-  if (!canAddFriends) {
+  if (!canAddFriends()) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -258,10 +254,8 @@ const UserSearchScreen = () => {
           <Text style={styles.headerTitle}>Find Friends</Text>
         </View>
         <ErrorState
-          title="Feature Unavailable"
-          message="Guest users cannot add friends. Please create an account to use this feature."
+          error="Guest users cannot add friends. Please create an account to use this feature."
           onRetry={() => router.push('/auth')}
-          retryText="Sign Up"
         />
       </SafeAreaView>
     );
