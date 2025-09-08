@@ -199,38 +199,38 @@ describe('Security Testing', () => {
       }
     }
 
-    it('should enforce message sending rate limits', () => {
+    it('should enforce message sending rate limits', async () => {
       const rateLimiter = new RateLimiter(10, 60000); // 10 messages per minute
       const userId = 'test-user-1';
 
       // Should allow up to 10 messages
       for (let i = 0; i < 10; i++) {
-        expect(rateLimiter.isAllowed(userId)).toBe(true);
-        expect(rateLimiter.getRemainingAttempts(userId)).toBe(10 - i - 1);
+        expect(await rateLimiter.isAllowed(userId)).toBe(true);
+        expect(await rateLimiter.getRemainingAttempts(userId)).toBe(10 - i - 1);
       }
 
       // 11th message should be blocked
-      expect(rateLimiter.isAllowed(userId)).toBe(false);
-      expect(rateLimiter.getRemainingAttempts(userId)).toBe(0);
+      expect(await rateLimiter.isAllowed(userId)).toBe(false);
+      expect(await rateLimiter.getRemainingAttempts(userId)).toBe(0);
     });
 
-    it('should reset rate limits after time window', () => {
+    it('should reset rate limits after time window', async () => {
       jest.useFakeTimers();
       const rateLimiter = new RateLimiter(5, 60000); // 5 messages per minute
       const userId = 'test-user-2';
 
       // Use up all attempts
       for (let i = 0; i < 5; i++) {
-        expect(rateLimiter.isAllowed(userId)).toBe(true);
+        expect(await rateLimiter.isAllowed(userId)).toBe(true);
       }
-      expect(rateLimiter.isAllowed(userId)).toBe(false);
+      expect(await rateLimiter.isAllowed(userId)).toBe(false);
 
       // Advance time by 1 minute
       jest.advanceTimersByTime(60000);
 
       // Should be allowed again
-      expect(rateLimiter.isAllowed(userId)).toBe(true);
-      expect(rateLimiter.getRemainingAttempts(userId)).toBe(4);
+      expect(await rateLimiter.isAllowed(userId)).toBe(true);
+      expect(await rateLimiter.getRemainingAttempts(userId)).toBe(4);
 
       jest.useRealTimers();
     });

@@ -153,13 +153,7 @@ class MessagingTestRunner {
       } catch (parseError) {
         console.error(`Failed to parse Jest output for ${testFile}:`, parseError);
         console.error('Raw output:', output);
-        return {
-          testFile,
-          passed: false,
-          duration: Date.now() - startTime,
-          error: `Failed to parse Jest output: ${parseError}`,
-          details: { total: 0, passed: 0, failed: 1 }
-        };
+        throw new Error(`Failed to parse Jest output for ${testFile}: ${parseError}`);
       }
       const duration = Date.now() - startTime;
 
@@ -245,7 +239,7 @@ class MessagingTestRunner {
 module.exports = {
   preset: 'react-native',
   setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect'],
-  testMatch: ['**/src/tests/**/*.test.ts', '**/src/tests/**/*.test.tsx'],
+  testMatch: ['__tests__/services/**/*.test.ts', '**/__tests__/services/**/*.test.tsx'],
   transform: {
     '^.+\\\\.(ts|tsx)$': 'ts-jest',
   },
@@ -258,7 +252,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
   testEnvironment: 'node',
-  moduleNameMapping: {
+  moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
 };
@@ -266,6 +260,8 @@ module.exports = {
         
         fs.writeFileSync(jestConfigPath, jestConfig.trim());
         console.log('  ✅ Created Jest configuration');
+      } else {
+        console.log('  ⚠️  Jest configuration already exists, skipping creation');
       }
 
       console.log('  ✅ Test environment ready\n');
@@ -327,17 +323,21 @@ module.exports = {
 
     // Performance insights
     console.log('\n⚡ PERFORMANCE INSIGHTS:');
-    const avgDuration = this.results.reduce((sum, r) => sum + r.duration, 0) / this.results.length;
-    const slowestTest = this.results.reduce((prev, current) => 
-      prev.duration > current.duration ? prev : current
-    );
-    const fastestTest = this.results.reduce((prev, current) => 
-      prev.duration < current.duration ? prev : current
-    );
+    if (this.results.length === 0) {
+      console.log('  No test results available');
+    } else {
+      const avgDuration = this.results.reduce((sum, r) => sum + r.duration, 0) / this.results.length;
+      const slowestTest = this.results.reduce((prev, current) => 
+        prev.duration > current.duration ? prev : current
+      );
+      const fastestTest = this.results.reduce((prev, current) => 
+        prev.duration < current.duration ? prev : current
+      );
 
-    console.log(`  Average test duration: ${avgDuration.toFixed(0)}ms`);
-    console.log(`  Slowest test: ${slowestTest.testFile} (${slowestTest.duration}ms)`);
-    console.log(`  Fastest test: ${fastestTest.testFile} (${fastestTest.duration}ms)`);
+      console.log(`  Average test duration: ${avgDuration.toFixed(0)}ms`);
+      console.log(`  Slowest test: ${slowestTest.testFile} (${slowestTest.duration}ms)`);
+      console.log(`  Fastest test: ${fastestTest.testFile} (${fastestTest.duration}ms)`);
+    }
 
     // Recommendations
     console.log('\n💡 RECOMMENDATIONS:');

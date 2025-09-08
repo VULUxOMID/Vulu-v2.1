@@ -39,5 +39,8 @@ yarn-error.*
 # test coverage and results
 coverage/
 test-results/
+test-report.xml
+reports/
+junit*.xml
 
 app-example

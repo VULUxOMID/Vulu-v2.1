@@ -7,7 +7,7 @@ import { presenceService } from '../../src/services/presenceService';
 import { messagingService } from '../../src/services/messagingService';
 import { useTypingIndicator } from '../../src/hooks/useTypingIndicator';
 import { useReadReceipts } from '../../src/hooks/useReadReceipts';
-import { DirectMessage, UserStatus } from '../../src/services/types';
+import { DirectMessage, UserStatus, Timestamp } from '../../src/services/types';
 
 // Mock Firebase
 jest.mock('../../src/services/firebase', () => ({
@@ -35,8 +35,13 @@ jest.mock('react', () => ({
 }));
 
 describe('Real-time Features', () => {
+  let mockCallback: jest.Mock;
+  let mockUnsubscribe: jest.Mock;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockCallback = jest.fn();
+    mockUnsubscribe = jest.fn();
   });
 
   describe('Presence Service', () => {
@@ -203,7 +208,7 @@ describe('Real-time Features', () => {
       jest.useRealTimers();
     });
 
-    it('should subscribe to typing indicators', () => {
+    it('should subscribe to typing indicators', async () => {
       const mockCallback = jest.fn();
       const mockUnsubscribe = jest.fn();
       
@@ -253,7 +258,7 @@ describe('Real-time Features', () => {
       const messageIds = ['message-1', 'message-2', 'message-3'];
       (messagingService.markMessagesAsRead as jest.Mock).mockResolvedValue(undefined);
 
-      await messagingService.markMessagesAsRead('test-conversation-1', 'test-user-1');
+      await messagingService.markMessagesAsRead('test-conversation-1', messageIds, 'test-user-1');
 
       expect(messagingService.markMessagesAsRead).toHaveBeenCalledWith(
         'test-conversation-1',
@@ -265,6 +270,7 @@ describe('Real-time Features', () => {
     it('should get message read status', async () => {
       const mockReadStatus = {
         messageId: 'message-1',
+        isRead: true,
         readBy: [
           {
             userId: 'test-user-2',
@@ -295,7 +301,7 @@ describe('Real-time Features', () => {
       expect(messagingService.markMessageAsDelivered).toHaveBeenCalledWith('test-conversation-1', 'message-1', 'test-user-2');
     });
 
-    it('should subscribe to read receipt updates', () => {
+    it('should subscribe to read receipt updates', async () => {
       const mockCallback = jest.fn();
       const mockUnsubscribe = jest.fn();
       
@@ -318,17 +324,18 @@ describe('Real-time Features', () => {
       const messageIds = Array.from({ length: 50 }, (_, i) => `message-${i}`);
       (messagingService.markMessagesAsRead as jest.Mock).mockResolvedValue(undefined);
 
-      await messagingService.markMessagesAsRead('test-conversation-1', 'test-user-1');
+      await messagingService.markMessagesAsRead('test-conversation-1', messageIds, 'test-user-1');
 
       expect(messagingService.markMessagesAsRead).toHaveBeenCalledWith(
         'test-conversation-1',
+        messageIds,
         'test-user-1'
       );
     });
   });
 
   describe('Live Message Updates', () => {
-    it('should receive new messages in real-time', () => {
+    it('should receive new messages in real-time', async () => {
       const mockCallback = jest.fn();
       const mockUnsubscribe = jest.fn();
       
@@ -368,7 +375,7 @@ describe('Real-time Features', () => {
       expect(mockCallback).toHaveBeenCalledWith([newMessage]);
     });
 
-    it('should handle message updates (edits, deletions)', () => {
+    it('should handle message updates (edits, deletions)', async () => {
       const mockCallback = jest.fn();
       const mockUnsubscribe = jest.fn();
       

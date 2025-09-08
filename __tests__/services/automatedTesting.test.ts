@@ -3,6 +3,15 @@
  * Tests the automated testing infrastructure including unit tests, integration tests, E2E tests, and CI/CD pipeline
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Test configuration constants
+const COVERAGE_THRESHOLDS = {
+  MIN_COVERAGE: 80,
+  HIGH_COVERAGE: 85,
+} as const;
+
 describe('Automated Testing Setup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -46,7 +55,7 @@ describe('Automated Testing Setup', () => {
       });
     });
 
-    it('should run unit tests for all messaging components', () => {
+    it('should run unit tests for all messaging components', async () => {
       const unitTestSuites = [
         'messagingCore.simple.test.ts',
         'edgeCases.test.ts',
@@ -58,12 +67,17 @@ describe('Automated Testing Setup', () => {
         'automatedTesting.test.ts',
       ];
 
-      unitTestSuites.forEach(suite => {
-        expect(suite).toMatch(/\.test\.ts$/);
-        expect(suite.length).toBeGreaterThan(0);
-      });
+      const testsDir = path.join(__dirname, '..');
+      let filesChecked = 0;
 
-      expect(unitTestSuites.length).toBeGreaterThanOrEqual(8);
+      for (const suite of unitTestSuites) {
+        const filePath = path.join(testsDir, suite);
+        const fileExists = fs.existsSync(filePath);
+        expect(fileExists).toBe(true);
+        filesChecked++;
+      }
+
+      expect(filesChecked).toBe(unitTestSuites.length);
     });
 
     it('should provide comprehensive test coverage', () => {
@@ -77,11 +91,11 @@ describe('Automated Testing Setup', () => {
       };
 
       Object.entries(coverageAreas).forEach(([area, coverage]) => {
-        expect(coverage).toBeGreaterThanOrEqual(80);
+        expect(coverage).toBeGreaterThanOrEqual(COVERAGE_THRESHOLDS.MIN_COVERAGE);
       });
 
       const overallCoverage = Object.values(coverageAreas).reduce((sum, cov) => sum + cov, 0) / Object.values(coverageAreas).length;
-      expect(overallCoverage).toBeGreaterThanOrEqual(85);
+      expect(overallCoverage).toBeGreaterThanOrEqual(COVERAGE_THRESHOLDS.HIGH_COVERAGE);
     });
   });
 

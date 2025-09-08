@@ -369,11 +369,19 @@ describe('Edge Case Testing', () => {
   });
 
   describe('App Backgrounding and State Management', () => {
+    let heartbeatInterval: NodeJS.Timeout | null = null;
+
+    afterEach(() => {
+      if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+      }
+    });
+
     it('should handle app backgrounding gracefully', () => {
       let appState = 'active';
       let connectionState = 'connected';
       const listeners: any[] = [];
-      let heartbeatInterval: NodeJS.Timeout | null = null;
 
       const handleAppStateChange = (newState: string) => {
         appState = newState;
