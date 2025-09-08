@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Image, Text } from 'react-native';
 import MessageBubble from './MessageBubble';
 import MessageReactions from './MessageReactions';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 
 interface MessageProps {
   id: number | string;
@@ -43,6 +44,8 @@ const Message = ({
   onLongPress,
   onEditPress,
   onDeletePress,
+  onPinPress,
+  onForwardPress,
   currentUserId,
   message
 }: MessageProps) => {
@@ -79,40 +82,54 @@ const Message = ({
             </Text>
           )}
           
-          {/* Message Bubble */}
-          <MessageBubble
-            id={id.toString()}
-            text={text}
-            timestamp={time}
-            isCurrentUser={false} // Always false for Discord-style
-            senderName={displayName}
-            senderAvatar={avatarUri}
-            reactions={reactions.map(r => ({
-              emoji: r.emoji || '👍',
-              count: r.count || 1,
-              userIds: r.userIds || ['user1']
-            }))}
-            attachments={attachments.map(a => ({
-              id: a.id || Date.now().toString(),
-              type: a.type || 'image',
-              url: a.url || '',
-              filename: a.filename,
-              width: a.width,
-              height: a.height
-            }))}
-            onPress={() => {}}
-            onLongPress={onLongPress || (() => {})}
-            onReactionPress={onReactionPress}
-            onReplyPress={onReplyPress}
-            onEditPress={onEditPress}
-            onDeletePress={onDeletePress}
-            onPinPress={onPinPress}
-            onForwardPress={onForwardPress}
-            currentUserId={currentUserId || ''}
-            message={message}
-            isPinned={message?.isPinned || false}
-            isForwarded={message?.forwardedFrom ? true : false}
-          />
+          {/* Voice Message or Regular Message */}
+          {message?.type === 'voice' && message?.voiceData ? (
+            <VoiceMessagePlayer
+              voiceMessage={{
+                id: id.toString(),
+                uri: message.voiceData.uri,
+                duration: message.voiceData.duration,
+                waveform: message.voiceData.waveform,
+                size: message.voiceData.size,
+                timestamp: Number(message.timestamp || message.voiceData?.timestamp || message.createdAt || Date.now()),
+              }}
+              isCurrentUser={isCurrentUser}
+            />
+          ) : (
+            <MessageBubble
+              id={id.toString()}
+              text={text}
+              timestamp={time}
+              isCurrentUser={isCurrentUser}
+              senderName={displayName}
+              senderAvatar={avatarUri}
+              reactions={reactions.map(r => ({
+                emoji: r.emoji || '👍',
+                count: r.count || 1,
+                userIds: r.userIds || ['user1']
+              }))}
+              attachments={attachments.map(a => ({
+                id: a.id || Date.now().toString(),
+                type: a.type || 'image',
+                url: a.url || '',
+                filename: a.filename,
+                width: a.width,
+                height: a.height
+              }))}
+              onPress={() => {}}
+              onLongPress={onLongPress || (() => {})}
+              onReactionPress={onReactionPress}
+              onReplyPress={onReplyPress}
+              onEditPress={onEditPress}
+              onDeletePress={onDeletePress}
+              onPinPress={onPinPress}
+              onForwardPress={onForwardPress}
+              currentUserId={currentUserId || ''}
+              message={message}
+              isPinned={message?.isPinned || false}
+              isForwarded={message?.forwardedFrom ? true : false}
+            />
+          )}
         </View>
       </View>
     </View>

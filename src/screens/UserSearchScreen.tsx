@@ -22,7 +22,8 @@ import { LoadingState, ErrorState, EmptyState } from '../components/ErrorHandlin
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 
 const UserSearchScreen = () => {
-  const { user: currentUser } = useAuth();
+  const authContext = useAuth();
+  const currentUser = authContext?.user || null;
   const { canAddFriends } = useGuestRestrictions();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);

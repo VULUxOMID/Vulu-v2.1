@@ -15,7 +15,7 @@ import {
   DocumentData,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from './firebase';
 import { DirectMessage } from './types';
 
 export interface SearchFilters {

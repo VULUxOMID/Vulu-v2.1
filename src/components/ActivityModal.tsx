@@ -197,7 +197,7 @@ const ActivityModal = ({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, opacity, translateY]);
 
   const closeModal = () => {
     // Animate out when closing

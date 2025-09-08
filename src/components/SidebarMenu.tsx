@@ -67,7 +67,8 @@ export const useMenuPosition = () => useContext(MenuPositionContext);
 const SidebarMenu: React.FC<SidebarMenuProps> = ({ onMenuStateChange }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { user: currentUser } = useAuth();
+  const authContext = useAuth();
+  const currentUser = authContext?.user || null;
   
   // Get both position and expanded state from context
   const menuPositionContext = useContext(MenuPositionContext);

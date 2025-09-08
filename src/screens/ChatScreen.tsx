@@ -42,12 +42,28 @@ import PinnedMessages from '../components/PinnedMessages';
 import ChatCustomization from '../components/ChatCustomization';
 import MessageForwarding from '../components/MessageForwarding';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
+import MessageScheduling from '../components/MessageScheduling';
+import ScheduledMessagesList from '../components/ScheduledMessagesList';
+import { useMessageScheduling } from '../hooks/useMessageScheduling';
+import OfflineStatusIndicator from '../components/OfflineStatusIndicator';
+import OfflineMessagesModal from '../components/OfflineMessagesModal';
+import { useOfflineMessages, useOptimisticMessages } from '../hooks/useOfflineMessages';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import EncryptionIndicator from '../components/EncryptionIndicator';
+import EncryptionSettingsModal from '../components/EncryptionSettingsModal';
+import { useConversationEncryption } from '../hooks/useEncryption';
+import VoiceMessageModal from '../components/VoiceMessageModal';
+import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
+import { VoiceMessage } from '../services/voiceMessageService';
+import VirtualizedMessageList from '../components/VirtualizedMessageList';
+import VirtualizationPerformanceMonitor from '../components/VirtualizationPerformanceMonitor';
+import { useMessageListOptimization } from '../hooks/useVirtualization';
 import { firestoreService } from '../services/firestoreService';
 import { messagingService } from '../services/messagingService';
 import { presenceService, PresenceService } from '../services/presenceService';
 import { UnifiedMessage, MessageConverter, DirectMessage } from '../services/types';
 import { ChatOperations, chatSubscriptionManager } from '../utils/chatUtils';
-import { useAuth } from '../context/AuthContext';
+import { useAuthSafe } from '../context/AuthContext';
 import { LoadingState, ErrorState, MessageSkeletonLoader, useErrorHandler } from '../components/ErrorHandling';
 import { useErrorReporting } from '../hooks/useErrorReporting';
 import { useMessageReactions } from '../hooks/useMessageReactions';
@@ -60,6 +76,7 @@ import { useTypingIndicator } from '../hooks/useTypingIndicator';
 import { useMessagePinning } from '../hooks/useMessagePinning';
 import { useChatTheme } from '../hooks/useChatTheme';
 import { useMessageForwarding } from '../hooks/useMessageForwarding';
+import { useMessagingAnalytics, usePerformanceTracking } from '../hooks/useMessagingAnalytics';
 import { MessageValidator } from '../utils/chatUtils';
 
 const { width, height } = Dimensions.get('window');
@@ -234,8 +251,34 @@ const useScrollToBottom = (ref: React.RefObject<FlatList>) => {
 };
 
 const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: ChatScreenProps) => {
-  const { canSendMessages } = useGuestRestrictions();
-  const { user: currentUser } = useAuth();
+  try {
+    const { canSendMessages } = useGuestRestrictions();
+    const authContext = useAuthSafe();
+  
+  // Handle null auth context or missing user property
+  if (!authContext) {
+    console.log('🔍 ChatScreen: authContext is null');
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Authentication not available</Text>
+      </View>
+    );
+  }
+  
+  if (!authContext.user) {
+    console.log('🔍 ChatScreen: authContext.user is null/undefined');
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>User not authenticated</Text>
+      </View>
+    );
+  }
+  
+  const currentUser = authContext.user;
+
+  // Analytics hooks - with safe user ID
+  const { trackMessageSent, trackFeatureUsage, trackUserSession } = useMessagingAnalytics(currentUser?.uid || '');
+  const { trackTiming } = usePerformanceTracking(currentUser?.uid || '');
 
   // Validate required props
   useEffect(() => {
@@ -243,6 +286,25 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       console.error('ChatScreen: Missing required props', { userId, name, avatar, source });
     }
   }, [userId, name, avatar, source]);
+
+  // Track user session and feature usage
+  useEffect(() => {
+    if (currentUser?.uid) {
+      // Track session start
+      trackUserSession(currentUser.uid, 'start');
+
+      // Track chat screen opened
+      trackFeatureUsage('chat_screen_opened', currentUser.uid, {
+        recipientId: userId,
+        source: source || 'unknown',
+      });
+
+      return () => {
+        // Track session end
+        trackUserSession(currentUser.uid, 'end');
+      };
+    }
+  }, [currentUser?.uid, userId, source, trackUserSession, trackFeatureUsage]);
 
   // Real chat state
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
@@ -335,6 +397,15 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   const [showChatCustomization, setShowChatCustomization] = useState(false);
   const [showMessageForwarding, setShowMessageForwarding] = useState(false);
   const [selectedMessagesForForwarding, setSelectedMessagesForForwarding] = useState<DirectMessage[]>([]);
+  const [showMessageScheduling, setShowMessageScheduling] = useState(false);
+  const [showScheduledMessagesList, setShowScheduledMessagesList] = useState(false);
+  const [schedulingReplyTo, setSchedulingReplyTo] = useState<any>(null);
+  const [showOfflineMessages, setShowOfflineMessages] = useState(false);
+  const [showEncryptionSettings, setShowEncryptionSettings] = useState(false);
+  const [showVoiceMessageModal, setShowVoiceMessageModal] = useState(false);
+  const [useVirtualization, setUseVirtualization] = useState(true);
+  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(false);
 
   // Read receipts
   const {
@@ -352,7 +423,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
   // Auto-mark messages as read when they are viewed
   useEffect(() => {
-    if (messages.length > 0 && conversationId && user) {
+    if (messages.length > 0 && conversationId && currentUser) {
       const unreadMessageIds = getUnreadMessages();
       if (unreadMessageIds.length > 0) {
         // Mark messages as read after a short delay to ensure they're actually viewed
@@ -363,7 +434,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         return () => clearTimeout(timer);
       }
     }
-  }, [messages, conversationId, user, getUnreadMessages, markAsRead]);
+  }, [messages, conversationId, currentUser, getUnreadMessages, markAsRead]);
 
   // Enhanced typing indicator
   const {
@@ -377,6 +448,9 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     typingTimeout: 3000,
     updateInterval: 1000,
   });
+
+  // Message list optimization
+  const messageOptimization = useMessageListOptimization(messages);
 
   // Message pinning
   const {
@@ -421,6 +495,31 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       console.log(`Messages forwarded to ${targetConversations.length} conversations`);
     },
   });
+
+  // Message scheduling
+  const { scheduleMessage } = useMessageScheduling(currentUser?.uid || '');
+
+  // Offline message handling
+  const { queueMessage, syncStats } = useOfflineMessages();
+  const {
+    optimisticMessages,
+    addOptimisticMessage,
+    removeOptimisticMessage
+  } = useOptimisticMessages();
+
+  // Push notifications
+  const { clearConversationNotifications } = usePushNotifications();
+
+  // Encryption
+  const {
+    isEncrypted,
+    canEncrypt,
+    toggleEncryption,
+  } = useConversationEncryption(
+    conversationId || '',
+    [currentUser?.uid || '', userId],
+    currentUser?.uid || ''
+  );
 
   // Legacy state for backward compatibility
   const [isCloseFriend, setIsCloseFriend] = useState(false);
@@ -520,6 +619,11 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         if (!isMounted) return;
 
         setConversationId(newConversationId);
+
+        // Clear notifications for this conversation
+        clearConversationNotifications(newConversationId).catch(error => {
+          console.warn('Failed to clear conversation notifications:', error);
+        });
 
         // Load existing messages with pagination
         const messageResult = await messagingService.getConversationMessages(newConversationId, 30); // Load 30 initial messages
@@ -818,7 +922,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
               setShowMessageForwarding(true);
             }
           }}
-          currentUserId={user?.uid}
+          currentUserId={currentUser?.uid}
           message={messages.find(m => m.id === messageComponentFormat.id)}
         />
       </View>
@@ -835,10 +939,84 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     );
   };
 
+  // Handler functions for VirtualizedMessageList
+  const handleReactionPress = (messageId: string, emoji: string) => {
+    toggleReaction(messageId, emoji);
+  };
+
+  const handleReplyPress = (message: any) => {
+    startReply(message);
+  };
+
+  const handleEditPress = (message: any) => {
+    startEdit(message);
+  };
+
+  const handleDeletePress = (message: any) => {
+    startDelete(message);
+  };
+
+  const handlePinMessage = (message: any) => {
+    if (message.isPinned) {
+      unpinMessage(message);
+    } else {
+      pinMessageWithConfirmation(message);
+    }
+  };
+
+  const handleForwardMessage = (message: any) => {
+    setSelectedMessagesForForwarding([message]);
+    setShowMessageForwarding(true);
+  };
+
   // Try to safely render the message list
   const safeRenderMessages = () => {
     try {
-    return (
+      if (useVirtualization && messages.length > 50) {
+        return (
+          <VirtualizedMessageList
+            messages={messages}
+            currentUserId={currentUser?.uid || ''}
+            isTyping={isAnyoneTyping}
+            typingUsers={typingUsers}
+            onLoadMore={loadMoreMessages}
+            onRefresh={async () => {
+              // Refresh messages
+              if (conversationId) {
+                const result = await messagingService.getConversationMessages(conversationId, 20);
+                setMessages(result.messages);
+                setMessageCursor(result.cursor);
+                setHasMoreMessages(result.hasMore);
+              }
+            }}
+            onMessagePress={(message) => {
+              // Handle message press
+              console.log('Message pressed:', message.id);
+            }}
+            onMessageLongPress={(message) => {
+              // Handle message long press - show context menu
+              console.log('Message long pressed:', message.id);
+            }}
+            onReactionPress={handleReactionPress}
+            onReplyPress={handleReplyPress}
+            onEditPress={handleEditPress}
+            onDeletePress={handleDeletePress}
+            onPinPress={handlePinMessage}
+            onForwardPress={handleForwardMessage}
+            isLoading={isLoadingMore}
+            hasMoreMessages={hasMoreMessages}
+            scrollToBottom={shouldScrollToBottom}
+            onScrollToBottomComplete={() => setShouldScrollToBottom(false)}
+            estimatedItemSize={80}
+            windowSize={10}
+            maxToRenderPerBatch={10}
+            updateCellsBatchingPeriod={50}
+            removeClippedSubviews={true}
+          />
+        );
+      }
+
+      return (
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -917,26 +1095,181 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       return;
     }
 
-    // Use the error handling wrapper
-    await withErrorHandling(
-      async () => {
-        await messagingService.sendMessage(
+    const optimisticId = `optimistic_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      // Add optimistic message for immediate UI feedback
+      const optimisticMessage = {
+        id: optimisticId,
+        conversationId,
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName || 'You',
+        text: text.trim(),
+        timestamp: new Date(),
+        status: 'sending',
+        isOptimistic: true,
+      };
+
+      addOptimisticMessage(optimisticId, optimisticMessage);
+
+      if (syncStats.isOnline) {
+        // Try to send immediately if online
+        await withErrorHandling(
+          async () => {
+            // Track message sending performance
+            await trackTiming(
+              'message_send',
+              'messaging',
+              async () => {
+                await messagingService.sendMessage(
+                  conversationId,
+                  currentUser.uid,
+                  currentUser.displayName || 'You',
+                  userId,
+                  text.trim(),
+                  'text',
+                  currentUser.photoURL
+                );
+              },
+              {
+                messageLength: text.trim().length,
+                conversationId,
+                messageType: 'text',
+              }
+            );
+
+            // Track feature usage
+            trackFeatureUsage('send_message', currentUser.uid, {
+              messageType: 'text',
+              messageLength: text.trim().length,
+            });
+
+            // Remove optimistic message on success
+            removeOptimisticMessage(optimisticId);
+
+            // Messages will be updated via real-time listener
+            setTimeout(() => {
+              scrollToBottom();
+            }, 100);
+          },
+          'Failed to send message'
+        );
+      } else {
+        // Queue for offline sending
+        await queueMessage(
           conversationId,
           currentUser.uid,
           currentUser.displayName || 'You',
-          userId,
           text.trim(),
-          'text',
-          currentUser.photoURL
+          { optimisticId }
         );
+        console.log('📤 Message queued for offline sending');
+      }
+    } catch (error: any) {
+      console.error('Error handling message send:', error);
+      
+      // Track failed message send for analytics
+      try {
+        trackFeatureUsage('message_send_failed', currentUser?.uid || 'unknown', {
+          conversationId,
+          userId: currentUser?.uid,
+          messageLength: text.trim().length,
+          messageType: 'text',
+          optimisticId,
+          error: error.message || 'Unknown error',
+          stack: error.stack
+        });
+      } catch (analyticsError) {
+        console.warn('Failed to track message send failure:', analyticsError);
+      }
+      
+      removeOptimisticMessage(optimisticId);
+      handleError(`Failed to send message: ${error.message}`);
+    }
+  };
 
-        // Messages will be updated via real-time listener
-        setTimeout(() => {
-          scrollToBottom();
-        }, 100);
-      },
-      'Failed to send message'
-    );
+  // Handle sending a voice message
+  const handleSendVoiceMessage = async (voiceMessage: VoiceMessage) => {
+    // Check if user can send messages (guest restriction)
+    if (!canSendMessages()) {
+      handleError('You must be logged in to send messages');
+      return;
+    }
+
+    if (!currentUser || !conversationId) {
+      handleError('Cannot send voice message: conversation not loaded');
+      return;
+    }
+
+    const optimisticId = `optimistic_voice_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    try {
+      // Add optimistic voice message for immediate UI feedback
+      const optimisticMessage = {
+        id: optimisticId,
+        conversationId,
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName || 'You',
+        text: '🎤 Voice message',
+        type: 'voice',
+        voiceData: {
+          uri: voiceMessage.uri,
+          duration: voiceMessage.duration,
+          waveform: voiceMessage.waveform,
+          size: voiceMessage.size,
+        },
+        timestamp: new Date(),
+        status: 'sending',
+        isOptimistic: true,
+      };
+
+      addOptimisticMessage(optimisticId, optimisticMessage);
+
+      if (syncStats.isOnline) {
+        // Try to send immediately if online
+        await withErrorHandling(
+          async () => {
+            await messagingService.sendMessage(
+              conversationId,
+              currentUser.uid,
+              currentUser.displayName || 'You',
+              userId,
+              '🎤 Voice message',
+              'voice',
+              currentUser.photoURL,
+              undefined, // replyTo
+              undefined, // attachments
+              voiceMessage // voiceData
+            );
+
+            // Remove optimistic message on success
+            removeOptimisticMessage(optimisticId);
+
+            // Messages will be updated via real-time listener
+            setTimeout(() => {
+              scrollToBottom();
+            }, 100);
+          },
+          'Failed to send voice message'
+        );
+      } else {
+        // Queue for offline sending
+        await queueMessage(
+          conversationId,
+          currentUser.uid,
+          currentUser.displayName || 'You',
+          '🎤 Voice message',
+          { optimisticId, type: 'voice', voiceData: voiceMessage }
+        );
+        console.log('📤 Voice message queued for offline sending');
+      }
+
+      setShowVoiceMessageModal(false);
+    } catch (error: any) {
+      console.error('Error handling voice message send:', error);
+      removeOptimisticMessage(optimisticId);
+      handleError(`Failed to send voice message: ${error.message}`);
+    }
   };
 
   // Handle typing indicators (legacy - now using enhanced typing hook)
@@ -955,6 +1288,23 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     setIsCloseFriend(prev => !prev);
     // Here you would typically update this in your backend or local storage
     // For now, we'll just toggle the state
+  };
+
+  // Handle forwarding messages
+  const handleForwardPress = (message: DirectMessage) => {
+    setSelectedMessagesForForwarding([message]);
+    setShowMessageForwarding(true);
+  };
+
+  // Handle scheduling messages
+  const handleSchedulePress = (text?: string, replyTo?: any) => {
+    setSchedulingReplyTo(replyTo);
+    setShowMessageScheduling(true);
+  };
+
+  // Handle viewing scheduled messages
+  const handleViewScheduledMessages = () => {
+    setShowScheduledMessagesList(true);
   };
 
   const dynamicStyles = getDynamicStyles();
@@ -1002,7 +1352,14 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           onCustomization={() => {
             setShowChatCustomization(true);
           }}
+          onScheduledMessages={() => {
+            setShowScheduledMessagesList(true);
+          }}
           onToggleCloseFriend={handleToggleCloseFriend}
+          isEncrypted={isEncrypted}
+          canEncrypt={canEncrypt}
+          onToggleEncryption={toggleEncryption}
+          onEncryptionSettings={() => setShowEncryptionSettings(true)}
         />
         
         {/* Live Chat Preview - if needed */}
@@ -1061,6 +1418,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           onTypingStart={handleTypingStart}
           onTypingStop={handleTypingStop}
           onAttachmentPress={() => setShowAttachmentPicker(true)}
+          onVoiceMessagePress={() => setShowVoiceMessageModal(true)}
           onTextChange={handleTypingTextChange}
         />
 
@@ -1086,7 +1444,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             messageId={deletingMessage.id || ''}
             conversationId={conversationId || ''}
             messageText={deletingMessage.text}
-            isOwnMessage={deletingMessage.senderId === user?.uid}
+            isOwnMessage={deletingMessage.senderId === currentUser?.uid}
             onClose={cancelDelete}
             onDeleteComplete={() => {
               // The real-time listener should handle updates automatically
@@ -1172,9 +1530,84 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             setSelectedMessagesForForwarding([]);
           }}
         />
+
+        {/* Message Scheduling Modal */}
+        <MessageScheduling
+          visible={showMessageScheduling}
+          onClose={() => {
+            setShowMessageScheduling(false);
+            setSchedulingReplyTo(null);
+          }}
+          conversationId={conversationId || ''}
+          currentUserId={currentUser?.uid || ''}
+          currentUserName={currentUser?.displayName || 'You'}
+          replyTo={schedulingReplyTo}
+          onScheduleComplete={(scheduledMessageId) => {
+            console.log(`Message scheduled: ${scheduledMessageId}`);
+            setShowMessageScheduling(false);
+            setSchedulingReplyTo(null);
+          }}
+        />
+
+        {/* Scheduled Messages List Modal */}
+        <ScheduledMessagesList
+          visible={showScheduledMessagesList}
+          onClose={() => setShowScheduledMessagesList(false)}
+          currentUserId={currentUser?.uid || ''}
+        />
+
+        {/* Offline Status Indicator */}
+        <OfflineStatusIndicator
+          onPress={() => setShowOfflineMessages(true)}
+        />
+
+        {/* Offline Messages Modal */}
+        <OfflineMessagesModal
+          visible={showOfflineMessages}
+          onClose={() => setShowOfflineMessages(false)}
+        />
+
+        {/* Encryption Settings Modal */}
+        <EncryptionSettingsModal
+          visible={showEncryptionSettings}
+          onClose={() => setShowEncryptionSettings(false)}
+          userId={currentUser?.uid || ''}
+        />
+
+        {/* Voice Message Modal */}
+        <VoiceMessageModal
+          visible={showVoiceMessageModal}
+          onClose={() => setShowVoiceMessageModal(false)}
+          onSend={handleSendVoiceMessage}
+          maxDuration={300}
+        />
+
+        {/* Virtualization Performance Monitor */}
+        {useVirtualization && (
+          <VirtualizationPerformanceMonitor
+            enabled={showPerformanceMonitor}
+            metrics={messageOptimization.getPerformanceMetrics()}
+            onToggle={setShowPerformanceMonitor}
+          />
+        )}
       </Animated.View>
     </View>
   );
+  } catch (error) {
+    console.error('🔍 ChatScreen error:', error);
+    console.error('🔍 ChatScreen error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('🔍 ChatScreen error details:', {
+      message: error instanceof Error ? error.message : String(error),
+      name: error instanceof Error ? error.name : 'Unknown',
+      currentUser: currentUser ? { uid: currentUser.uid, email: currentUser.email } : 'null',
+      authContext: authContext ? { hasUser: !!authContext.user, userType: typeof authContext.user } : 'null'
+    });
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>Error loading chat: {String(error)}</Text>
+      </View>
+    );
+  }
 };
 
 // New wrapper component to handle route props

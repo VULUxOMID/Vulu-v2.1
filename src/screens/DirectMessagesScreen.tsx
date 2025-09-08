@@ -166,7 +166,8 @@ const StatusIndicator = ({ status, size = 'normal' }: { status: ChatPreview['sta
 };
 
 const DirectMessagesScreen = () => {
-  const { user: currentUser } = useAuth();
+  const authContext = useAuth();
+  const currentUser = authContext?.user || null;
   const { canAddFriends } = useGuestRestrictions();
   const { reportError } = useErrorReporting('DirectMessagesScreen');
   const [conversations, setConversations] = useState<Conversation[]>([]);

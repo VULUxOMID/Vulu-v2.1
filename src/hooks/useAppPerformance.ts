@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager, AppState, AppStateStatus } from 'react-native';
-import { analyticsService } from '../services/AnalyticsService';
+import { analyticsService } from '../services/analyticsService';
 import { memoryOptimizer } from '../utils/MemoryOptimizer';
 
 interface PerformanceOptions {

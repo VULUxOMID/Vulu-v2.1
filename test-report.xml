@@ -1,9 +1,182 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testExecutions version="1">
-  <file path="/Users/omid/VuluGO v6/VuluGO-v.1.0.0./__tests__/e2e/streamingComponents.test.tsx">
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/performance.test.ts">
+    <testCase name="Performance Testing Load Testing with Multiple Concurrent Users should handle 100 concurrent users efficiently" duration="4"/>
+    <testCase name="Performance Testing Load Testing with Multiple Concurrent Users should handle high-frequency message sending" duration="7"/>
+    <testCase name="Performance Testing Load Testing with Multiple Concurrent Users should handle concurrent read/write operations" duration="5"/>
+    <testCase name="Performance Testing Memory Usage Monitoring should maintain stable memory usage with large datasets" duration="76"/>
+    <testCase name="Performance Testing Memory Usage Monitoring should handle memory cleanup efficiently" duration="5"/>
+    <testCase name="Performance Testing Memory Usage Monitoring should optimize memory usage with message virtualization" duration="6"/>
+    <testCase name="Performance Testing Battery Impact Testing should minimize background activity" duration="1"/>
+    <testCase name="Performance Testing Battery Impact Testing should optimize heartbeat intervals" duration="4"/>
+    <testCase name="Performance Testing Battery Impact Testing should reduce animation and UI updates when battery is low" duration="1"/>
+    <testCase name="Performance Testing Network Condition Testing should adapt to different network speeds" duration="1"/>
+    <testCase name="Performance Testing Network Condition Testing should handle network quality degradation gracefully" duration="1"/>
+    <testCase name="Performance Testing Network Condition Testing should optimize data usage on limited connections" duration="0"/>
   </file>
-  <file path="/Users/omid/VuluGO v6/VuluGO-v.1.0.0./__tests__/integration/streamingFlow.test.ts">
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/setUserTyping.test.ts">
+    <testCase name="MessagingService - setUserTyping Method setUserTyping method should exist on the MessagingService instance" duration="1"/>
+    <testCase name="MessagingService - setUserTyping Method setUserTyping method should call updateTypingStatus when setUserTyping is called" duration="1"/>
+    <testCase name="MessagingService - setUserTyping Method setUserTyping method should handle typing start correctly" duration="1"/>
+    <testCase name="MessagingService - setUserTyping Method setUserTyping method should handle typing stop correctly" duration="0"/>
+    <testCase name="MessagingService - setUserTyping Method setUserTyping method should propagate errors from updateTypingStatus" duration="5"/>
+    <testCase name="MessagingService - setUserTyping Method Integration with useTypingIndicator hook should be compatible with the expected API from useTypingIndicator" duration="1"/>
   </file>
-  <file path="/Users/omid/VuluGO v6/VuluGO-v.1.0.0./__tests__/services/streamService.test.ts">
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/messagingCore.simple.test.ts">
+    <testCase name="Core Messaging Functionality Message Operations should validate message data structure" duration="1"/>
+    <testCase name="Core Messaging Functionality Message Operations should validate message content" duration="0"/>
+    <testCase name="Core Messaging Functionality Message Operations should validate message timestamps" duration="1"/>
+    <testCase name="Core Messaging Functionality Message Operations should validate message IDs format" duration="3"/>
+    <testCase name="Core Messaging Functionality Message Operations should validate user references in messages" duration="0"/>
+    <testCase name="Core Messaging Functionality Conversation Operations should validate conversation data structure" duration="1"/>
+    <testCase name="Core Messaging Functionality Conversation Operations should validate conversation participants" duration="1"/>
+    <testCase name="Core Messaging Functionality Conversation Operations should validate participant metadata" duration="1"/>
+    <testCase name="Core Messaging Functionality Conversation Operations should validate last message data" duration="0"/>
+    <testCase name="Core Messaging Functionality Conversation Operations should validate unread counts" duration="1"/>
+    <testCase name="Core Messaging Functionality Conversation Operations should validate conversation type" duration="0"/>
+    <testCase name="Core Messaging Functionality User Operations should validate user data structure" duration="3"/>
+    <testCase name="Core Messaging Functionality User Operations should validate user presence data" duration="1"/>
+    <testCase name="Core Messaging Functionality User Operations should validate user profile data" duration="1"/>
+    <testCase name="Core Messaging Functionality User Operations should validate user timestamps" duration="0"/>
+    <testCase name="Core Messaging Functionality Data Validation should validate required fields are present" duration="1"/>
+    <testCase name="Core Messaging Functionality Data Validation should validate data types are correct" duration="1"/>
+    <testCase name="Core Messaging Functionality Data Validation should validate relationships between entities" duration="1"/>
+    <testCase name="Core Messaging Functionality Performance Considerations should handle large datasets efficiently" duration="1"/>
+    <testCase name="Core Messaging Functionality Performance Considerations should validate memory usage patterns" duration="1"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/automatedTesting.test.ts">
+    <testCase name="Automated Testing Setup Unit Testing Infrastructure should have proper Jest configuration" duration="1"/>
+    <testCase name="Automated Testing Setup Unit Testing Infrastructure should mock external dependencies correctly" duration="1"/>
+    <testCase name="Automated Testing Setup Unit Testing Infrastructure should run unit tests for all messaging components" duration="1"/>
+    <testCase name="Automated Testing Setup Unit Testing Infrastructure should provide comprehensive test coverage" duration="1"/>
+    <testCase name="Automated Testing Setup Integration Testing Infrastructure should configure integration test environment properly" duration="3"/>
+    <testCase name="Automated Testing Setup Integration Testing Infrastructure should test service-to-service integrations" duration="1"/>
+    <testCase name="Automated Testing Setup Integration Testing Infrastructure should test component integrations" duration="1"/>
+    <testCase name="Automated Testing Setup Integration Testing Infrastructure should test real-time feature integrations" duration="0"/>
+    <testCase name="Automated Testing Setup Integration Testing Infrastructure should validate integration test data flow" duration="1"/>
+    <testCase name="Automated Testing Setup End-to-End Testing Infrastructure should configure E2E testing framework properly" duration="0"/>
+    <testCase name="Automated Testing Setup End-to-End Testing Infrastructure should test on multiple devices and platforms" duration="1"/>
+    <testCase name="Automated Testing Setup End-to-End Testing Infrastructure should capture artifacts for debugging" duration="0"/>
+    <testCase name="Automated Testing Setup End-to-End Testing Infrastructure should cover critical user journeys" duration="1"/>
+    <testCase name="Automated Testing Setup End-to-End Testing Infrastructure should test messaging functionality end-to-end" duration="1"/>
+    <testCase name="Automated Testing Setup End-to-End Testing Infrastructure should test offline functionality" duration="1"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should configure CI/CD platform correctly" duration="0"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should have proper pipeline stages" duration="2"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should validate pipeline stage configuration" duration="1"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should include code quality checks" duration="0"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should include comprehensive testing stages" duration="1"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should include security scanning" duration="0"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should have proper deployment pipeline" duration="1"/>
+    <testCase name="Automated Testing Setup CI/CD Pipeline Configuration should configure notifications properly" duration="0"/>
+    <testCase name="Automated Testing Setup Test Automation Quality Metrics should meet test coverage targets" duration="0"/>
+    <testCase name="Automated Testing Setup Test Automation Quality Metrics should maintain test reliability" duration="0"/>
+    <testCase name="Automated Testing Setup Test Automation Quality Metrics should meet performance targets" duration="0"/>
+    <testCase name="Automated Testing Setup Test Automation Quality Metrics should maintain reasonable test maintenance overhead" duration="1"/>
+    <testCase name="Automated Testing Setup Test Automation Quality Metrics should provide comprehensive test reporting" duration="0"/>
+    <testCase name="Automated Testing Setup Test Automation Quality Metrics should support continuous improvement" duration="1"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/edgeCases.test.ts">
+    <testCase name="Edge Case Testing Large Conversation Handling should handle conversations with 1000+ messages efficiently" duration="3"/>
+    <testCase name="Edge Case Testing Large Conversation Handling should handle memory efficiently with large datasets" duration="2"/>
+    <testCase name="Edge Case Testing Large Conversation Handling should handle pagination correctly with large datasets" duration="1"/>
+    <testCase name="Edge Case Testing Rapid Message Sending should handle rapid message sending without data corruption" duration="2"/>
+    <testCase name="Edge Case Testing Rapid Message Sending should handle message sending rate limiting" duration="1"/>
+    <testCase name="Edge Case Testing Rapid Message Sending should handle concurrent message operations" duration="1"/>
+    <testCase name="Edge Case Testing Network Interruption Handling should handle network disconnection gracefully" duration="14"/>
+    <testCase name="Edge Case Testing Network Interruption Handling should handle intermittent connectivity" duration="1"/>
+    <testCase name="Edge Case Testing Network Interruption Handling should handle partial data corruption during network issues" duration="1"/>
+    <testCase name="Edge Case Testing App Backgrounding and State Management should handle app backgrounding gracefully" duration="1"/>
+    <testCase name="Edge Case Testing App Backgrounding and State Management should handle state persistence across app restarts" duration="3"/>
+    <testCase name="Edge Case Testing Guest User Restrictions should enforce guest user limitations" duration="0"/>
+    <testCase name="Edge Case Testing Guest User Restrictions should handle guest user message limits" duration="0"/>
+    <testCase name="Edge Case Testing Error Recovery Scenarios should recover from database connection failures" duration="1"/>
+    <testCase name="Edge Case Testing Error Recovery Scenarios should handle corrupted local storage gracefully" duration="9"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/security.test.ts">
+    <testCase name="Security Testing Input Sanitization should sanitize malicious script tags" duration="2"/>
+    <testCase name="Security Testing Input Sanitization should remove javascript protocols and event handlers" duration="1"/>
+    <testCase name="Security Testing Input Sanitization should validate message content properly" duration="2"/>
+    <testCase name="Security Testing Input Sanitization should handle SQL injection attempts" duration="0"/>
+    <testCase name="Security Testing Input Sanitization should prevent NoSQL injection attempts" duration="3"/>
+    <testCase name="Security Testing Rate Limiting should enforce message sending rate limits" duration="1"/>
+    <testCase name="Security Testing Rate Limiting should reset rate limits after time window" duration="1"/>
+    <testCase name="Security Testing Rate Limiting should handle different rate limits for different actions" duration="5"/>
+    <testCase name="Security Testing Rate Limiting should handle rate limiting for different user types" duration="32"/>
+    <testCase name="Security Testing Content Moderation should detect and filter profanity" duration="1"/>
+    <testCase name="Security Testing Content Moderation should detect spam patterns" duration="1"/>
+    <testCase name="Security Testing Content Moderation should provide comprehensive content moderation" duration="1"/>
+    <testCase name="Security Testing Content Moderation should handle edge cases in content moderation" duration="2"/>
+    <testCase name="Security Testing Authentication Flow Security should validate email addresses correctly" duration="1"/>
+    <testCase name="Security Testing Authentication Flow Security should validate password strength" duration="1"/>
+    <testCase name="Security Testing Authentication Flow Security should validate session tokens" duration="1"/>
+    <testCase name="Security Testing Authentication Flow Security should handle authentication edge cases" duration="1"/>
+    <testCase name="Security Testing Data Privacy Compliance should anonymize user data properly" duration="1"/>
+    <testCase name="Security Testing Data Privacy Compliance should handle data retention policies" duration="0"/>
+    <testCase name="Security Testing Data Privacy Compliance should export user data in compliant format" duration="1"/>
+    <testCase name="Security Testing Data Privacy Compliance should handle privacy compliance edge cases" duration="1"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/userAcceptance.test.ts">
+    <testCase name="User Acceptance Testing Core User Workflows should complete the new user onboarding flow" duration="2"/>
+    <testCase name="User Acceptance Testing Core User Workflows should handle the complete messaging workflow" duration="3"/>
+    <testCase name="User Acceptance Testing Core User Workflows should support group conversation workflow" duration="0"/>
+    <testCase name="User Acceptance Testing Core User Workflows should handle attachment sharing workflow" duration="0"/>
+    <testCase name="User Acceptance Testing User Experience Validation should meet performance expectations" duration="1"/>
+    <testCase name="User Acceptance Testing User Experience Validation should provide intuitive navigation" duration="2"/>
+    <testCase name="User Acceptance Testing User Experience Validation should provide clear visual feedback" duration="1"/>
+    <testCase name="User Acceptance Testing User Experience Validation should handle error states gracefully" duration="1"/>
+    <testCase name="User Acceptance Testing User Experience Validation should provide accessible user interface" duration="3"/>
+    <testCase name="User Acceptance Testing User Scenario Validation should support the busy professional scenario" duration="1"/>
+    <testCase name="User Acceptance Testing User Scenario Validation should support the social user scenario" duration="1"/>
+    <testCase name="User Acceptance Testing User Scenario Validation should support the privacy-conscious user scenario" duration="1"/>
+    <testCase name="User Acceptance Testing User Scenario Validation should support the international user scenario" duration="1"/>
+    <testCase name="User Acceptance Testing User Scenario Validation should support the accessibility user scenario" duration="1"/>
+    <testCase name="User Acceptance Testing User Feedback Integration should collect and analyze user feedback effectively" duration="0"/>
+    <testCase name="User Acceptance Testing User Feedback Integration should demonstrate continuous improvement based on feedback" duration="1"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/crossPlatform.test.ts">
+    <testCase name="Cross-Platform Testing Platform Detection and Adaptation should detect platform capabilities correctly" duration="2"/>
+    <testCase name="Cross-Platform Testing Platform Detection and Adaptation should adapt UI components for each platform" duration="1"/>
+    <testCase name="Cross-Platform Testing Platform Detection and Adaptation should handle platform-specific navigation patterns" duration="1"/>
+    <testCase name="Cross-Platform Testing Message Rendering Consistency should render messages consistently across platforms" duration="1"/>
+    <testCase name="Cross-Platform Testing Message Rendering Consistency should handle emoji rendering consistently" duration="5"/>
+    <testCase name="Cross-Platform Testing Message Rendering Consistency should handle attachment previews consistently" duration="2"/>
+    <testCase name="Cross-Platform Testing Input and Interaction Consistency should provide consistent input experience" duration="1"/>
+    <testCase name="Cross-Platform Testing Input and Interaction Consistency should handle touch gestures consistently" duration="1"/>
+    <testCase name="Cross-Platform Testing Input and Interaction Consistency should handle keyboard shortcuts appropriately" duration="0"/>
+    <testCase name="Cross-Platform Testing Performance and Resource Management should optimize for platform-specific performance characteristics" duration="2"/>
+    <testCase name="Cross-Platform Testing Performance and Resource Management should handle memory management appropriately" duration="1"/>
+    <testCase name="Cross-Platform Testing Performance and Resource Management should adapt network usage for platform constraints" duration="1"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/accessibility.test.ts">
+    <testCase name="Accessibility Testing Screen Reader Compatibility (VoiceOver/TalkBack) should provide proper accessibility labels for message components" duration="1"/>
+    <testCase name="Accessibility Testing Screen Reader Compatibility (VoiceOver/TalkBack) should announce message status changes" duration="1"/>
+    <testCase name="Accessibility Testing Screen Reader Compatibility (VoiceOver/TalkBack) should provide accessible navigation for conversation list" duration="1"/>
+    <testCase name="Accessibility Testing Screen Reader Compatibility (VoiceOver/TalkBack) should handle typing indicators accessibly" duration="0"/>
+    <testCase name="Accessibility Testing Screen Reader Compatibility (VoiceOver/TalkBack) should provide accessible voice message controls" duration="1"/>
+    <testCase name="Accessibility Testing Screen Reader Compatibility (VoiceOver/TalkBack) should handle attachment accessibility" duration="0"/>
+    <testCase name="Accessibility Testing Keyboard Navigation should support keyboard navigation in conversation list" duration="0"/>
+    <testCase name="Accessibility Testing Keyboard Navigation should support keyboard navigation in chat interface" duration="1"/>
+    <testCase name="Accessibility Testing Keyboard Navigation should handle modal keyboard navigation" duration="2"/>
+    <testCase name="Accessibility Testing Keyboard Navigation should support keyboard shortcuts" duration="1"/>
+    <testCase name="Accessibility Testing High Contrast Mode should meet WCAG contrast requirements" duration="1"/>
+    <testCase name="Accessibility Testing High Contrast Mode should adapt message bubbles for high contrast" duration="0"/>
+    <testCase name="Accessibility Testing High Contrast Mode should provide high contrast status indicators" duration="1"/>
+    <testCase name="Accessibility Testing High Contrast Mode should handle focus indicators in high contrast" duration="0"/>
+    <testCase name="Accessibility Testing Font Scaling should scale message text appropriately" duration="1"/>
+    <testCase name="Accessibility Testing Font Scaling should adjust layout for large fonts" duration="1"/>
+    <testCase name="Accessibility Testing Font Scaling should handle text truncation with scaling" duration="1"/>
+    <testCase name="Accessibility Testing Font Scaling should maintain button accessibility with font scaling" duration="0"/>
+    <testCase name="Accessibility Testing Accessibility Compliance should provide semantic markup for screen readers" duration="1"/>
+    <testCase name="Accessibility Testing Accessibility Compliance should handle focus management correctly" duration="0"/>
+    <testCase name="Accessibility Testing Accessibility Compliance should provide appropriate ARIA live regions" duration="2"/>
+    <testCase name="Accessibility Testing Accessibility Compliance should handle reduced motion preferences" duration="1"/>
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/streamService.test.ts">
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/realTimeFeatures.test.ts">
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/messagingCore.test.ts">
+  </file>
+  <file path="/Users/omid/Downloads/Vulu v2.1/__tests__/services/friendSystem.test.ts">
   </file>
 </testExecutions>

@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { messagingService } from '../services/messagingService';
-import { useAuth } from '../context/AuthContext';
+import { useAuthSafe } from '../context/AuthContext';
 
 export interface UseMessageReactionsOptions {
   conversationId: string;
@@ -15,7 +15,8 @@ export interface UseMessageReactionsOptions {
 
 export const useMessageReactions = (options: UseMessageReactionsOptions) => {
   const { conversationId, onReactionUpdate } = options;
-  const { user } = useAuth();
+  const authContext = useAuthSafe();
+  const user = authContext?.user || null;
   const [isLoading, setIsLoading] = useState(false);
 
   /**

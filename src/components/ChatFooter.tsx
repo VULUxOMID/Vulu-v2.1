@@ -7,10 +7,11 @@ interface ChatFooterProps {
   onTypingStart?: () => void;
   onTypingStop?: () => void;
   onAttachmentPress?: () => void;
+  onVoiceMessagePress?: () => void;
   onTextChange?: (text: string) => void;
 }
 
-const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPress, onTextChange }: ChatFooterProps) => {
+const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPress, onVoiceMessagePress, onTextChange }: ChatFooterProps) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
@@ -61,6 +62,18 @@ const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPr
         <TouchableOpacity style={styles.iconButton}>
           <MaterialIcons name="emoji-emotions" size={24} color="#6E69F4" />
         </TouchableOpacity>
+
+        {onVoiceMessagePress && (
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={onVoiceMessagePress}
+            accessibilityLabel="Record voice message"
+            accessibilityRole="button"
+            accessible
+          >
+            <MaterialIcons name="keyboard-voice" size={24} color="#6E69F4" />
+          </TouchableOpacity>
+        )}
         
         <TouchableOpacity 
           style={[styles.sendButton, message.trim().length === 0 && styles.sendButtonDisabled]} 

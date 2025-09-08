@@ -20,7 +20,17 @@ import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 import WebResponsiveWrapper from '../src/components/WebResponsiveWrapper';
 
-import { analyticsService } from '../src/services/AnalyticsService';
+import { analyticsService } from '../src/services/analyticsService';
+import { messageSchedulingService } from '../src/services/messageSchedulingService';
+import { offlineMessageService } from '../src/services/offlineMessageService';
+import { pushNotificationService, setupQuickReplyActions } from '../src/services/pushNotificationService';
+import { encryptionService } from '../src/services/encryptionService';
+import { voiceMessageService } from '../src/services/voiceMessageService';
+import { messageCacheService } from '../src/services/messageCacheService';
+import { contentModerationService } from '../src/services/contentModerationService';
+import { bundleOptimizer } from '../src/utils/bundleOptimization';
+import { performanceService } from '../src/services/performanceService';
+import { messagingAnalyticsService } from '../src/services/messagingAnalyticsService';
 
 // Import debug utilities (development only)
 if (process.env.NODE_ENV !== 'production') {
@@ -137,27 +147,120 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    // Just set the app as ready immediately - skip all font loading attempts
-    setIsReady(true);
-
-    // Initialize analytics service
-    analyticsService.initialize().catch(error => {
-      console.error('Failed to initialize analytics:', error);
-    });
-
-    // Initialize monitoring service lazily to avoid circular dependencies
-    setTimeout(async () => {
+    // Initialize all services in an async sequence
+    const initializeServices = async () => {
       try {
+        // Initialize analytics service
+        await analyticsService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize analytics:', error);
+      }
+
+      try {
+        // Initialize message scheduling service
+        await messageSchedulingService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize message scheduling:', error);
+      }
+
+      try {
+        // Initialize offline message service
+        await offlineMessageService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize offline messages:', error);
+      }
+
+      try {
+        // Initialize push notification service
+        await pushNotificationService.initialize();
+        setupQuickReplyActions();
+      } catch (error) {
+        console.error('Failed to initialize push notifications:', error);
+      }
+
+      try {
+        // Initialize voice message service
+        await voiceMessageService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize voice messages:', error);
+      }
+
+      try {
+        // Initialize message cache service
+        await messageCacheService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize message cache:', error);
+      }
+
+      try {
+        // Initialize content moderation service
+        await contentModerationService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize content moderation:', error);
+      }
+
+      try {
+        // Initialize bundle optimizer and performance service
+        await bundleOptimizer.initialize();
+        await performanceService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize performance services:', error);
+      }
+
+      try {
+        // Initialize messaging analytics service
+        await messagingAnalyticsService.initialize();
+      } catch (error) {
+        console.error('Failed to initialize messaging analytics:', error);
+      }
+
+      try {
+        // Initialize monitoring service lazily to avoid circular dependencies
         const { monitoringService } = await import('../src/services/monitoringService');
         await monitoringService.initialize();
       } catch (error) {
         console.error('Failed to initialize monitoring:', error);
       }
-    }, 1000); // Delay initialization by 1 second
+
+      // Set app as ready after all services are initialized
+      setIsReady(true);
+    };
+
+    // Start service initialization
+    initializeServices();
 
     // Cleanup services on unmount
     return () => {
-      analyticsService.shutdown();
+      try {
+        analyticsService.shutdown();
+      } catch (error) {
+        console.error('Error shutting down analytics:', error);
+      }
+      try {
+        messageSchedulingService.cleanup();
+      } catch (error) {
+        console.error('Error cleaning up message scheduling:', error);
+      }
+      try {
+        offlineMessageService.cleanup();
+      } catch (error) {
+        console.error('Error cleaning up offline messages:', error);
+      }
+      try {
+        pushNotificationService.cleanup();
+      } catch (error) {
+        console.error('Error cleaning up push notifications:', error);
+      }
+      try {
+        encryptionService.cleanup();
+      } catch (error) {
+        console.error('Error cleaning up encryption:', error);
+      }
+      try {
+        voiceMessageService.cleanup();
+      } catch (error) {
+        console.error('Error cleaning up voice messages:', error);
+      }
     };
   }, []);
 

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import EncryptionIndicator from './EncryptionIndicator';
 
 export interface ChatHeaderProps {
   name: string;
@@ -18,7 +19,12 @@ export interface ChatHeaderProps {
   onOptions: () => void;
   onPinnedMessages?: () => void;
   onCustomization?: () => void;
+  onScheduledMessages?: () => void;
   onToggleCloseFriend?: () => void;
+  isEncrypted?: boolean;
+  canEncrypt?: boolean;
+  onToggleEncryption?: () => Promise<void>;
+  onEncryptionSettings?: () => void;
 }
 
 /**
@@ -38,7 +44,12 @@ const ChatHeader = ({
   onOptions,
   onPinnedMessages,
   onCustomization,
-  onToggleCloseFriend
+  onScheduledMessages,
+  onToggleCloseFriend,
+  isEncrypted = false,
+  canEncrypt = false,
+  onToggleEncryption,
+  onEncryptionSettings
 }: ChatHeaderProps) => {
   const insets = useSafeAreaInsets();
   
@@ -142,13 +153,20 @@ const ChatHeader = ({
               )}
             </View>
             <View style={styles.statusContainer}>
-              <View 
+              <View
                 style={[
-                  styles.statusDot, 
+                  styles.statusDot,
                   { backgroundColor: getStatusColor() }
-                ]} 
+                ]}
               />
               <Text style={styles.statusText}>{getStatusText()}</Text>
+              {canEncrypt && onToggleEncryption && (
+                <EncryptionIndicator
+                  isEncrypted={isEncrypted}
+                  canEncrypt={canEncrypt}
+                  onToggle={onToggleEncryption}
+                />
+              )}
             </View>
           </View>
         </TouchableOpacity>
@@ -171,6 +189,16 @@ const ChatHeader = ({
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <MaterialIcons name="palette" size={22} color="#FFF" />
+            </TouchableOpacity>
+          )}
+
+          {onScheduledMessages && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={onScheduledMessages}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MaterialIcons name="schedule" size={22} color="#FFF" />
             </TouchableOpacity>
           )}
 

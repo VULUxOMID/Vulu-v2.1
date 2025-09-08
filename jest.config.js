@@ -4,8 +4,6 @@
  */
 
 module.exports = {
-  preset: 'react-native',
-  
   // Test environment
   testEnvironment: 'node',
   
@@ -14,13 +12,18 @@ module.exports = {
   
   // Transform files
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
+    '^.+\\.(js|jsx|ts|tsx)$': ['ts-jest', {
+      useESM: true,
+      tsconfig: {
+        jsx: 'react-jsx',
+      },
+    }],
     '^.+\\.svg$': 'jest-svg-transformer'
   },
   
   // Transform ignore patterns
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|react-native-agora|expo|@expo|@react-navigation|react-native-vector-icons|react-native-gesture-handler|react-native-reanimated|react-native-screens|react-native-safe-area-context|@react-native-async-storage|@react-native-community)/)'
+    'node_modules/(?!(react-native|@react-native|react-native-agora|expo|@expo|@react-navigation|react-native-vector-icons|react-native-gesture-handler|react-native-reanimated|react-native-screens|react-native-safe-area-context|@react-native-async-storage|@react-native-community|expo-notifications|expo-device|expo-av|expo-clipboard|expo-haptics)/)'
   ],
   
   // Setup files
@@ -107,11 +110,11 @@ module.exports = {
   
   // Globals
   globals: {
-    'ts-jest': {
-      tsconfig: 'tsconfig.json'
-    },
     __DEV__: true
   },
+
+  // Preset
+  preset: 'ts-jest/presets/default-esm',
   
   // Test timeout
   testTimeout: 10000,

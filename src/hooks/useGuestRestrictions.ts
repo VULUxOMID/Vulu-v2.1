@@ -3,7 +3,9 @@ import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export const useGuestRestrictions = () => {
-  const { isGuest, signOut } = useAuth();
+  const authContext = useAuth();
+  const isGuest = authContext?.isGuest || false;
+  const signOut = authContext?.signOut || (() => Promise.resolve());
   const router = useRouter();
 
   const navigateToAuthSelection = () => {

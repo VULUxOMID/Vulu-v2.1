@@ -3,7 +3,7 @@
  * Handles read receipt functionality
  */
 
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { messagingService } from '../services/messagingService';
 import { useAuth } from '../context/AuthContext';
 import { DirectMessage } from '../services/types';
@@ -17,6 +17,7 @@ export interface UseReadReceiptsOptions {
 export const useReadReceipts = (options: UseReadReceiptsOptions) => {
   const { conversationId, messages, onStatusUpdate } = options;
   const { user } = useAuth();
+  const processedMessagesRef = useRef<Set<string>>(new Set());
 
   /**
    * Mark messages as delivered when they come into view
@@ -94,11 +95,46 @@ export const useReadReceipts = (options: UseReadReceiptsOptions) => {
    * Auto-mark messages as delivered when they load
    */
   useEffect(() => {
-    const undeliveredMessages = getUndeliveredMessages();
+    if (!user || messages.length === 0) return;
+    
+    const undeliveredMessages = messages
+      .filter(message => {
+        // Only mark messages from other users as delivered
+        if (message.senderId === user.uid) return false;
+        
+        // Check if already delivered to this user
+        const deliveredTo = message.deliveredTo || [];
+        const isAlreadyDelivered = deliveredTo.includes(user.uid);
+        
+        // Check if we've already processed this message
+        const isAlreadyProcessed = processedMessagesRef.current.has(message.id);
+        
+        return !isAlreadyDelivered && !isAlreadyProcessed;
+      })
+      .map(message => message.id)
+      .filter(Boolean);
+    
     if (undeliveredMessages.length > 0) {
-      markAsDelivered(undeliveredMessages);
+      // Mark these messages as processed to prevent duplicate processing
+      undeliveredMessages.forEach(messageId => {
+        processedMessagesRef.current.add(messageId);
+      });
+      
+      // Use a timeout to prevent rapid successive calls
+      const timeoutId = setTimeout(() => {
+        markAsDelivered(undeliveredMessages);
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [getUndeliveredMessages, markAsDelivered]);
+  }, [messages, user?.uid, markAsDelivered]);
+
+  /**
+   * Clear processed messages when conversation changes
+   */
+  useEffect(() => {
+    processedMessagesRef.current.clear();
+  }, [conversationId]);
 
   /**
    * Get message status info for display

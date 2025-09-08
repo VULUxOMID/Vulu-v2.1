@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, BackHandler, Text, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack, useNavigation, useFocusEffect } from 'expo-router';
 import ChatScreen from '../../src/screens/ChatScreen';
@@ -23,7 +23,7 @@ export default function Chat() {
   }, [userId, name, avatar, source, isValidParams]);
 
   // Simplified navigation handlers
-  const handleGoBack = () => {
+  const handleGoBack = useCallback(() => {
     try {
       if (source === 'notifications') {
         router.push('/(main)/notifications');
@@ -38,7 +38,7 @@ export default function Chat() {
       // Fallback to main screen
       router.push('/(main)');
     }
-  };
+  }, [source, router]);
 
   const goToDMs = () => {
     try {
@@ -57,7 +57,7 @@ export default function Chat() {
     });
 
     return () => backHandler.remove();
-  }, [source]);
+  }, [source, handleGoBack]);
 
   // Show error state if parameters are invalid
   if (!isValidParams) {

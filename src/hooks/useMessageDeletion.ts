@@ -6,7 +6,7 @@
 import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { messagingService } from '../services/messagingService';
-import { useAuth } from '../context/AuthContext';
+import { useAuthSafe } from '../context/AuthContext';
 import { DirectMessage } from '../services/types';
 
 export interface UseMessageDeletionOptions {
@@ -16,7 +16,8 @@ export interface UseMessageDeletionOptions {
 
 export const useMessageDeletion = (options: UseMessageDeletionOptions) => {
   const { conversationId, onDeleteComplete } = options;
-  const { user } = useAuth();
+  const authContext = useAuthSafe();
+  const user = authContext?.user || null;
   
   const [deletingMessage, setDeletingMessage] = useState<DirectMessage | null>(null);
   const [isLoading, setIsLoading] = useState(false);

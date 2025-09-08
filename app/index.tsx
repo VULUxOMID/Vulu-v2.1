@@ -10,23 +10,13 @@ function AuthenticationRouter() {
   // Safely get auth context - returns null if provider not ready
   const authContext = useAuthSafe();
 
-  // If auth context is not available, show loading
-  if (!authContext) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#131318' }}>
-        <ActivityIndicator size="large" color="#6E69F4" />
-        <Text style={{ color: '#FFFFFF', marginTop: 16, fontSize: 16 }}>
-          Loading authentication system...
-        </Text>
-      </View>
-    );
-  }
-
-  const { user, loading } = authContext;
+  // Extract user and loading from context if available
+  const user = authContext?.user;
+  const loading = authContext?.loading;
 
   useEffect(() => {
-    // Don't navigate while still loading authentication state
-    if (loading) {
+    // Don't navigate if auth context is not available or still loading
+    if (!authContext || loading) {
       console.log('🔄 Authentication still loading...');
       return;
     }
@@ -45,7 +35,19 @@ function AuthenticationRouter() {
       console.log('🚫 No user found, showing authentication selection');
       router.replace('/auth');
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, authContext]);
+
+  // If auth context is not available, show loading
+  if (!authContext) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#131318' }}>
+        <ActivityIndicator size="large" color="#6E69F4" />
+        <Text style={{ color: '#FFFFFF', marginTop: 16, fontSize: 16 }}>
+          Loading authentication system...
+        </Text>
+      </View>
+    );
+  }
 
   // Show loading screen while determining authentication state
   return (

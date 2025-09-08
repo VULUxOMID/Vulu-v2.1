@@ -34,6 +34,11 @@ import {
   UserStatus,
   FriendRequestStatus
 } from './types';
+import { pushNotificationService } from './pushNotificationService';
+import { encryptionService } from './encryptionService';
+import { messageCacheService } from './messageCacheService';
+import { contentModerationService } from './contentModerationService';
+import { messagingAnalyticsService } from './messagingAnalyticsService';
 
 export class MessagingService {
   private static instance: MessagingService;
@@ -450,6 +455,18 @@ export class MessagingService {
       };
 
       const conversationRef = await addDoc(collection(db, 'conversations'), conversationData);
+
+      // Track conversation creation analytics
+      try {
+        const conversationForAnalytics: Conversation = {
+          id: conversationRef.id,
+          ...conversationData,
+        };
+        messagingAnalyticsService.trackConversationCreated(conversationForAnalytics);
+      } catch (analyticsError) {
+        console.warn('Failed to track conversation creation analytics:', analyticsError);
+      }
+
       return conversationRef.id;
     } catch (error: any) {
       console.error('Error creating conversation:', error);
@@ -562,7 +579,9 @@ export class MessagingService {
     text: string,
     type: MessageType = 'text',
     senderAvatar?: string,
-    replyTo?: DirectMessage['replyTo']
+    replyTo?: DirectMessage['replyTo'],
+    attachments?: any[],
+    voiceData?: any
   ): Promise<string> {
     try {
       return await runTransaction(db, async (transaction) => {
@@ -576,22 +595,51 @@ export class MessagingService {
 
         const conversation = conversationSnap.data() as Conversation;
 
+        // Check if conversation should be encrypted
+        let finalText = text;
+        let isEncrypted = false;
+        let encryptedData = null;
+
+        try {
+          if (encryptionService.isConversationEncrypted(conversationId)) {
+            const encrypted = await encryptionService.encryptMessage(
+              text,
+              conversationId,
+              [senderId, recipientId],
+              senderId
+            );
+            encryptedData = encrypted;
+            finalText = null; // No plaintext for encrypted messages
+            isEncrypted = true;
+          }
+        } catch (encryptionError) {
+          console.warn('Failed to encrypt message, sending unencrypted:', encryptionError);
+        }
+
         // Create message data, filtering out undefined values
         const messageData: any = {
           conversationId,
           senderId,
           senderName,
           recipientId,
-          text,
           type,
           status: 'sent',
           timestamp: serverTimestamp() as Timestamp,
           isEdited: false,
           isDeleted: false,
+          isEncrypted,
           attachments: [],
           mentions: [],
           reactions: []
         };
+
+        // Handle text and encryption data - always set text field for consistency
+        if (isEncrypted) {
+          messageData.text = ''; // Empty string for encrypted messages
+          messageData.encryptedData = encryptedData;
+        } else {
+          messageData.text = finalText;
+        }
 
         // Only add optional fields if they have values
         if (senderAvatar) {
@@ -600,6 +648,14 @@ export class MessagingService {
 
         if (replyTo) {
           messageData.replyTo = replyTo;
+        }
+
+        if (attachments && attachments.length > 0) {
+          messageData.attachments = attachments;
+        }
+
+        if (voiceData) {
+          messageData.voiceData = voiceData;
         }
 
         // Add message to subcollection
@@ -622,6 +678,81 @@ export class MessagingService {
         };
 
         transaction.update(conversationRef, conversationUpdate);
+
+        // Send push notification to recipient (after transaction completes)
+        // Snapshot data before async operation to avoid mutations
+        const notificationData = {
+          messageId: messageRef.id,
+          conversationId,
+          senderId,
+          senderName,
+          text,
+          type: type as MessageType,
+        };
+
+        // Send notification as proper awaited async operation
+        try {
+          // Get sender info for notification
+          const senderDoc = await getDoc(doc(db, 'users', senderId));
+          const senderData = senderDoc.data() as AppUser;
+
+          // Create message object for notification
+          const messageForNotification: DirectMessage = {
+            id: notificationData.messageId,
+            conversationId: notificationData.conversationId,
+            senderId: notificationData.senderId,
+            senderName: notificationData.senderName,
+            text: notificationData.text,
+            timestamp: new Date() as any,
+            type: notificationData.type,
+            status: 'sent' as MessageStatus,
+            isEdited: false,
+            isDeleted: false,
+            attachments: [],
+            mentions: [],
+            reactions: [],
+          };
+
+          // Send notification
+          await pushNotificationService.sendMessageNotification(
+            recipientId,
+            messageForNotification,
+            senderData,
+            notificationData.conversationId,
+            false // Not a group message
+          );
+        } catch (notificationError) {
+          console.warn('Failed to send push notification:', notificationError);
+          // Don't throw error for notification failures
+        }
+
+        // Track message sent analytics
+        try {
+          const messageForAnalytics: DirectMessage = {
+            id: messageRef.id,
+            conversationId,
+            senderId,
+            senderName,
+            recipientId,
+            text: finalText,
+            timestamp: new Date() as any,
+            type: type as MessageType,
+            status: 'sent' as MessageStatus,
+            isEdited: false,
+            isDeleted: false,
+            isEncrypted,
+            attachments: attachments || [],
+            mentions: [],
+            reactions: [],
+            voiceData,
+            replyTo,
+          };
+
+          messagingAnalyticsService.trackMessageSent(messageForAnalytics);
+        } catch (analyticsError) {
+          console.warn('Failed to track message analytics:', analyticsError);
+        }
+
         return messageRef.id;
       });
     } catch (error: any) {
@@ -692,7 +823,10 @@ export class MessagingService {
 
         const nextCursor = hasMore ? docs[limitCount - 1].id : undefined;
 
-        return { messages, hasMore, nextCursor };
+        // Decrypt encrypted messages
+        const decryptedMessages = await this.decryptMessages(messages);
+
+        return { messages: decryptedMessages, hasMore, nextCursor };
 
       } catch (indexError: any) {
         // Strategy 2: Fallback to memory filtering if index doesn't exist
@@ -729,12 +863,55 @@ export class MessagingService {
         const messages = filteredMessages.slice(0, limitCount);
         const nextCursor = hasMore && messages.length > 0 ? messages[messages.length - 1].id : undefined;
 
-        return { messages, hasMore, nextCursor };
+        // Decrypt encrypted messages
+        const decryptedMessages = await this.decryptMessages(messages);
+
+        return { messages: decryptedMessages, hasMore, nextCursor };
       }
     } catch (error: any) {
       console.error('Error getting conversation messages:', error);
       return { messages: [], hasMore: false };
     }
+  }
+
+  /**
+   * Decrypt encrypted messages in controlled batches
+   */
+  private async decryptMessages(messages: DirectMessage[]): Promise<DirectMessage[]> {
+    const BATCH_SIZE = 10; // Process 10 messages at a time
+    const results: DirectMessage[] = [];
+    
+    for (let i = 0; i < messages.length; i += BATCH_SIZE) {
+      const batch = messages.slice(i, i + BATCH_SIZE);
+      
+      const batchResults = await Promise.all(
+        batch.map(async (message) => {
+          if (message.isEncrypted && message.encryptedData) {
+            try {
+              const decryptedText = await encryptionService.decryptMessage(
+                message.encryptedData,
+                message.conversationId
+              );
+              return {
+                ...message,
+                text: decryptedText,
+              };
+            } catch (error) {
+              console.warn('Failed to decrypt message:', error);
+              return {
+                ...message,
+                text: '[Failed to decrypt]',
+              };
+            }
+          }
+          return message;
+        })
+      );
+      
+      results.push(...batchResults);
+    }
+
+    return results;
   }
 
   /**
@@ -883,6 +1060,13 @@ export class MessagingService {
     } catch (error: any) {
       console.error('Error updating typing status:', error);
     }
+  }
+
+  /**
+   * Set user typing status (wrapper for updateTypingStatus with better API)
+   */
+  async setUserTyping(conversationId: string, userId: string, isTyping: boolean): Promise<void> {
+    return this.updateTypingStatus(conversationId, userId, isTyping);
   }
 
   // ==================== FRIEND SYSTEM ====================
@@ -1916,6 +2100,17 @@ export class MessagingService {
         `${creatorName} created the group "${name}"`,
         creatorId
       );
+
+      // Track group conversation creation analytics
+      try {
+        const conversationForAnalytics: Conversation = {
+          id: conversationRef.id,
+          ...conversationData,
+        };
+        messagingAnalyticsService.trackConversationCreated(conversationForAnalytics);
+      } catch (analyticsError) {
+        console.warn('Failed to track group conversation creation analytics:', analyticsError);
+      }
 
       console.log(`✅ Group conversation created: ${conversationRef.id}`);
       return conversationRef.id;

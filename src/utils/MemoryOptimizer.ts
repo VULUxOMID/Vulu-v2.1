@@ -6,7 +6,7 @@
  */
 
 import { Platform } from 'react-native';
-import { analyticsService } from '../services/AnalyticsService';
+import { analyticsService } from '../services/analyticsService';
 
 // Maximum items to keep in memory for list-based components
 const DEFAULT_SETTINGS = {

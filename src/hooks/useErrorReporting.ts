@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { ErrorInfo } from 'react';
-import { analyticsService } from '../services/AnalyticsService';
+import { analyticsService } from '../services/analyticsService';
 
 /**
  * Custom hook for error reporting
@@ -72,15 +72,17 @@ export const useErrorReporting = (componentName: string) => {
       event.preventDefault();
     };
 
-    // Set up global handlers only on web
-    if (typeof window !== 'undefined') {
+    // Set up global handlers only on web (check for both window and addEventListener)
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('unhandledrejection', handlePromiseRejection);
       window.addEventListener('error', handleGlobalError);
 
       // Clean up event listeners
       return () => {
-        window.removeEventListener('unhandledrejection', handlePromiseRejection);
-        window.removeEventListener('error', handleGlobalError);
+        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+          window.removeEventListener('unhandledrejection', handlePromiseRejection);
+          window.removeEventListener('error', handleGlobalError);
+        }
       };
     }
 

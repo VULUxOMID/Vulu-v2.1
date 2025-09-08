@@ -1,5 +1,13 @@
 import { Timestamp } from 'firebase/firestore';
 
+// Encrypted message data structure
+export interface EncryptedMessageData {
+  ciphertext: string;
+  iv?: string;
+  algorithm?: string;
+  keyId?: string;
+}
+
 // Unified message interface for both ChatScreen and DiscordChatScreen
 export interface UnifiedMessage {
   id: string;
@@ -81,6 +89,11 @@ export interface Conversation {
   // Chat customization
   theme?: ChatTheme;
   customization?: ChatCustomization;
+
+  // Encryption
+  isEncrypted?: boolean;
+  encryptionUpdatedAt?: Timestamp;
+  encryptionUpdatedBy?: string;
 }
 
 // Direct Message interface
@@ -127,6 +140,18 @@ export interface DirectMessage {
   pinnedBy?: string;
   pinnedAt?: Timestamp;
 
+  // Message encryption
+  isEncrypted?: boolean;
+  encryptedData?: EncryptedMessageData;
+
+  // Voice message data
+  voiceData?: {
+    uri: string;
+    duration: number;
+    waveform: number[];
+    size: number;
+  };
+
   // Message forwarding
   forwardedFrom?: {
     messageId: string;
@@ -136,13 +161,19 @@ export interface DirectMessage {
     originalTimestamp: Timestamp;
     originalConversationId: string;
   };
+
+  // Message scheduling
+  isScheduled?: boolean;
+  scheduledFor?: Timestamp;
+  scheduledBy?: string;
+  scheduledAt?: Timestamp;
 }
 
 // Message status for delivery tracking
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 // Message types
-export type MessageType = 'text' | 'image' | 'file' | 'system' | 'deleted';
+export type MessageType = 'text' | 'image' | 'file' | 'system' | 'deleted' | 'voice';
 
 // User status for presence
 export type UserStatus = 'online' | 'offline' | 'away' | 'busy';

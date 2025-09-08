@@ -10,7 +10,7 @@ import viewerInteractionService, {
   ViewerEngagement,
   InteractionCallbacks
 } from '../services/viewerInteractionService';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuthSafe } from '../context/AuthContext';
 
 export interface UseViewerInteractionOptions {
   streamId: string;
@@ -36,7 +36,8 @@ export interface ViewerInteractionState {
 
 export function useViewerInteraction(options: UseViewerInteractionOptions) {
   const { streamId, autoStart = true, enableHaptics = true } = options;
-  const { user } = useAuth();
+  const authContext = useAuthSafe();
+  const user = authContext?.user || null;
 
   const [state, setState] = useState<ViewerInteractionState>({
     reactions: [],
