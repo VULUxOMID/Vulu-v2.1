@@ -53,16 +53,39 @@ export const useVoiceMessage = (): UseVoiceMessageReturn => {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Update states from service
+   * Update states from service using event listeners
    */
   useEffect(() => {
-    const interval = setInterval(() => {
+    // Initial state sync
+    setRecordingState(voiceMessageService.getRecordingState());
+    setPlaybackState(voiceMessageService.getPlaybackState());
+    setSettings(voiceMessageService.getSettings());
+
+    // Listen for state changes
+    const unsubscribe = voiceMessageService.addStateChangeListener(() => {
       setRecordingState(voiceMessageService.getRecordingState());
       setPlaybackState(voiceMessageService.getPlaybackState());
       setSettings(voiceMessageService.getSettings());
+    });
+
+    // Fallback polling for position updates during playback and recording state updates
+    const interval = setInterval(() => {
+      const currentPlaybackState = voiceMessageService.getPlaybackState();
+      if (currentPlaybackState.isPlaying) {
+        setPlaybackState(currentPlaybackState);
+      }
+      
+      // Also check recording state for UI updates
+      const currentRecordingState = voiceMessageService.getRecordingState();
+      if (currentRecordingState.isRecording || currentRecordingState.isPaused) {
+        setRecordingState(currentRecordingState);
+      }
     }, 100);
 
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   /**

@@ -68,12 +68,34 @@ class VoiceMessageService {
   private recordingTimer: NodeJS.Timeout | null = null;
   private waveformTimer: NodeJS.Timeout | null = null;
   private playbackTimer: NodeJS.Timeout | null = null;
+  private stateChangeListeners: Set<() => void> = new Set();
 
   static getInstance(): VoiceMessageService {
     if (!VoiceMessageService.instance) {
       VoiceMessageService.instance = new VoiceMessageService();
     }
     return VoiceMessageService.instance;
+  }
+
+  /**
+   * Add state change listener
+   */
+  addStateChangeListener(listener: () => void): () => void {
+    this.stateChangeListeners.add(listener);
+    return () => this.stateChangeListeners.delete(listener);
+  }
+
+  /**
+   * Notify state change listeners
+   */
+  private notifyStateChange(): void {
+    this.stateChangeListeners.forEach(listener => {
+      try {
+        listener();
+      } catch (error) {
+        console.error('Error in state change listener:', error);
+      }
+    });
   }
 
   /**
@@ -147,9 +169,30 @@ class VoiceMessageService {
       this.startRecordingTimer();
       this.startWaveformTimer();
 
+      // Notify listeners of state change
+      this.notifyStateChange();
+
       console.log('🎤 Recording started');
     } catch (error) {
       console.error('Error starting recording:', error);
+      // Unload recording resources if they exist
+      if (this.recording) {
+        try {
+          await this.recording.unloadAsync();
+        } catch (unloadError) {
+          console.warn('Error unloading recording during cleanup:', unloadError);
+        }
+      }
+      // Reset recording state on error
+      this.recordingState = {
+        isRecording: false,
+        duration: 0,
+        waveform: [],
+        isPaused: false,
+      };
+      this.recording = null;
+      this.clearRecordingTimers();
+      this.notifyStateChange();
       throw error;
     }
   }
@@ -198,10 +241,31 @@ class VoiceMessageService {
       };
       this.recording = null;
 
+      // Notify listeners of state change
+      this.notifyStateChange();
+
       console.log('🎤 Recording stopped:', voiceMessage);
       return voiceMessage;
     } catch (error) {
       console.error('Error stopping recording:', error);
+      // Try to unload recording resources before clearing state
+      if (this.recording) {
+        try {
+          await this.recording.stopAndUnloadAsync();
+        } catch (unloadError) {
+          console.warn('Error unloading recording during cleanup:', unloadError);
+        }
+      }
+      // Reset recording state on error
+      this.recordingState = {
+        isRecording: false,
+        duration: 0,
+        waveform: [],
+        isPaused: false,
+      };
+      this.recording = null;
+      this.clearRecordingTimers();
+      this.notifyStateChange();
       throw error;
     }
   }
@@ -219,9 +283,30 @@ class VoiceMessageService {
       this.recordingState.isPaused = true;
       this.clearRecordingTimers();
 
+      // Notify listeners of state change
+      this.notifyStateChange();
+
       console.log('⏸️ Recording paused');
     } catch (error) {
       console.error('Error pausing recording:', error);
+      // Unload recording resources if they exist
+      if (this.recording) {
+        try {
+          await this.recording.unloadAsync();
+        } catch (unloadError) {
+          console.warn('Error unloading recording during cleanup:', unloadError);
+        }
+      }
+      // Reset recording state on error
+      this.recordingState = {
+        isRecording: false,
+        duration: 0,
+        waveform: [],
+        isPaused: false,
+      };
+      this.recording = null;
+      this.clearRecordingTimers();
+      this.notifyStateChange();
       throw error;
     }
   }
@@ -240,9 +325,30 @@ class VoiceMessageService {
       this.startRecordingTimer();
       this.startWaveformTimer();
 
+      // Notify listeners of state change
+      this.notifyStateChange();
+
       console.log('▶️ Recording resumed');
     } catch (error) {
       console.error('Error resuming recording:', error);
+      // Unload recording resources if they exist
+      if (this.recording) {
+        try {
+          await this.recording.unloadAsync();
+        } catch (unloadError) {
+          console.warn('Error unloading recording during cleanup:', unloadError);
+        }
+      }
+      // Reset recording state on error
+      this.recordingState = {
+        isRecording: false,
+        duration: 0,
+        waveform: [],
+        isPaused: false,
+      };
+      this.recording = null;
+      this.clearRecordingTimers();
+      this.notifyStateChange();
       throw error;
     }
   }
@@ -270,6 +376,9 @@ class VoiceMessageService {
         duration: voiceMessage.duration,
         messageId: voiceMessage.id,
       };
+
+      // Notify listeners of state change
+      this.notifyStateChange();
 
       // Set up playback status update
       this.sound.setOnPlaybackStatusUpdate((status) => {
@@ -314,6 +423,9 @@ class VoiceMessageService {
         duration: 0,
       };
 
+      // Notify listeners of state change
+      this.notifyStateChange();
+
       console.log('⏹️ Playback stopped');
     } catch (error) {
       console.error('Error stopping playback:', error);
@@ -328,6 +440,9 @@ class VoiceMessageService {
       if (this.sound) {
         await this.sound.pauseAsync();
         this.playbackState.isPlaying = false;
+
+        // Notify listeners of state change
+        this.notifyStateChange();
       }
     } catch (error) {
       console.error('Error pausing playback:', error);
@@ -342,6 +457,9 @@ class VoiceMessageService {
       if (this.sound) {
         await this.sound.playAsync();
         this.playbackState.isPlaying = true;
+
+        // Notify listeners of state change
+        this.notifyStateChange();
       }
     } catch (error) {
       console.error('Error resuming playback:', error);
@@ -356,6 +474,9 @@ class VoiceMessageService {
       if (this.sound) {
         await this.sound.setPositionAsync(positionMillis);
         this.playbackState.currentPosition = positionMillis;
+
+        // Notify listeners of state change
+        this.notifyStateChange();
       }
     } catch (error) {
       console.error('Error seeking playback:', error);
@@ -428,6 +549,9 @@ class VoiceMessageService {
       if (this.settings.autoStop && this.recordingState.duration >= this.settings.maxDuration * 1000) {
         this.stopRecording();
       }
+
+      // Notify listeners for smooth UI updates during recording
+      this.notifyStateChange();
     }, 100);
   }
 
@@ -491,6 +615,10 @@ class VoiceMessageService {
     try {
       this.settings = { ...this.settings, ...newSettings };
       await AsyncStorage.setItem('voice_settings', JSON.stringify(this.settings));
+      
+      // Notify listeners of settings change
+      this.notifyStateChange();
+      
       console.log('✅ Voice settings updated');
     } catch (error) {
       console.error('Error updating voice settings:', error);

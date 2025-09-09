@@ -90,7 +90,7 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
           {waveformData.map((amplitude, index) => {
             const barProgress = index / waveformData.length;
             const isPlayed = barProgress <= progress;
-            const height = Math.max(4, (amplitude / 100) * 30);
+            const height = Math.max(3, (amplitude / 100) * 24); // Reduced max height
 
             return (
               <View
@@ -101,11 +101,11 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
                     height,
                     backgroundColor: isPlayed
                       ? isCurrentUser
-                        ? '#FFFFFF'
-                        : '#007AFF'
+                        ? '#8E8E93' // Darker tone for played bars
+                        : '#6D6D70' // Darker tone for played bars
                       : isCurrentUser
-                        ? 'rgba(255, 255, 255, 0.5)'
-                        : '#E5E5EA',
+                        ? 'rgba(142, 142, 147, 0.3)' // Darker tone for unplayed bars
+                        : 'rgba(109, 109, 112, 0.3)', // Darker tone for unplayed bars
                   },
                 ]}
               />
@@ -118,7 +118,7 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
               styles.progressIndicator,
               {
                 left: `${progress * 100}%`,
-                backgroundColor: isCurrentUser ? '#FFFFFF' : '#007AFF',
+                backgroundColor: isCurrentUser ? '#8E8E93' : '#6D6D70', // Darker tones
               },
             ]}
           />
@@ -163,14 +163,14 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
           {isLoading ? (
             <MaterialIcons
               name="hourglass-empty"
-              size={20}
-              color={isCurrentUser ? '#007AFF' : '#FFFFFF'}
+              size={18} // Reduced from 20
+              color={isCurrentUser ? '#E5E5E7' : '#E5E5E7'} // Lighter color for better contrast
             />
           ) : (
             <MaterialIcons
               name={isCurrentlyPlaying ? 'pause' : 'play-arrow'}
-              size={20}
-              color={isCurrentUser ? '#007AFF' : '#FFFFFF'}
+              size={18} // Reduced from 20
+              color={isCurrentUser ? '#E5E5E7' : '#E5E5E7'} // Lighter color for better contrast
             />
           )}
         </TouchableOpacity>
@@ -183,17 +183,17 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
             <Text
               style={[
                 styles.durationText,
-                { color: isCurrentUser ? '#FFFFFF' : '#8E8E93' },
+                { color: isCurrentUser ? '#E5E5E7' : '#8E8E93' }, // Lighter color for better contrast
               ]}
             >
               {getCurrentTimeDisplay()}
             </Text>
-            
+
             {voiceMessage.size && (
               <Text
                 style={[
                   styles.sizeText,
-                  { color: isCurrentUser ? 'rgba(255, 255, 255, 0.7)' : '#8E8E93' },
+                  { color: isCurrentUser ? 'rgba(229, 229, 231, 0.7)' : '#8E8E93' }, // Lighter color
                 ]}
               >
                 {(voiceMessage.size / 1024).toFixed(1)}KB
@@ -206,8 +206,8 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
         <View style={styles.iconContainer}>
           <MaterialIcons
             name="keyboard-voice"
-            size={16}
-            color={isCurrentUser ? 'rgba(255, 255, 255, 0.7)' : '#8E8E93'}
+            size={14} // Reduced from 16
+            color={isCurrentUser ? 'rgba(229, 229, 231, 0.7)' : '#8E8E93'} // Lighter color
           />
         </View>
       </View>
@@ -225,42 +225,42 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    maxWidth: 280,
+    maxWidth: 240, // Reduced from 280
   },
   messageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 18,
-    gap: 12,
+    padding: 10, // Reduced from 12
+    borderRadius: 16, // Reduced from 18
+    gap: 10, // Reduced from 12
   },
   currentUserMessage: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#2C2C2E', // Darker tone instead of #007AFF
   },
   otherUserMessage: {
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#1C1C1E', // Darker tone instead of #F2F2F7
   },
   playButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32, // Reduced from 36
+    height: 32, // Reduced from 36
+    borderRadius: 16, // Reduced from 18
     alignItems: 'center',
     justifyContent: 'center',
   },
   currentUserButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#48484A', // Darker tone instead of white
   },
   otherUserButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#3A3A3C', // Darker tone instead of #007AFF
   },
   contentContainer: {
     flex: 1,
-    gap: 8,
+    gap: 6, // Reduced from 8
   },
   waveformContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 30,
+    height: 24, // Reduced from 30
     gap: 1,
     position: 'relative',
   },
@@ -281,12 +281,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   durationText: {
-    fontSize: 12,
+    fontSize: 11, // Reduced from 12
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
   },
   sizeText: {
-    fontSize: 10,
+    fontSize: 9, // Reduced from 10
   },
   iconContainer: {
     alignItems: 'center',
