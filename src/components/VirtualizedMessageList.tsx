@@ -97,9 +97,8 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
       });
     }
 
-    // Add messages (reversed for chat-like display)
-    const reversedMessages = [...messages].reverse();
-    reversedMessages.forEach((message) => {
+    // Add messages (already sorted in correct chronological order)
+    messages.forEach((message) => {
       items.push({
         id: message.id,
         type: 'message',

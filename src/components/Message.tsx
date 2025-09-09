@@ -49,7 +49,11 @@ const Message = ({
   currentUserId,
   message
 }: MessageProps) => {
-  const isCurrentUser = type === 'sent';
+  // Determine if this is the current user's message
+  // Use currentUserId if available, otherwise fall back to type
+  const isCurrentUser = currentUserId && message?.senderId ?
+    message.senderId === currentUserId :
+    type === 'sent';
   
   // Use provided values or fall back to defaults
   const displayName = userName || (isCurrentUser ? 'You' : 'User');
@@ -91,7 +95,9 @@ const Message = ({
                 duration: message.voiceData.duration,
                 waveform: message.voiceData.waveform,
                 size: message.voiceData.size,
-                timestamp: Number(message.timestamp || message.voiceData?.timestamp || message.createdAt || Date.now()),
+                timestamp: message.timestamp instanceof Date ? message.timestamp.getTime() :
+                          (typeof message.timestamp === 'object' && message.timestamp?.toDate) ? message.timestamp.toDate().getTime() :
+                          Number(message.timestamp || Date.now()),
               }}
               isCurrentUser={isCurrentUser}
             />

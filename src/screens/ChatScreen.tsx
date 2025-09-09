@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,11 +35,11 @@ import TypingIndicator from '../components/TypingIndicator';
 import ReplyInput from '../components/ReplyInput';
 import MessageEditModal from '../components/MessageEditModal';
 import MessageDeleteModal from '../components/MessageDeleteModal';
-import AttachmentPicker from '../components/AttachmentPicker';
+import DiscordStylePhotoPicker from '../components/DiscordStylePhotoPicker';
 import GroupChatInfo from '../components/GroupChatInfo';
 import MessageSearch from '../components/MessageSearch';
 import PinnedMessages from '../components/PinnedMessages';
-import ChatCustomization from '../components/ChatCustomization';
+
 import MessageForwarding from '../components/MessageForwarding';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import MessageScheduling from '../components/MessageScheduling';
@@ -52,8 +52,9 @@ import { usePushNotifications } from '../hooks/usePushNotifications';
 import EncryptionIndicator from '../components/EncryptionIndicator';
 import EncryptionSettingsModal from '../components/EncryptionSettingsModal';
 import { useConversationEncryption } from '../hooks/useEncryption';
-import VoiceMessageModal from '../components/VoiceMessageModal';
+
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
+import EmojiPicker from '../components/EmojiPicker';
 import { VoiceMessage } from '../services/voiceMessageService';
 import VirtualizedMessageList from '../components/VirtualizedMessageList';
 import VirtualizationPerformanceMonitor from '../components/VirtualizationPerformanceMonitor';
@@ -74,12 +75,37 @@ import { useAttachments } from '../hooks/useAttachments';
 import { useReadReceipts } from '../hooks/useReadReceipts';
 import { useTypingIndicator } from '../hooks/useTypingIndicator';
 import { useMessagePinning } from '../hooks/useMessagePinning';
-import { useChatTheme } from '../hooks/useChatTheme';
+
 import { useMessageForwarding } from '../hooks/useMessageForwarding';
 import { useMessagingAnalytics, usePerformanceTracking } from '../hooks/useMessagingAnalytics';
 import { MessageValidator } from '../utils/chatUtils';
 
 const { width, height } = Dimensions.get('window');
+
+// Helper function to convert various timestamp formats to milliseconds
+const tsToMs = (ts: unknown): number => {
+  try {
+    if (ts instanceof Date) {
+      return ts.getTime();
+    } else if (typeof ts === 'object' && ts && 'toDate' in ts && typeof ts.toDate === 'function') {
+      // Firestore Timestamp
+      return ts.toDate().getTime();
+    } else if (typeof ts === 'number') {
+      return ts;
+    } else if (typeof ts === 'object' && ts && 'seconds' in ts && 'nanoseconds' in ts) {
+      // Firestore shape {seconds, nanoseconds}
+      const firestoreTs = ts as { seconds: number; nanoseconds: number };
+      return firestoreTs.seconds * 1000 + Math.floor(firestoreTs.nanoseconds / 1000000);
+    } else {
+      // Fallback to Date constructor
+      const date = new Date(ts as any);
+      return isNaN(date.getTime()) ? 0 : date.getTime();
+    }
+  } catch (error) {
+    console.warn('Failed to convert timestamp:', ts, error);
+    return 0;
+  }
+};
 
 interface ChatScreenProps {
   userId: string;
@@ -251,10 +277,9 @@ const useScrollToBottom = (ref: React.RefObject<FlatList>) => {
 };
 
 const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: ChatScreenProps) => {
-  try {
-    const { canSendMessages } = useGuestRestrictions();
-    const authContext = useAuthSafe();
-  
+  const { canSendMessages } = useGuestRestrictions();
+  const authContext = useAuthSafe();
+
   // Handle null auth context or missing user property
   if (!authContext) {
     console.log('🔍 ChatScreen: authContext is null');
@@ -264,7 +289,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       </View>
     );
   }
-  
+
   if (!authContext.user) {
     console.log('🔍 ChatScreen: authContext.user is null/undefined');
     return (
@@ -273,7 +298,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       </View>
     );
   }
-  
+
   const currentUser = authContext.user;
 
   // Analytics hooks - with safe user ID
@@ -390,11 +415,11 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     }
   });
 
-  const [showAttachmentPicker, setShowAttachmentPicker] = useState(false);
+  const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showMessageSearch, setShowMessageSearch] = useState(false);
   const [showPinnedMessages, setShowPinnedMessages] = useState(false);
-  const [showChatCustomization, setShowChatCustomization] = useState(false);
+
   const [showMessageForwarding, setShowMessageForwarding] = useState(false);
   const [selectedMessagesForForwarding, setSelectedMessagesForForwarding] = useState<DirectMessage[]>([]);
   const [showMessageScheduling, setShowMessageScheduling] = useState(false);
@@ -402,7 +427,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   const [schedulingReplyTo, setSchedulingReplyTo] = useState<any>(null);
   const [showOfflineMessages, setShowOfflineMessages] = useState(false);
   const [showEncryptionSettings, setShowEncryptionSettings] = useState(false);
-  const [showVoiceMessageModal, setShowVoiceMessageModal] = useState(false);
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [useVirtualization, setUseVirtualization] = useState(true);
   const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
   const [shouldScrollToBottom, setShouldScrollToBottom] = useState(false);
@@ -473,16 +499,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     }
   });
 
-  // Chat theme and customization
-  const {
-    currentTheme,
-    currentCustomization,
-    applyTheme,
-    applyCustomization,
-    getDynamicStyles,
-  } = useChatTheme({
-    conversationId: conversationId || undefined,
-  });
+
 
   // Message forwarding
   const {
@@ -520,6 +537,19 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     [currentUser?.uid || '', userId],
     currentUser?.uid || ''
   );
+
+  // Combine real messages with optimistic messages for display
+  const displayMessages = useMemo(() => {
+    const optimisticArray = Array.from(optimisticMessages.values());
+    const allMessages = [...messages, ...optimisticArray];
+
+    // Sort all messages by timestamp
+    return allMessages.sort((a, b) => {
+      const timeA = tsToMs(a.timestamp);
+      const timeB = tsToMs(b.timestamp);
+      return timeA - timeB; // Ascending order (oldest first)
+    });
+  }, [messages, optimisticMessages]);
 
   // Legacy state for backward compatibility
   const [isCloseFriend, setIsCloseFriend] = useState(false);
@@ -634,8 +664,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         if (isMounted) {
           // Sort messages by timestamp ascending (oldest first) for proper chronological display
           const sortedMessages = unifiedMessages.sort((a, b) => {
-            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
-            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+            const timeA = tsToMs(a.timestamp);
+            const timeB = tsToMs(b.timestamp);
             return timeA - timeB; // Ascending order (oldest first)
           });
 
@@ -659,8 +689,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
           // Sort messages by timestamp ascending (oldest first) for proper chronological display
           const sortedMessages = unifiedMessages.sort((a, b) => {
-            const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
-            const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+            const timeA = tsToMs(a.timestamp);
+            const timeB = tsToMs(b.timestamp);
             return timeA - timeB; // Ascending order (oldest first)
           });
 
@@ -798,8 +828,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       if (newUnifiedMessages.length > 0) {
         // Sort new messages
         const sortedNewMessages = newUnifiedMessages.sort((a, b) => {
-          const timeA = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime();
-          const timeB = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime();
+          const timeA = tsToMs(a.timestamp);
+          const timeB = tsToMs(b.timestamp);
           return timeA - timeB;
         });
 
@@ -972,10 +1002,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   // Try to safely render the message list
   const safeRenderMessages = () => {
     try {
-      if (useVirtualization && messages.length > 50) {
+      if (useVirtualization && displayMessages.length > 50) {
         return (
           <VirtualizedMessageList
-            messages={messages}
+            messages={displayMessages}
             currentUserId={currentUser?.uid || ''}
             isTyping={isAnyoneTyping}
             typingUsers={typingUsers}
@@ -1019,7 +1049,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       return (
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={displayMessages}
           renderItem={renderMessageItem}
           keyExtractor={keyExtractor}
           style={styles.messagesList}
@@ -1264,7 +1294,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         console.log('📤 Voice message queued for offline sending');
       }
 
-      setShowVoiceMessageModal(false);
+
     } catch (error: any) {
       console.error('Error handling voice message send:', error);
       removeOptimisticMessage(optimisticId);
@@ -1307,10 +1337,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     setShowScheduledMessagesList(true);
   };
 
-  const dynamicStyles = getDynamicStyles();
-
   return (
-    <View style={[styles.container, dynamicStyles.container]}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1D1E26" />
       
       {/* Background for swipe gesture */}
@@ -1349,9 +1377,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           onPinnedMessages={() => {
             setShowPinnedMessages(true);
           }}
-          onCustomization={() => {
-            setShowChatCustomization(true);
-          }}
+
           onScheduledMessages={() => {
             setShowScheduledMessagesList(true);
           }}
@@ -1417,9 +1443,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           }}
           onTypingStart={handleTypingStart}
           onTypingStop={handleTypingStop}
-          onAttachmentPress={() => setShowAttachmentPicker(true)}
-          onVoiceMessagePress={() => setShowVoiceMessageModal(true)}
+          onAttachmentPress={() => setShowPhotoPicker(true)}
+          onVoiceMessageSend={handleSendVoiceMessage}
           onTextChange={handleTypingTextChange}
+          onEmojiPress={() => setShowEmojiPicker(true)}
         />
 
         {/* Message Edit Modal */}
@@ -1453,14 +1480,14 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           />
         )}
 
-        {/* Attachment Picker Modal */}
-        <AttachmentPicker
-          visible={showAttachmentPicker}
-          onClose={() => setShowAttachmentPicker(false)}
-          onAttachmentSelected={(attachment) => {
-            const success = selectAttachment(attachment);
+        {/* Discord-Style Photo Picker Modal */}
+        <DiscordStylePhotoPicker
+          visible={showPhotoPicker}
+          onClose={() => setShowPhotoPicker(false)}
+          onPhotoSelected={(photo) => {
+            const success = selectAttachment(photo);
             if (success) {
-              setShowAttachmentPicker(false);
+              setShowPhotoPicker(false);
             }
           }}
         />
@@ -1500,20 +1527,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           }}
         />
 
-        {/* Chat Customization Modal */}
-        <ChatCustomization
-          visible={showChatCustomization}
-          onClose={() => setShowChatCustomization(false)}
-          conversationId={conversationId || ''}
-          currentTheme={currentTheme}
-          currentCustomization={currentCustomization}
-          onThemeChange={(theme) => {
-            applyTheme(theme);
-          }}
-          onCustomizationChange={(customization) => {
-            applyCustomization(customization);
-          }}
-        />
+
 
         {/* Message Forwarding Modal */}
         <MessageForwarding
@@ -1574,12 +1588,17 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           userId={currentUser?.uid || ''}
         />
 
-        {/* Voice Message Modal */}
-        <VoiceMessageModal
-          visible={showVoiceMessageModal}
-          onClose={() => setShowVoiceMessageModal(false)}
-          onSend={handleSendVoiceMessage}
-          maxDuration={300}
+
+
+        {/* Emoji Picker Modal */}
+        <EmojiPicker
+          visible={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onEmojiSelect={(emoji) => {
+            // For now, just log the emoji - we'll need to implement text insertion
+            console.log('Selected emoji:', emoji);
+            setShowEmojiPicker(false);
+          }}
         />
 
         {/* Virtualization Performance Monitor */}
@@ -1593,21 +1612,8 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       </Animated.View>
     </View>
   );
-  } catch (error) {
-    console.error('🔍 ChatScreen error:', error);
-    console.error('🔍 ChatScreen error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('🔍 ChatScreen error details:', {
-      message: error instanceof Error ? error.message : String(error),
-      name: error instanceof Error ? error.name : 'Unknown',
-      currentUser: currentUser ? { uid: currentUser.uid, email: currentUser.email } : 'null',
-      authContext: authContext ? { hasUser: !!authContext.user, userType: typeof authContext.user } : 'null'
-    });
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>Error loading chat: {String(error)}</Text>
-      </View>
-    );
-  }
+  // Note: Error handling is now done through ErrorBoundary and individual try/catch blocks
+  // in async functions and callbacks, not wrapping the entire component function
 };
 
 // New wrapper component to handle route props

@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
+
 
 interface AttachmentPickerProps {
   visible: boolean;
@@ -85,40 +85,7 @@ const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
     }
   };
 
-  const pickDocument = async () => {
-    try {
-      setIsLoading(true);
 
-      const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
-        copyToCacheDirectory: true,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const asset = result.assets[0];
-        
-        // Check file size (limit to 10MB)
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        if (asset.size && asset.size > maxSize) {
-          Alert.alert('File Too Large', 'Please select a file smaller than 10MB');
-          return;
-        }
-
-        onAttachmentSelected({
-          uri: asset.uri,
-          name: asset.name,
-          type: asset.mimeType || 'application/octet-stream',
-          size: asset.size || 0,
-        });
-        onClose();
-      }
-    } catch (error) {
-      console.error('Error picking document:', error);
-      Alert.alert('Error', 'Failed to select document');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const options = [
     {
@@ -137,14 +104,6 @@ const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
       color: '#2196F3',
       onPress: () => pickImage(false),
     },
-    {
-      id: 'document',
-      title: 'Document',
-      description: 'Select a document or file',
-      icon: 'insert-drive-file',
-      color: '#FF9800',
-      onPress: pickDocument,
-    },
   ];
 
   return (
@@ -152,7 +111,7 @@ const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>
-            <Text style={styles.title}>Add Attachment</Text>
+            <Text style={styles.title}>Add Photo</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <MaterialIcons name="close" size={24} color="#666" />
             </TouchableOpacity>

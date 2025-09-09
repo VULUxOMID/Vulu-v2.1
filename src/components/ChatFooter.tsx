@@ -1,19 +1,46 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Keyboard, Platform } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, TextInput, TouchableOpacity, StyleSheet, Keyboard, Platform, Text, Animated, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useVoiceRecording } from '../hooks/useVoiceMessage';
+import { VoiceMessage } from '../services/voiceMessageService';
+
+// Constants
+const MIN_RECORDING_DURATION_MS = 1000; // 1 second minimum
 
 interface ChatFooterProps {
   onSendMessage: (text: string) => void;
   onTypingStart?: () => void;
   onTypingStop?: () => void;
   onAttachmentPress?: () => void;
-  onVoiceMessagePress?: () => void;
+  onVoiceMessageSend?: (voiceMessage: VoiceMessage) => void;
   onTextChange?: (text: string) => void;
+  onEmojiPress?: () => void;
 }
 
-const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPress, onVoiceMessagePress, onTextChange }: ChatFooterProps) => {
+const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPress, onVoiceMessageSend, onTextChange, onEmojiPress }: ChatFooterProps) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+
+  // Voice recording functionality
+  const {
+    recordingState,
+    startRecording,
+    stopRecording,
+    hasPermission,
+    isLoading,
+    formatDuration,
+  } = useVoiceRecording();
+
+  const [recordingAnimation] = useState(new Animated.Value(1));
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Cleanup animation on unmount
+  useEffect(() => {
+    return () => {
+      animationRef.current?.stop();
+      animationRef.current = null;
+    };
+  }, []);
 
   const handleSend = () => {
     if (message.trim().length > 0) {
@@ -41,6 +68,76 @@ const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPr
     }
   };
 
+  // Voice recording handlers
+  const handleVoiceRecordStart = async () => {
+    if (hasPermission === false) {
+      Alert.alert(
+        'Permission Required',
+        'Please grant microphone permission to record voice messages.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      await startRecording();
+      // Start pulsing animation
+      animationRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(recordingAnimation, {
+            toValue: 1.2,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(recordingAnimation, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      animationRef.current.start();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to start recording');
+    }
+  };
+
+  const handleVoiceRecordEnd = async () => {
+    try {
+      const voiceMessage = await stopRecording();
+      
+      // Stop and reset animation
+      animationRef.current?.stop();
+      animationRef.current = null;
+      recordingAnimation.stopAnimation();
+      recordingAnimation.setValue(1);
+
+      // Check minimum recording duration
+      if (voiceMessage) {
+        const duration = voiceMessage.duration || 0;
+        if (duration < MIN_RECORDING_DURATION_MS) {
+          Alert.alert(
+            'Recording Too Short',
+            'Please record for at least 1 second.',
+            [{ text: 'OK' }]
+          );
+          return; // Don't send the voice message
+        }
+        
+        if (onVoiceMessageSend) {
+          onVoiceMessageSend(voiceMessage);
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to stop recording');
+      // Stop and reset animation on error too
+      animationRef.current?.stop();
+      animationRef.current = null;
+      recordingAnimation.stopAnimation();
+      recordingAnimation.setValue(1);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.inputContainer}>
@@ -59,20 +156,40 @@ const ChatFooter = ({ onSendMessage, onTypingStart, onTypingStop, onAttachmentPr
           returnKeyType="default"
         />
         
-        <TouchableOpacity style={styles.iconButton}>
+        <TouchableOpacity style={styles.iconButton} onPress={onEmojiPress}>
           <MaterialIcons name="emoji-emotions" size={24} color="#6E69F4" />
         </TouchableOpacity>
 
-        {onVoiceMessagePress && (
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={onVoiceMessagePress}
-            accessibilityLabel="Record voice message"
-            accessibilityRole="button"
-            accessible
-          >
-            <MaterialIcons name="keyboard-voice" size={24} color="#6E69F4" />
-          </TouchableOpacity>
+        {onVoiceMessageSend && (
+          <View style={styles.voiceButtonContainer}>
+            {recordingState.isRecording && (
+              <View style={styles.recordingIndicator}>
+                <Text style={styles.recordingText}>
+                  {formatDuration(recordingState.duration)}
+                </Text>
+              </View>
+            )}
+            <Animated.View style={{ transform: [{ scale: recordingAnimation }] }}>
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  recordingState.isRecording && styles.recordingButton
+                ]}
+                onPressIn={handleVoiceRecordStart}
+                onPressOut={handleVoiceRecordEnd}
+                accessibilityLabel="Hold to record voice message"
+                accessibilityRole="button"
+                accessible
+                disabled={isLoading}
+              >
+                <MaterialIcons
+                  name="keyboard-voice"
+                  size={24}
+                  color={recordingState.isRecording ? "#FF3B30" : "#6E69F4"}
+                />
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
         )}
         
         <TouchableOpacity 
@@ -105,6 +222,28 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 8,
+  },
+  voiceButtonContainer: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  recordingButton: {
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 20,
+  },
+  recordingIndicator: {
+    position: 'absolute',
+    top: -25,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 1,
+  },
+  recordingText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   input: {
     flex: 1,

@@ -16,7 +16,7 @@ export interface UnifiedMessage {
   senderAvatar?: string;
   text: string;
   timestamp: Timestamp | string; // Support both Firebase Timestamp and string format
-  type: 'text' | 'image' | 'file' | 'system';
+  type: 'text' | 'image' | 'file' | 'system' | 'voice';
   isLive?: boolean;
   edited?: boolean;
   attachments?: Array<{
@@ -44,6 +44,13 @@ export interface UnifiedMessage {
     count: number;
     userIds: string[];
   }>;
+  // Voice message data
+  voiceData?: {
+    uri: string;
+    duration: number;
+    waveform: number[];
+    size: number;
+  };
   // Additional properties for UI rendering
   measure?: (callback: (x: number, y: number, width: number, height: number, pageX: number, pageY: number) => void) => void;
 }
@@ -359,7 +366,8 @@ export class MessageConverter {
       attachments: dm.attachments,
       mentions: dm.mentions,
       replyTo: dm.replyTo,
-      reactions: dm.reactions
+      reactions: dm.reactions,
+      voiceData: dm.voiceData // Preserve voice message data
     };
   }
 
