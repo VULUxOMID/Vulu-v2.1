@@ -22,6 +22,9 @@ import {
 import { db, auth } from './firebase';
 import { StreamChatMessage, MessageReaction, MessageType } from './firestoreService';
 
+// Shared message length constant
+const MAX_MESSAGE_LENGTH = 2000;
+
 export interface ChatMessage {
   id: string;
   streamId: string;
@@ -401,8 +404,8 @@ class StreamChatService {
       throw new Error('Message cannot be empty');
     }
 
-    if (message.length > 500) {
-      throw new Error('Message is too long (max 500 characters)');
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      throw new Error(`Message is too long (max ${MAX_MESSAGE_LENGTH} characters)`);
     }
 
     // Get stream settings

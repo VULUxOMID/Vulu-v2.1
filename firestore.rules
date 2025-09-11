@@ -310,36 +310,36 @@ service cloud.firestore {
     // SCHEDULED MESSAGES - users can manage their own scheduled messages
     match /scheduledMessages/{messageId} {
       // Users can read their own scheduled messages
-      allow read: if isAuthenticated() &&
-        request.auth.uid == resource.data.senderId;
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.senderId;
 
-      // Users can create scheduled messages for themselves with strict validation
+      // Users can create scheduled messages for themselves (schema aligned with app)
       allow create: if isAuthenticated() &&
         request.auth.uid == request.resource.data.senderId &&
-        // Validate required fields are present
-        request.resource.data.keys().hasAll(['senderId', 'recipientId', 'body', 'scheduledAt', 'status']) &&
-        // Restrict to allowed fields only
-        request.resource.data.keys().hasOnly(['senderId', 'recipientId', 'body', 'scheduledAt', 'status', 'createdAtMeta']) &&
-        // Validate field types and constraints
-        request.resource.data.recipientId is string &&
-        request.resource.data.body is string &&
-        request.resource.data.body.size() > 0 &&
-        request.resource.data.scheduledAt is timestamp &&
-        request.resource.data.scheduledAt >= request.time &&
-        request.resource.data.status in ['pending', 'scheduled'];
+        // Required fields
+        request.resource.data.keys().hasAll(['conversationId','senderId','senderName','text','scheduledFor','status']) &&
+        // Only allow whitelisted fields
+        request.resource.data.keys().hasOnly([
+          'conversationId','senderId','senderName','text','scheduledFor','scheduledAt','status',
+          'attachments','replyTo','retryCount','maxRetries','failureReason','cancelledAt','cancelledBy',
+          'sentAt','actualMessageId','lastFailureReason','lastFailedAt','createdAtMeta'
+        ]) &&
+        // Type and value checks
+        request.resource.data.conversationId is string &&
+        request.resource.data.senderName is string &&
+        request.resource.data.text is string && request.resource.data.text.size() > 0 &&
+        request.resource.data.scheduledFor is timestamp && request.resource.data.scheduledFor >= request.time &&
+        request.resource.data.status in ['pending','scheduled'];
 
       // Users can update their own scheduled messages (status changes, retries)
       // Also allow system updates for automated processing with admin privileges
       allow update: if isAuthenticated() && (
         request.auth.uid == resource.data.senderId ||
-        // Allow system updates only for privileged server clients
         (request.auth.token.admin == true &&
-         request.resource.data.keys().hasOnly(['status', 'sentAt', 'actualMessageId', 'retryCount', 'lastRetryAt']))
+         request.resource.data.keys().hasOnly(['status','sentAt','actualMessageId','retryCount','lastFailureReason','lastFailedAt','scheduledFor','failureReason','cancelledAt','cancelledBy']))
       );
 
       // Users can delete their own scheduled messages
-      allow delete: if isAuthenticated() &&
-        request.auth.uid == resource.data.senderId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.senderId;
     }
 
 

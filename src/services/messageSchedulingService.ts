@@ -10,6 +10,7 @@ import {
   updateDoc,
   deleteDoc,
   getDocs,
+  getDoc,
   query,
   where,
   orderBy,
@@ -17,8 +18,8 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from './firebase';
-import { DirectMessage } from './types';
+import { db, auth } from './firebase';
+import { DirectMessage, Conversation } from './types';
 import { messagingService } from './messagingService';
 
 // Scheduled message interface
@@ -161,10 +162,17 @@ class MessageSchedulingService {
    */
   async getConversationScheduledMessages(conversationId: string): Promise<ScheduledMessage[]> {
     try {
-      // Use a simpler query to avoid composite index requirement
+      const userId = auth?.currentUser?.uid;
+      if (!userId) {
+        console.warn('Unauthenticated: user must be logged in to retrieve scheduled messages');
+        throw new Error('Unauthenticated: user must be logged in to retrieve scheduled messages');
+      }
+
+      // Use a simpler query to avoid composite index requirement and satisfy rules
       const scheduledQuery = query(
         collection(db, 'scheduledMessages'),
         where('conversationId', '==', conversationId),
+        where('senderId', '==', userId),
         limit(20)
       );
 
@@ -217,30 +225,44 @@ class MessageSchedulingService {
   private async processScheduledMessages(): Promise<void> {
     if (this.isProcessing) return;
 
+    // Only process when a user is authenticated
+    const user = auth?.currentUser;
+    if (!user) {
+      return;
+    }
+
     try {
       this.isProcessing = true;
 
-      // Get messages that are due to be sent
-      const now = new Date();
-      const dueQuery = query(
-        collection(db, 'scheduledMessages'),
-        where('status', '==', 'pending'),
-        where('scheduledFor', '<=', Timestamp.fromDate(now)),
-        orderBy('scheduledFor', 'asc'),
-        limit(10) // Process in batches
+      // Fetch this user's scheduled messages (avoid composite index requirements)
+      const snapshot = await getDocs(
+        query(
+          collection(db, 'scheduledMessages'),
+          where('senderId', '==', user.uid),
+          limit(50)
+        )
       );
 
-      const snapshot = await getDocs(dueQuery);
-      
       if (snapshot.empty) {
         return;
       }
 
-      console.log(`📤 Processing ${snapshot.size} scheduled messages`);
+      // Filter in-memory for due and pending
+      const now = Date.now();
+      const dueMessages = snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() } as ScheduledMessage))
+        .filter(m => m.status === 'pending' && m.scheduledFor.toMillis() <= now)
+        .sort((a, b) => a.scheduledFor.toMillis() - b.scheduledFor.toMillis())
+        .slice(0, 10); // Process in small batches
 
-      const promises = snapshot.docs.map(async (doc) => {
-        const scheduledMessage = { id: doc.id, ...doc.data() } as ScheduledMessage;
-        await this.sendScheduledMessage(scheduledMessage);
+      if (dueMessages.length === 0) {
+        return;
+      }
+
+      console.log(`📤 Processing ${dueMessages.length} scheduled messages`);
+
+      const promises = dueMessages.map(async (m) => {
+        await this.sendScheduledMessage(m);
       });
 
       await Promise.allSettled(promises);
@@ -256,12 +278,27 @@ class MessageSchedulingService {
    */
   private async sendScheduledMessage(scheduledMessage: ScheduledMessage): Promise<void> {
     try {
+      // Determine recipient from conversation
+      const conversationSnap = await getDoc(doc(db, 'conversations', scheduledMessage.conversationId));
+      if (!conversationSnap.exists()) {
+        throw new Error('Conversation not found for scheduled message');
+      }
+      const conversation = conversationSnap.data() as Conversation;
+      const participants: string[] = (conversation as any).participants || [];
+      const recipientId = participants.find(p => p !== scheduledMessage.senderId);
+      if (!recipientId) {
+        throw new Error('Recipient not found in conversation');
+      }
+
       // Send the message using the messaging service
       const messageId = await messagingService.sendMessage(
         scheduledMessage.conversationId,
         scheduledMessage.senderId,
         scheduledMessage.senderName,
+        recipientId,
         scheduledMessage.text,
+        'text',
+        undefined,
         scheduledMessage.replyTo
       );
 

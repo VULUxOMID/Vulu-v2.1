@@ -417,7 +417,7 @@ export class MessageConverter {
       showAvatar: true,
       showName: true,
       userName: msg.senderName,
-      userAvatar: msg.senderAvatar
+      userAvatar: msg.senderAvatar || 'https://randomuser.me/api/portraits/lego/1.jpg'
     };
   }
 }

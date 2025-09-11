@@ -569,6 +569,32 @@ export class MessagingService {
   // ==================== MESSAGE MANAGEMENT ====================
 
   /**
+   * Validate message text before sending
+   */
+  private validateMessageText(text: string): { isValid: boolean; error?: string; sanitizedText?: string } {
+    if (!text || typeof text !== 'string') {
+      return { isValid: false, error: 'Message text is required' };
+    }
+
+    const trimmedText = text.trim();
+    if (trimmedText.length === 0) {
+      return { isValid: false, error: 'Message cannot be empty' };
+    }
+
+    if (trimmedText.length > 2000) {
+      return { isValid: false, error: 'Message is too long (max 2000 characters)' };
+    }
+
+    // Basic sanitization while preserving multi-line formatting
+    const sanitizedText = trimmedText
+      .replace(/\0/g, '') // Remove null bytes
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove control characters except newlines
+      .replace(/\n{4,}/g, '\n\n\n'); // Limit excessive newlines
+
+    return { isValid: true, sanitizedText };
+  }
+
+  /**
    * Send a direct message
    */
   async sendMessage(
@@ -584,37 +610,27 @@ export class MessagingService {
     voiceData?: any
   ): Promise<string> {
     try {
+      // Validate message text
+      const validation = this.validateMessageText(text);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
+      }
+
       return await runTransaction(db, async (transaction) => {
         // Get conversation
         const conversationRef = doc(db, 'conversations', conversationId);
         const conversationSnap = await transaction.get(conversationRef);
-        
+
         if (!conversationSnap.exists()) {
           throw new Error('Conversation not found');
         }
 
         const conversation = conversationSnap.data() as Conversation;
 
-        // Check if conversation should be encrypted
-        let finalText = text;
+        // Encryption disabled - send all messages as plain text
+        let finalText = validation.sanitizedText!;
         let isEncrypted = false;
         let encryptedData = null;
-
-        try {
-          if (encryptionService.isConversationEncrypted(conversationId)) {
-            const encrypted = await encryptionService.encryptMessage(
-              text,
-              conversationId,
-              [senderId, recipientId],
-              senderId
-            );
-            encryptedData = encrypted;
-            finalText = null; // No plaintext for encrypted messages
-            isEncrypted = true;
-          }
-        } catch (encryptionError) {
-          console.warn('Failed to encrypt message, sending unencrypted:', encryptionError);
-        }
 
         // Create message data, filtering out undefined values
         const messageData: any = {
@@ -633,13 +649,8 @@ export class MessagingService {
           reactions: []
         };
 
-        // Handle text and encryption data - always set text field for consistency
-        if (isEncrypted) {
-          messageData.text = ''; // Empty string for encrypted messages
-          messageData.encryptedData = encryptedData;
-        } else {
-          messageData.text = finalText;
-        }
+        // Always use plain text (encryption disabled)
+        messageData.text = finalText;
 
         // Only add optional fields if they have values
         if (senderAvatar) {
@@ -823,10 +834,9 @@ export class MessagingService {
 
         const nextCursor = hasMore ? docs[limitCount - 1].id : undefined;
 
-        // Decrypt encrypted messages
-        const decryptedMessages = await this.decryptMessages(messages);
-
-        return { messages: decryptedMessages, hasMore, nextCursor };
+        // Process messages to handle encryption disabled state
+        const processedMessages = this.processMessagesForDisplay(messages);
+        return { messages: processedMessages, hasMore, nextCursor };
 
       } catch (indexError: any) {
         // Strategy 2: Fallback to memory filtering if index doesn't exist
@@ -863,10 +873,9 @@ export class MessagingService {
         const messages = filteredMessages.slice(0, limitCount);
         const nextCursor = hasMore && messages.length > 0 ? messages[messages.length - 1].id : undefined;
 
-        // Decrypt encrypted messages
-        const decryptedMessages = await this.decryptMessages(messages);
-
-        return { messages: decryptedMessages, hasMore, nextCursor };
+        // Process messages to handle encryption disabled state
+        const processedMessages = this.processMessagesForDisplay(messages);
+        return { messages: processedMessages, hasMore, nextCursor };
       }
     } catch (error: any) {
       console.error('Error getting conversation messages:', error);
@@ -875,15 +884,50 @@ export class MessagingService {
   }
 
   /**
+   * Process messages for display with encryption disabled
+   * Handles old encrypted messages by showing fallback text and validates message content
+   */
+  private processMessagesForDisplay(messages: DirectMessage[]): DirectMessage[] {
+    return messages.map(message => {
+      // If message was previously encrypted but encryption is now disabled
+      if (message.isEncrypted && message.encryptedData) {
+        console.log(`📝 Processing old encrypted message ${message.id} - showing fallback text`);
+        return {
+          ...message,
+          text: 'This message was encrypted and cannot be displayed',
+          isEncrypted: false, // Mark as no longer encrypted
+          encryptedData: undefined, // Remove encrypted data
+        };
+      }
+
+      // Validate and clean message text for display
+      if (message.text && typeof message.text === 'string') {
+        // Ensure text is properly formatted for display
+        const cleanedText = message.text.trim();
+        if (cleanedText.length > 0) {
+          return {
+            ...message,
+            text: cleanedText
+          };
+        }
+      }
+
+      // For plain text messages, return as-is
+      return message;
+    });
+  }
+
+  /**
    * Decrypt encrypted messages in controlled batches
+   * @deprecated - Encryption is disabled, this method is no longer used
    */
   private async decryptMessages(messages: DirectMessage[]): Promise<DirectMessage[]> {
     const BATCH_SIZE = 10; // Process 10 messages at a time
     const results: DirectMessage[] = [];
-    
+
     for (let i = 0; i < messages.length; i += BATCH_SIZE) {
       const batch = messages.slice(i, i + BATCH_SIZE);
-      
+
       const batchResults = await Promise.all(
         batch.map(async (message) => {
           if (message.isEncrypted && message.encryptedData) {
@@ -900,14 +944,14 @@ export class MessagingService {
               console.warn('Failed to decrypt message:', error);
               return {
                 ...message,
-                text: '[Failed to decrypt]',
+                text: 'Message unavailable',
               };
             }
           }
           return message;
         })
       );
-      
+
       results.push(...batchResults);
     }
 
@@ -944,7 +988,10 @@ export class MessagingService {
           id: doc.id,
           ...doc.data()
         })) as DirectMessage[];
-        callback(messages);
+
+        // Process messages to handle encryption disabled state
+        const processedMessages = this.processMessagesForDisplay(messages);
+        callback(processedMessages);
       }, (error) => {
         console.log('Optimized query failed, using fallback strategy');
         // Switch to fallback strategy
@@ -971,7 +1018,9 @@ export class MessagingService {
           .filter(msg => !msg.isDeleted)
           .slice(0, 50);
 
-        callback(filteredMessages);
+        // Process messages to handle encryption disabled state
+        const processedMessages = this.processMessagesForDisplay(filteredMessages);
+        callback(processedMessages);
       }, (error) => {
         console.error('Error listening to messages:', error);
         callback([]);

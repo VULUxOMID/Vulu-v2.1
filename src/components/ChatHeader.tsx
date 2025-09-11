@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import EncryptionIndicator from './EncryptionIndicator';
+
 
 export interface ChatHeaderProps {
   name: string;
@@ -21,10 +21,6 @@ export interface ChatHeaderProps {
 
   onScheduledMessages?: () => void;
   onToggleCloseFriend?: () => void;
-  isEncrypted?: boolean;
-  canEncrypt?: boolean;
-  onToggleEncryption?: () => Promise<void>;
-  onEncryptionSettings?: () => void;
 }
 
 /**
@@ -45,11 +41,7 @@ const ChatHeader = ({
   onPinnedMessages,
 
   onScheduledMessages,
-  onToggleCloseFriend,
-  isEncrypted = false,
-  canEncrypt = false,
-  onToggleEncryption,
-  onEncryptionSettings
+  onToggleCloseFriend
 }: ChatHeaderProps) => {
   const insets = useSafeAreaInsets();
   
@@ -160,13 +152,6 @@ const ChatHeader = ({
                 ]}
               />
               <Text style={styles.statusText}>{getStatusText()}</Text>
-              {canEncrypt && onToggleEncryption && (
-                <EncryptionIndicator
-                  isEncrypted={isEncrypted}
-                  canEncrypt={canEncrypt}
-                  onToggle={onToggleEncryption}
-                />
-              )}
             </View>
           </View>
         </TouchableOpacity>

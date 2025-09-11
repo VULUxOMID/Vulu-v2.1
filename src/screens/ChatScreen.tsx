@@ -37,21 +37,13 @@ import MessageEditModal from '../components/MessageEditModal';
 import MessageDeleteModal from '../components/MessageDeleteModal';
 import DiscordStylePhotoPicker from '../components/DiscordStylePhotoPicker';
 import GroupChatInfo from '../components/GroupChatInfo';
-import MessageSearch from '../components/MessageSearch';
-import PinnedMessages from '../components/PinnedMessages';
-
 import MessageForwarding from '../components/MessageForwarding';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
-import MessageScheduling from '../components/MessageScheduling';
-import ScheduledMessagesList from '../components/ScheduledMessagesList';
-import { useMessageScheduling } from '../hooks/useMessageScheduling';
 import OfflineStatusIndicator from '../components/OfflineStatusIndicator';
 import OfflineMessagesModal from '../components/OfflineMessagesModal';
 import { useOfflineMessages, useOptimisticMessages } from '../hooks/useOfflineMessages';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import EncryptionIndicator from '../components/EncryptionIndicator';
-import EncryptionSettingsModal from '../components/EncryptionSettingsModal';
-import { useConversationEncryption } from '../hooks/useEncryption';
+
 
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
 import EmojiPicker from '../components/EmojiPicker';
@@ -63,9 +55,10 @@ import { firestoreService } from '../services/firestoreService';
 import { messagingService } from '../services/messagingService';
 import { presenceService, PresenceService } from '../services/presenceService';
 import { UnifiedMessage, MessageConverter, DirectMessage } from '../services/types';
-import { ChatOperations, chatSubscriptionManager } from '../utils/chatUtils';
+import { ChatOperations, chatSubscriptionManager, MessageValidator } from '../utils/chatUtils';
 import { useAuthSafe } from '../context/AuthContext';
 import { LoadingState, ErrorState, MessageSkeletonLoader, useErrorHandler } from '../components/ErrorHandling';
+// Hooks
 import { useErrorReporting } from '../hooks/useErrorReporting';
 import { useMessageReactions } from '../hooks/useMessageReactions';
 import { useMessageReplies } from '../hooks/useMessageReplies';
@@ -74,11 +67,12 @@ import { useMessageDeletion } from '../hooks/useMessageDeletion';
 import { useAttachments } from '../hooks/useAttachments';
 import { useReadReceipts } from '../hooks/useReadReceipts';
 import { useTypingIndicator } from '../hooks/useTypingIndicator';
-import { useMessagePinning } from '../hooks/useMessagePinning';
-
 import { useMessageForwarding } from '../hooks/useMessageForwarding';
 import { useMessagingAnalytics, usePerformanceTracking } from '../hooks/useMessagingAnalytics';
-import { MessageValidator } from '../utils/chatUtils';
+
+// Discord theme components
+import { useDiscordTheme } from '../hooks/useDiscordTheme';
+import DiscordChatWrapper from '../components/DiscordChatWrapper';
 
 const { width, height } = Dimensions.get('window');
 
@@ -279,6 +273,7 @@ const useScrollToBottom = (ref: React.RefObject<FlatList>) => {
 const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: ChatScreenProps) => {
   const { canSendMessages } = useGuestRestrictions();
   const authContext = useAuthSafe();
+  const { isDiscordTheme } = useDiscordTheme();
 
   // Handle null auth context or missing user property
   if (!authContext) {
@@ -417,16 +412,11 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [showGroupInfo, setShowGroupInfo] = useState(false);
-  const [showMessageSearch, setShowMessageSearch] = useState(false);
-  const [showPinnedMessages, setShowPinnedMessages] = useState(false);
 
   const [showMessageForwarding, setShowMessageForwarding] = useState(false);
   const [selectedMessagesForForwarding, setSelectedMessagesForForwarding] = useState<DirectMessage[]>([]);
-  const [showMessageScheduling, setShowMessageScheduling] = useState(false);
-  const [showScheduledMessagesList, setShowScheduledMessagesList] = useState(false);
-  const [schedulingReplyTo, setSchedulingReplyTo] = useState<any>(null);
   const [showOfflineMessages, setShowOfflineMessages] = useState(false);
-  const [showEncryptionSettings, setShowEncryptionSettings] = useState(false);
+
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [useVirtualization, setUseVirtualization] = useState(true);
@@ -478,26 +468,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   // Message list optimization
   const messageOptimization = useMessageListOptimization(messages);
 
-  // Message pinning
-  const {
-    pinMessage,
-    unpinMessage,
-    togglePin,
-    pinMessageWithConfirmation,
-    canUnpinMessage
-  } = useMessagePinning({
-    conversationId: conversationId || '',
-    onPinStatusChange: (messageId, isPinned) => {
-      // Update the message in the local state
-      setMessages(prevMessages =>
-        prevMessages.map(msg =>
-          msg.id === messageId
-            ? { ...msg, isPinned }
-            : msg
-        )
-      );
-    }
-  });
+
 
 
 
@@ -513,8 +484,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     },
   });
 
-  // Message scheduling
-  const { scheduleMessage } = useMessageScheduling(currentUser?.uid || '');
+
 
   // Offline message handling
   const { queueMessage, syncStats } = useOfflineMessages();
@@ -527,16 +497,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   // Push notifications
   const { clearConversationNotifications } = usePushNotifications();
 
-  // Encryption
-  const {
-    isEncrypted,
-    canEncrypt,
-    toggleEncryption,
-  } = useConversationEncryption(
-    conversationId || '',
-    [currentUser?.uid || '', userId],
-    currentUser?.uid || ''
-  );
+
 
   // Combine real messages with optimistic messages for display
   const displayMessages = useMemo(() => {
@@ -935,16 +896,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
               startDelete(originalMessage);
             }
           }}
-          onPinPress={() => {
-            const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
-            if (originalMessage) {
-              if (originalMessage.isPinned) {
-                unpinMessage(originalMessage);
-              } else {
-                pinMessageWithConfirmation(originalMessage);
-              }
-            }
-          }}
+
           onForwardPress={() => {
             const originalMessage = messages.find(m => m.id === messageComponentFormat.id);
             if (originalMessage) {
@@ -986,13 +938,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     startDelete(message);
   };
 
-  const handlePinMessage = (message: any) => {
-    if (message.isPinned) {
-      unpinMessage(message);
-    } else {
-      pinMessageWithConfirmation(message);
-    }
-  };
+
 
   const handleForwardMessage = (message: any) => {
     setSelectedMessagesForForwarding([message]);
@@ -1031,7 +977,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             onReplyPress={handleReplyPress}
             onEditPress={handleEditPress}
             onDeletePress={handleDeletePress}
-            onPinPress={handlePinMessage}
+
             onForwardPress={handleForwardMessage}
             isLoading={isLoadingMore}
             hasMoreMessages={hasMoreMessages}
@@ -1326,16 +1272,49 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
     setShowMessageForwarding(true);
   };
 
-  // Handle scheduling messages
-  const handleSchedulePress = (text?: string, replyTo?: any) => {
-    setSchedulingReplyTo(replyTo);
-    setShowMessageScheduling(true);
-  };
 
-  // Handle viewing scheduled messages
-  const handleViewScheduledMessages = () => {
-    setShowScheduledMessagesList(true);
-  };
+
+  // If Discord theme is enabled, use Discord-style components
+  if (isDiscordTheme) {
+    return (
+      <DiscordChatWrapper
+        messages={displayMessages.map(msg => ({
+          id: msg.id,
+          text: msg.text,
+          senderId: msg.senderId,
+          senderName: msg.senderName || 'Unknown',
+          senderAvatar: msg.senderAvatar,
+          timestamp: new Date(tsToMs(msg.timestamp)),
+          type: msg.type || 'text',
+          replyTo: msg.replyTo ? {
+            senderName: msg.replyTo.senderName,
+            text: msg.replyTo.text,
+          } : undefined,
+          reactions: msg.reactions,
+          edited: msg.edited,
+        }))}
+        participantName={name}
+        participantAvatar={avatar}
+        participantStatus="online"
+        isTyping={otherUserTyping}
+        currentUserId={currentUser?.uid || ''}
+        currentUserName={currentUser?.displayName || 'You'}
+        onSendMessage={(text) => {
+          handleSendMessage(text);
+        }}
+        onBack={handleNavigation}
+        onCall={() => console.log('Call pressed')}
+        onVideoCall={() => console.log('Video call pressed')}
+        onMore={() => console.log('More options pressed')}
+        onAttachment={() => setShowPhotoPicker(true)}
+        onEmoji={() => setShowEmojiPicker(true)}
+        onMessageLongPress={(message) => {
+          // Handle message long press actions
+          console.log('Message long pressed:', message);
+        }}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -1372,20 +1351,9 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
             setShowGroupInfo(true);
           }}
           onOptions={() => {
-            setShowMessageSearch(true);
-          }}
-          onPinnedMessages={() => {
-            setShowPinnedMessages(true);
-          }}
-
-          onScheduledMessages={() => {
-            setShowScheduledMessagesList(true);
+            console.log('Options pressed');
           }}
           onToggleCloseFriend={handleToggleCloseFriend}
-          isEncrypted={isEncrypted}
-          canEncrypt={canEncrypt}
-          onToggleEncryption={toggleEncryption}
-          onEncryptionSettings={() => setShowEncryptionSettings(true)}
         />
         
         {/* Live Chat Preview - if needed */}
@@ -1503,29 +1471,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           }}
         />
 
-        {/* Message Search Modal */}
-        <MessageSearch
-          visible={showMessageSearch}
-          onClose={() => setShowMessageSearch(false)}
-          conversationId={conversationId || undefined}
-          onMessageSelect={(result) => {
-            setShowMessageSearch(false);
-            // TODO: Navigate to the selected message
-            console.log('Selected message:', result);
-          }}
-        />
 
-        {/* Pinned Messages Modal */}
-        <PinnedMessages
-          visible={showPinnedMessages}
-          onClose={() => setShowPinnedMessages(false)}
-          conversationId={conversationId || ''}
-          onMessageSelect={(message) => {
-            // Navigate to the selected message
-            console.log('Navigate to pinned message:', message.id);
-            setShowPinnedMessages(false);
-          }}
-        />
 
 
 
@@ -1545,30 +1491,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           }}
         />
 
-        {/* Message Scheduling Modal */}
-        <MessageScheduling
-          visible={showMessageScheduling}
-          onClose={() => {
-            setShowMessageScheduling(false);
-            setSchedulingReplyTo(null);
-          }}
-          conversationId={conversationId || ''}
-          currentUserId={currentUser?.uid || ''}
-          currentUserName={currentUser?.displayName || 'You'}
-          replyTo={schedulingReplyTo}
-          onScheduleComplete={(scheduledMessageId) => {
-            console.log(`Message scheduled: ${scheduledMessageId}`);
-            setShowMessageScheduling(false);
-            setSchedulingReplyTo(null);
-          }}
-        />
 
-        {/* Scheduled Messages List Modal */}
-        <ScheduledMessagesList
-          visible={showScheduledMessagesList}
-          onClose={() => setShowScheduledMessagesList(false)}
-          currentUserId={currentUser?.uid || ''}
-        />
 
         {/* Offline Status Indicator */}
         <OfflineStatusIndicator
@@ -1581,12 +1504,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           onClose={() => setShowOfflineMessages(false)}
         />
 
-        {/* Encryption Settings Modal */}
-        <EncryptionSettingsModal
-          visible={showEncryptionSettings}
-          onClose={() => setShowEncryptionSettings(false)}
-          userId={currentUser?.uid || ''}
-        />
+
 
 
 

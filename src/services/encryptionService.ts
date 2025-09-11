@@ -390,10 +390,27 @@ class EncryptionService {
         }
       );
 
-      return decrypted.toString(CryptoJS.enc.Utf8);
+      const decryptedText = decrypted.toString(CryptoJS.enc.Utf8);
+
+      // Validate that decryption produced readable text
+      if (!decryptedText || decryptedText.length === 0) {
+        console.warn('Decryption produced empty result');
+        return 'Message unavailable';
+      }
+
+      // Check for garbled/corrupted text (contains mostly non-printable characters)
+      const printableChars = decryptedText.replace(/[\x20-\x7E\s]/g, '').length;
+      const totalChars = decryptedText.length;
+
+      if (totalChars > 0 && printableChars / totalChars > 0.3) {
+        console.warn('Decryption produced garbled text, likely corrupted');
+        return 'Message corrupted';
+      }
+
+      return decryptedText;
     } catch (error) {
       console.error('Error decrypting message:', error);
-      return '[Decryption failed]';
+      return 'Message unavailable';
     }
   }
 

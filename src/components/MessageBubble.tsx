@@ -10,12 +10,16 @@ import {
   Platform
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Timestamp } from 'firebase/firestore';
 import MessageReply from './MessageReply';
 import AttachmentPreview from './AttachmentPreview';
 import MessageStatus from './MessageStatus';
 import ForwardedMessage from './ForwardedMessage';
 
 const { width } = Dimensions.get('window');
+
+// Type alias for timestamp prop
+type TimestampType = string | Date | Timestamp;
 
 export interface Attachment {
   id: string;
@@ -49,7 +53,7 @@ export interface Mention {
 export interface MessageBubbleProps {
   id: string;
   text: string;
-  timestamp: string;
+  timestamp: TimestampType; // Support multiple timestamp formats
   isCurrentUser: boolean;
   senderName: string;
   senderAvatar: string;
@@ -68,9 +72,9 @@ export interface MessageBubbleProps {
   onReplyPress?: (messageId: string) => void;
   onEditPress?: () => void;
   onDeletePress?: () => void;
-  onPinPress?: () => void;
+
   onForwardPress?: () => void;
-  isPinned?: boolean;
+
   isForwarded?: boolean;
 }
 
@@ -96,16 +100,137 @@ const MessageBubble = ({
   onReplyPress,
   onEditPress,
   onDeletePress,
-  onPinPress,
+
   onForwardPress,
-  isPinned = false,
+
   isForwarded = false,
 }: MessageBubbleProps) => {
+
+  // Format timestamp based on age of message
+  const formatTimestamp = (timestamp: TimestampType): string => {
+    try {
+      let messageDate: Date;
+
+      // Handle different timestamp formats
+      if (timestamp instanceof Date) {
+        messageDate = timestamp;
+      } else if (typeof timestamp === 'object' && timestamp && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
+        // Firebase Timestamp object
+        messageDate = timestamp.toDate();
+      } else if (typeof timestamp === 'object' && timestamp && 'seconds' in timestamp && 'nanoseconds' in timestamp) {
+        // Firebase Timestamp shape {seconds, nanoseconds}
+        messageDate = new Date(timestamp.seconds * 1000 + Math.floor(timestamp.nanoseconds / 1000000));
+      } else if (typeof timestamp === 'string') {
+        // Check if it's already a formatted time string (like "14:30")
+        if (/^\d{1,2}:\d{2}$/.test(timestamp)) {
+          // If it's just a time string, return it as is (it's already formatted)
+          return timestamp;
+        }
+        // Try to parse as date string
+        messageDate = new Date(timestamp);
+        if (isNaN(messageDate.getTime())) {
+          // If parsing fails, return original timestamp
+          return timestamp;
+        }
+      } else if (typeof timestamp === 'number') {
+        messageDate = new Date(timestamp);
+      } else {
+        // Fallback to current time if we can't parse
+        console.warn('Unknown timestamp format:', timestamp);
+        return 'Now';
+      }
+
+      // Check if the date is valid
+      if (isNaN(messageDate.getTime())) {
+        console.warn('Invalid date created from timestamp:', timestamp);
+        return typeof timestamp === 'string' ? timestamp : 'Invalid date';
+      }
+
+      const now = new Date();
+      const diffInHours = (now.getTime() - messageDate.getTime()) / (1000 * 60 * 60);
+      const diffInDays = diffInHours / 24;
+
+      // Format time in 24-hour format
+      const timeString = messageDate.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+
+      if (diffInHours < 24) {
+        // Within last 24 hours: show only time
+        return timeString;
+      } else if (diffInDays < 2) {
+        // 1-2 days ago: show "Yesterday" + time
+        return `Yesterday ${timeString}`;
+      } else {
+        // Older than 2 days: show date + time
+        const dateString = messageDate.toLocaleDateString('en-GB', {
+          month: 'short',
+          day: 'numeric'
+        });
+        return `${dateString} ${timeString}`;
+      }
+    } catch (error) {
+      console.warn('Error formatting timestamp:', error, 'Original timestamp:', timestamp);
+      // Fallback to original timestamp if parsing fails
+      return typeof timestamp === 'string' ? timestamp : 'Invalid date';
+    }
+  };
   
+  // Helper function to filter out corrupted/garbled text
+  const filterCorruptedText = (text: string): string | null => {
+    if (!text || text.trim().length === 0) {
+      return null;
+    }
+
+    // Check for known error messages
+    if (text === 'Message unavailable' || text === 'Message corrupted' || text === '[Failed to decrypt]' || text === '[Decryption failed]') {
+      return 'Message unavailable';
+    }
+
+    // Check for garbled text patterns (high ratio of non-printable or random characters)
+    const printableChars = text.replace(/[^\x20-\x7E\s\u00A0-\uFFFF]/g, '').length;
+    const totalChars = text.length;
+
+    // If more than 50% of characters are non-printable, consider it corrupted (increased threshold)
+    if (totalChars > 0 && (totalChars - printableChars) / totalChars > 0.5) {
+      return null;
+    }
+
+    // More conservative patterns for truly corrupted text
+    // Only flag text that is very likely to be corrupted encryption artifacts
+    const corruptionPatterns = [
+      // Only flag extremely long strings of random characters (50+ chars) with no spaces or punctuation
+      /^[a-zA-Z]{50,}$/,
+      // Only flag very long strings of the same character repeated (30+ times)
+      /^(.)\1{30,}$/,
+      // Flag obvious encryption artifacts (base64-like patterns over 100 chars with no spaces)
+      /^[A-Za-z0-9+/]{100,}={0,2}$/,
+      // Flag hex-like patterns over 64 characters with no spaces
+      /^[0-9a-fA-F]{64,}$/
+    ];
+
+    // Only flag if the ENTIRE message matches a corruption pattern
+    // This prevents legitimate messages with long words from being flagged
+    if (corruptionPatterns.some(pattern => pattern.test(text.trim()))) {
+      console.warn('Message flagged as corrupted:', text.substring(0, 50) + '...');
+      return null;
+    }
+
+    return text;
+  };
+
   // Render text with mentions highlighted
   const renderTextWithMentions = () => {
+    // Filter out corrupted/garbled text
+    const cleanText = filterCorruptedText(text);
+    if (!cleanText) {
+      return <Text style={[styles.messageText, styles.errorText]}>Message unavailable</Text>;
+    }
+
     if (!mentions || mentions.length === 0) {
-      return <Text style={styles.messageText}>{text}</Text>;
+      return <Text style={styles.messageText}>{cleanText}</Text>;
     }
 
     // Sort mentions by startIndex to process them in order
@@ -119,29 +244,29 @@ const MessageBubble = ({
       if (mention.startIndex > lastIndex) {
         textFragments.push(
           <Text key={`text-${index}`} style={styles.messageText}>
-            {text.substring(lastIndex, mention.startIndex)}
+            {cleanText.substring(lastIndex, mention.startIndex)}
           </Text>
         );
       }
-      
+
       // Add the mention
       textFragments.push(
-        <Text 
-          key={`mention-${mention.id}`} 
+        <Text
+          key={`mention-${mention.id}`}
           style={[styles.messageText, styles.mentionText]}
         >
-          {text.substring(mention.startIndex, mention.endIndex + 1)}
+          {cleanText.substring(mention.startIndex, mention.endIndex + 1)}
         </Text>
       );
-      
+
       lastIndex = mention.endIndex + 1;
     });
-    
+
     // Add any remaining text after the last mention
-    if (lastIndex < text.length) {
+    if (lastIndex < cleanText.length) {
       textFragments.push(
         <Text key="text-end" style={styles.messageText}>
-          {text.substring(lastIndex)}
+          {cleanText.substring(lastIndex)}
         </Text>
       );
     }
@@ -253,21 +378,29 @@ const MessageBubble = ({
             styles.bubble,
             isCurrentUser ? styles.bubbleCurrentUser : styles.bubbleOtherUser
           ]}>
-            {isPinned && (
-              <View style={styles.pinnedIndicator}>
-                <MaterialIcons name="push-pin" size={14} color="#007AFF" />
-                <Text style={styles.pinnedText}>Pinned</Text>
-              </View>
-            )}
+
+            {/* Sender name and timestamp header */}
+            <View style={styles.messageHeader}>
+              {!isCurrentUser && (
+                <Text style={styles.senderName}>{senderName}</Text>
+              )}
+              <Text style={[
+                styles.timestamp,
+                isCurrentUser && styles.timestampCurrentUser
+              ]}>
+                {formatTimestamp(timestamp)}
+              </Text>
+            </View>
+
             {renderReplyReference()}
             {renderAttachments()}
             {renderTextWithMentions()}
-            
-            <View style={styles.timestampContainer}>
+
+            {/* Status and edited indicator at bottom */}
+            <View style={styles.statusContainer}>
               {edited && (
                 <Text style={styles.editedText}>Edited</Text>
               )}
-              <Text style={styles.timestamp}>{timestamp}</Text>
               {message && (
                 <MessageStatus
                   message={message}
@@ -313,12 +446,19 @@ const styles = StyleSheet.create({
   bubbleContainerOtherUser: {
     alignItems: 'flex-start',
   },
+  messageHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 4,
+    paddingHorizontal: 2,
+    justifyContent: 'flex-start',
+    // RTL support - will automatically reverse direction in RTL languages
+  },
   senderName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    marginBottom: 2,
-    marginLeft: 12,
+    color: '#FFFFFF',
+    marginEnd: 8, // Use marginEnd for RTL support instead of marginRight
   },
   bubble: {
     borderRadius: 4,
@@ -355,21 +495,29 @@ const styles = StyleSheet.create({
     color: '#B768FB',
     fontWeight: '600',
   },
-  timestampContainer: {
+  timestamp: {
+    fontSize: 11,
+    fontWeight: '300',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  timestampCurrentUser: {
+    textAlign: 'right',
+    marginStart: 'auto', // Use marginStart for RTL support instead of marginLeft
+  },
+  statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     marginTop: 2,
   },
-  timestamp: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    marginLeft: 4,
-  },
   editedText: {
     fontSize: 10,
     color: 'rgba(255,255,255,0.5)',
     marginRight: 4,
+  },
+  errorText: {
+    fontStyle: 'italic',
+    color: 'rgba(255,255,255,0.6)',
   },
   replyContainer: {
     flexDirection: 'row',

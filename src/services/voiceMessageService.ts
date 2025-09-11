@@ -7,6 +7,7 @@ import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
 // Voice message interfaces
 export interface VoiceMessage {
@@ -47,6 +48,7 @@ class VoiceMessageService {
   private static instance: VoiceMessageService;
   private recording: Audio.Recording | null = null;
   private sound: Audio.Sound | null = null;
+  private isExpoGo: boolean = false;
   private recordingState: RecordingState = {
     isRecording: false,
     duration: 0,
@@ -75,6 +77,12 @@ class VoiceMessageService {
       VoiceMessageService.instance = new VoiceMessageService();
     }
     return VoiceMessageService.instance;
+  }
+
+  constructor() {
+    // Detect if we're running in Expo Go
+    this.isExpoGo = Constants.appOwnership === 'expo' ||
+                    (Constants.executionEnvironment === 'storeClient' && __DEV__);
   }
 
   /**
@@ -106,7 +114,14 @@ class VoiceMessageService {
       // Load settings
       await this.loadSettings();
 
-      // Configure audio mode
+      // Check if we're in Expo Go environment
+      if (this.isExpoGo) {
+        console.log('🎭 Voice message service: Running in Expo Go - audio features limited');
+        console.log('✅ Voice message service initialized (mock mode)');
+        return;
+      }
+
+      // Configure audio mode (only in development builds or production)
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -117,7 +132,11 @@ class VoiceMessageService {
 
       console.log('✅ Voice message service initialized');
     } catch (error) {
-      console.error('Error initializing voice message service:', error);
+      console.error('❌ Voice message service initialization failed:', error);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+      // Don't throw error - allow app to continue with limited functionality
     }
   }
 
@@ -126,10 +145,16 @@ class VoiceMessageService {
    */
   async requestPermissions(): Promise<boolean> {
     try {
+      // Check if we're in Expo Go environment
+      if (this.isExpoGo) {
+        console.log('🎭 Voice message service: Permissions not available in Expo Go');
+        return false; // Return false to indicate permissions not available
+      }
+
       const { status } = await Audio.requestPermissionsAsync();
       return status === 'granted';
     } catch (error) {
-      console.error('Error requesting audio permissions:', error);
+      console.warn('⚠️ Error requesting audio permissions (likely Expo Go):', error.message);
       return false;
     }
   }
@@ -139,6 +164,12 @@ class VoiceMessageService {
    */
   async startRecording(): Promise<void> {
     try {
+      // Check if we're in Expo Go environment
+      if (this.isExpoGo) {
+        console.log('🎭 Voice message service: Recording not available in Expo Go');
+        throw new Error('Voice recording not available in development environment');
+      }
+
       // Check permissions
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {

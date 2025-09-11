@@ -13,6 +13,7 @@ try {
 }
 import { biometricAuthService } from '../services/biometricAuthService';
 import { securityService } from '../services/securityService';
+import { profileSyncService } from '../services/profileSyncService';
 
 interface AuthContextType {
   user: User | GuestUser | null;
@@ -273,6 +274,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (mounted) {
             if (profile) {
               setUserProfile(profile);
+              // Start profile synchronization for this user
+              try {
+                profileSyncService.startProfileSync(firebaseUser.uid);
+              } catch (syncError) {
+                console.error('Failed to start profile sync:', {
+                  userId: firebaseUser.uid,
+                  error: syncError
+                });
+                // Don't throw - profile sync failure is not critical for user experience
+              }
             } else {
               // Create new user profile with messaging fields
               const displayName = firebaseUser.displayName || 'User';
@@ -314,6 +325,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 await firestoreService.createUser(newProfile);
                 if (mounted) {
                   setUserProfile(newProfile);
+                  // Start profile synchronization for new user
+                  try {
+                    profileSyncService.startProfileSync(firebaseUser.uid);
+                  } catch (syncError) {
+                    console.error('Failed to start profile sync for new user:', {
+                      userId: firebaseUser.uid,
+                      error: syncError
+                    });
+                    // Don't throw - profile sync failure is not critical for user experience
+                  }
                 }
               } catch (createError) {
                 console.error('Error creating user profile:', createError);
@@ -471,6 +492,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
+      // Stop profile synchronization
+      if (user && !isGuest) {
+        profileSyncService.stopProfileSync(user.uid);
+      }
+
       // Clear guest user state immediately
       setUser(null);
       setUserProfile(null);
@@ -512,6 +538,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('🧹 Clearing all authentication cache...');
 
+      // Stop profile synchronization
+      if (user && !isGuest) {
+        profileSyncService.stopProfileSync(user.uid);
+      }
+
       // Clear AsyncStorage with enhanced error handling
       await safeAsyncStorage.multiRemove([
         'guestUser',
@@ -552,6 +583,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       await firestoreService.updateUser(user.uid, updates);
       setUserProfile(prev => ({ ...prev, ...updates }));
+
+      // Sync profile changes to conversations automatically
+      // The profileSyncService listener will handle this, but we can also trigger it manually
+      // for immediate updates if needed
+      if (updates.displayName || updates.photoURL) {
+        try {
+          await profileSyncService.syncProfileToConversations(user.uid, {
+            displayName: updates.displayName,
+            photoURL: updates.photoURL,
+            username: updates.username,
+            bio: updates.bio,
+            customStatus: updates.customStatus
+          });
+        } catch (syncError) {
+          console.error('Failed to sync profile changes to conversations:', {
+            userId: user.uid,
+            updates,
+            error: syncError
+          });
+          // Don't throw the error - profile update succeeded, sync failure is not critical
+        }
+      }
     } catch (error) {
       throw error;
     }

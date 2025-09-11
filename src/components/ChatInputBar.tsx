@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 32, // Increased bottom padding to move input higher
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.06)',
   },

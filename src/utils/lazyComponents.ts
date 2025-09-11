@@ -37,8 +37,7 @@ export const LazyMessageEditModal = lazy(() => import('../components/MessageEdit
 export const LazyMessageDeleteModal = lazy(() => import('../components/MessageDeleteModal'));
 export const LazyAttachmentPicker = lazy(() => import('../components/AttachmentPicker'));
 export const LazyGroupChatInfo = lazy(() => import('../components/GroupChatInfo'));
-export const LazyMessageSearch = lazy(() => import('../components/MessageSearch'));
-export const LazyPinnedMessages = lazy(() => import('../components/PinnedMessages'));
+
 export const LazyChatThemeSelector = lazy(() => import('../components/ChatThemeSelector'));
 export const LazyMessageForwardModal = lazy(() => import('../components/MessageForwardModal'));
 export const LazyMessageScheduler = lazy(() => import('../components/MessageScheduler'));
@@ -58,8 +57,7 @@ export const MessageEditModal = withLazyLoading(LazyMessageEditModal);
 export const MessageDeleteModal = withLazyLoading(LazyMessageDeleteModal);
 export const AttachmentPicker = withLazyLoading(LazyAttachmentPicker);
 export const GroupChatInfo = withLazyLoading(LazyGroupChatInfo);
-export const MessageSearch = withLazyLoading(LazyMessageSearch);
-export const PinnedMessages = withLazyLoading(LazyPinnedMessages);
+
 export const ChatThemeSelector = withLazyLoading(LazyChatThemeSelector);
 export const MessageForwardModal = withLazyLoading(LazyMessageForwardModal);
 export const MessageScheduler = withLazyLoading(LazyMessageScheduler);
@@ -123,7 +121,7 @@ export const preloadInteractionComponents = async (): Promise<void> => {
 
 // Preload advanced features
 // Import functions for advanced features
-const loadMessageSearch = () => import('../components/MessageSearch');
+
 const loadGroupChatInfo = () => import('../components/GroupChatInfo');
 const loadEncryptionSettingsModal = () => import('../components/EncryptionSettingsModal');
 const loadVoiceMessageModal = () => import('../components/VoiceMessageModal');
@@ -132,7 +130,6 @@ export const preloadAdvancedFeatures = async (): Promise<void> => {
   try {
     // Preload advanced features that might be used later
     await Promise.all([
-      loadMessageSearch(),
       loadGroupChatInfo(),
       loadEncryptionSettingsModal(),
       loadVoiceMessageModal(),
@@ -180,8 +177,7 @@ const componentRegistry: ComponentRegistry = {
   MessageDeleteModal: LazyMessageDeleteModal,
   AttachmentPicker: LazyAttachmentPicker,
   GroupChatInfo: LazyGroupChatInfo,
-  MessageSearch: LazyMessageSearch,
-  PinnedMessages: LazyPinnedMessages,
+
   ChatThemeSelector: LazyChatThemeSelector,
   MessageForwardModal: LazyMessageForwardModal,
   MessageScheduler: LazyMessageScheduler,

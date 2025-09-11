@@ -29,20 +29,21 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({
 }) => {
   const {
     playbackState,
+    isCurrentMessagePlaying,
     togglePlayback,
     seekTo,
     formatDuration,
     getPlaybackProgress,
     isLoading,
     error,
-  } = useVoicePlayback();
+  } = useVoicePlayback(voiceMessage.id);
 
   const [waveformWidth, setWaveformWidth] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragPosition, setDragPosition] = useState(0);
 
-  const isCurrentlyPlaying = playbackState.isPlaying && 
-    playbackState.messageId === voiceMessage.id;
+  // Use the hook's computed state instead of manual comparison
+  const isCurrentlyPlaying = isCurrentMessagePlaying;
 
   /**
    * Handle play/pause toggle

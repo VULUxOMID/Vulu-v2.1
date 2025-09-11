@@ -404,26 +404,34 @@ export const containsProfanity = (input: string): boolean => {
 };
 
 /**
- * Sanitize general text input
+ * Sanitize general text input while preserving multi-line formatting
  */
-export const sanitizeTextInput = (input: string, maxLength: number = 1000): string => {
+export const sanitizeTextInput = (input: string, maxLength: number = 2000): string => {
   if (!input || typeof input !== 'string') {
     return '';
   }
 
   let sanitized = input.trim();
-  
+
   // Remove null bytes
   sanitized = sanitized.replace(/\0/g, '');
-  
-  // Remove control characters except newlines and tabs
+
+  // Remove control characters except newlines (\n), carriage returns (\r), and tabs (\t)
   sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-  
-  // Limit length
-  if (sanitized.length > maxLength) {
-    sanitized = sanitized.substring(0, maxLength);
+
+  // Normalize line endings to \n
+  sanitized = sanitized.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+  // Limit consecutive newlines to prevent excessive spacing
+  sanitized = sanitized.replace(/\n{4,}/g, '\n\n\n');
+
+  // Limit length (increased default for multi-line messages)
+  // Use code point length to avoid splitting surrogate pairs
+  const codePoints = Array.from(sanitized);
+  if (codePoints.length > maxLength) {
+    sanitized = codePoints.slice(0, maxLength).join('');
   }
-  
+
   return sanitized;
 };
 

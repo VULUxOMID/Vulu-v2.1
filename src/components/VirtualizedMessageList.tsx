@@ -31,7 +31,7 @@ interface VirtualizedMessageListProps {
   onReplyPress?: (message: DirectMessage) => void;
   onEditPress?: (message: DirectMessage) => void;
   onDeletePress?: (message: DirectMessage) => void;
-  onPinPress?: (message: DirectMessage) => void;
+
   onForwardPress?: (message: DirectMessage) => void;
   isLoading?: boolean;
   hasMoreMessages?: boolean;
@@ -66,7 +66,7 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   onReplyPress,
   onEditPress,
   onDeletePress,
-  onPinPress,
+
   onForwardPress,
   isLoading = false,
   hasMoreMessages = false,
@@ -82,6 +82,9 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [visibleItems, setVisibleItems] = useState<Set<string>>(new Set());
   const [itemHeights, setItemHeights] = useState<Map<string, number>>(new Map());
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const [contentHeight, setContentHeight] = useState(0);
+  const [layoutHeight, setLayoutHeight] = useState(0);
 
   /**
    * Prepare data for virtualization
@@ -119,16 +122,27 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
   }, [messages, isLoading, hasMoreMessages, isTyping, typingUsers, itemHeights, estimatedItemSize]);
 
   /**
-   * Scroll to bottom when new messages arrive
+   * Scroll to bottom when new messages arrive or component mounts
    */
   useEffect(() => {
     if (scrollToBottom && flatListRef.current) {
       setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToEnd({ animated: false });
         onScrollToBottomComplete?.();
-      }, 100);
+      }, 50);
     }
   }, [scrollToBottom, onScrollToBottomComplete]);
+
+  /**
+   * Always scroll to bottom when messages first load
+   */
+  useEffect(() => {
+    if (messages.length > 0 && flatListRef.current) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 200);
+    }
+  }, [messages.length]);
 
   /**
    * Handle refresh
@@ -166,6 +180,28 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
         viewableItems.map((item) => item.item.id)
       );
       setVisibleItems(newVisibleItems);
+    },
+    []
+  );
+
+  /**
+   * Handle scroll events to track if user is near bottom
+   */
+  const handleScroll = useCallback(
+    (event: any) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+      const { y } = contentOffset;
+      const { height: contentHeight } = contentSize;
+      const { height: layoutHeight } = layoutMeasurement;
+      
+      // Update state for content size tracking
+      setContentHeight(contentHeight);
+      setLayoutHeight(layoutHeight);
+      
+      // Check if user is near bottom (within 100px)
+      const distanceFromBottom = contentHeight - layoutHeight - y;
+      const nearBottom = distanceFromBottom < 100;
+      setIsNearBottom(nearBottom);
     },
     []
   );
@@ -231,7 +267,7 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
           onLongPress={() => onMessageLongPress?.(message)}
           onEditPress={() => onEditPress?.(message)}
           onDeletePress={() => onDeletePress?.(message)}
-          onPinPress={() => onPinPress?.(message)}
+
           onForwardPress={() => onForwardPress?.(message)}
           currentUserId={currentUserId}
           message={message}
@@ -334,6 +370,15 @@ const VirtualizedMessageList: React.FC<VirtualizedMessageListProps> = ({
         keyboardShouldPersistTaps="handled"
         // Inverted for chat-like behavior (newest at bottom)
         inverted={false}
+        // Auto-scroll to bottom when content size changes (only if user is near bottom)
+        onContentSizeChange={() => {
+          if (flatListRef.current && isNearBottom) {
+            flatListRef.current.scrollToEnd({ animated: false });
+          }
+        }}
+        // Track scroll position
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
       />
     </View>
   );

@@ -2,6 +2,8 @@
  * Data validation utilities for Firebase operations
  */
 
+import { sanitizeTextInput } from './inputSanitization';
+
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -36,10 +38,11 @@ export class DataValidator {
       errors.push('Message text is required and must be a non-empty string');
     } else {
       const trimmedText = data.text.trim();
-      if (trimmedText.length > 500) {
-        errors.push('Message text cannot exceed 500 characters');
+      if (trimmedText.length > 2000) { // Increased limit for multi-line messages
+        errors.push('Message text cannot exceed 2000 characters');
       } else {
-        sanitizedData.text = trimmedText;
+        // Apply proper sanitization while preserving formatting
+        sanitizedData.text = sanitizeTextInput(trimmedText);
       }
     }
 
@@ -108,19 +111,6 @@ export class DataValidator {
     }
   }
 
-  /**
-   * Sanitizes text input by removing potentially harmful content
-   */
-  static sanitizeText(text: string): string {
-    if (!text || typeof text !== 'string') {
-      return '';
-    }
-
-    return text
-      .trim()
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .substring(0, 500); // Limit length
-  }
 
   /**
    * Validates Firebase document data before operations

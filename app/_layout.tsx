@@ -27,6 +27,8 @@ import { pushNotificationService, setupQuickReplyActions } from '../src/services
 import { encryptionService } from '../src/services/encryptionService';
 import { voiceMessageService } from '../src/services/voiceMessageService';
 import { messageCacheService } from '../src/services/messageCacheService';
+
+// Development utilities
 import { contentModerationService } from '../src/services/contentModerationService';
 import { bundleOptimizer } from '../src/utils/bundleOptimization';
 import { performanceService } from '../src/services/performanceService';
@@ -35,6 +37,7 @@ import { messagingAnalyticsService } from '../src/services/messagingAnalyticsSer
 // Import debug utilities (development only)
 if (process.env.NODE_ENV !== 'production') {
   import('../src/utils/debugPhantomStreams');
+  import('../src/utils/testScheduledMessages');
 }
 
 // Create a custom Material theme
@@ -182,7 +185,8 @@ export default function RootLayout() {
         // Initialize voice message service
         await voiceMessageService.initialize();
       } catch (error) {
-        console.error('Failed to initialize voice messages:', error);
+        console.warn('⚠️ Voice message service initialization failed (likely Expo Go):', error.message);
+        // Continue without voice messages in development
       }
 
       try {

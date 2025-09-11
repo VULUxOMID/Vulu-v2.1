@@ -3,6 +3,7 @@ import { StyleSheet, View, Image, Text } from 'react-native';
 import MessageBubble from './MessageBubble';
 import MessageReactions from './MessageReactions';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
+import { useDiscordTheme } from '../hooks/useDiscordTheme';
 
 interface MessageProps {
   id: number | string;
@@ -21,7 +22,7 @@ interface MessageProps {
   onLongPress?: () => void; // For message options
   onEditPress?: () => void; // For editing
   onDeletePress?: () => void; // For deleting
-  onPinPress?: () => void; // For pinning
+
   onForwardPress?: () => void; // For forwarding
   currentUserId?: string; // For read receipts
   message?: any; // Full message object
@@ -44,11 +45,14 @@ const Message = ({
   onLongPress,
   onEditPress,
   onDeletePress,
-  onPinPress,
+
   onForwardPress,
   currentUserId,
   message
 }: MessageProps) => {
+  // Get theme colors
+  const { theme } = useDiscordTheme();
+  
   // Determine if this is the current user's message
   // Use currentUserId if available, otherwise fall back to type
   const isCurrentUser = currentUserId && message?.senderId ?
@@ -80,7 +84,7 @@ const Message = ({
           {showName && (
             <Text style={[
               styles.username,
-              isCurrentUser ? styles.currentUserName : styles.otherUserName
+              { color: theme.text.primary }
             ]}>
               {displayName}
             </Text>
@@ -128,11 +132,11 @@ const Message = ({
               onReplyPress={onReplyPress}
               onEditPress={onEditPress}
               onDeletePress={onDeletePress}
-              onPinPress={onPinPress}
+
               onForwardPress={onForwardPress}
               currentUserId={currentUserId || ''}
               message={message}
-              isPinned={message?.isPinned || false}
+
               isForwarded={message?.forwardedFrom ? true : false}
             />
           )}
@@ -171,12 +175,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 2,
-  },
-  currentUserName: {
-    color: '#FF2D84', // Pink for current user
-  },
-  otherUserName: {
-    color: '#B768FB', // Purple for other users
   }
 });
 

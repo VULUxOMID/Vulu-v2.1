@@ -2,7 +2,7 @@
  * Hook for voice message functionality
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   voiceMessageService, 
   VoiceMessage, 
@@ -327,11 +327,11 @@ export const useVoiceRecording = () => {
 };
 
 /**
- * Hook for voice message playback UI
+ * Hook for voice message playback UI with component-level state management
  */
-export const useVoicePlayback = () => {
+export const useVoicePlayback = (messageId?: string) => {
   const {
-    playbackState,
+    playbackState: globalPlaybackState,
     playVoiceMessage,
     stopPlayback,
     pausePlayback,
@@ -340,6 +340,39 @@ export const useVoicePlayback = () => {
     isLoading,
     error,
   } = useVoiceMessage();
+
+  // Component-level state to prevent unnecessary re-renders
+  const [localPlaybackState, setLocalPlaybackState] = useState({
+    isPlaying: false,
+    currentPosition: 0,
+    duration: 0,
+    messageId: undefined as string | undefined,
+  });
+
+  // Update local state only when it's relevant to this component
+  useEffect(() => {
+    if (messageId && globalPlaybackState.messageId === messageId) {
+      setLocalPlaybackState({
+        isPlaying: globalPlaybackState.isPlaying,
+        currentPosition: globalPlaybackState.currentPosition,
+        duration: globalPlaybackState.duration,
+        messageId: globalPlaybackState.messageId,
+      });
+    } else if (globalPlaybackState.messageId !== messageId) {
+      // Reset local state when another message is playing
+      setLocalPlaybackState({
+        isPlaying: false,
+        currentPosition: 0,
+        duration: 0,
+        messageId: undefined,
+      });
+    }
+  }, [globalPlaybackState, messageId]);
+
+  // Check if this specific message is currently playing
+  const isCurrentMessagePlaying = useMemo(() => {
+    return globalPlaybackState.isPlaying && globalPlaybackState.messageId === messageId;
+  }, [globalPlaybackState.isPlaying, globalPlaybackState.messageId, messageId]);
 
   /**
    * Format duration for display
@@ -352,28 +385,30 @@ export const useVoicePlayback = () => {
   }, []);
 
   /**
-   * Get playback progress (0-1)
+   * Get playback progress (0-1) for this specific message
    */
   const getPlaybackProgress = useCallback((): number => {
-    if (playbackState.duration === 0) return 0;
-    return playbackState.currentPosition / playbackState.duration;
-  }, [playbackState.currentPosition, playbackState.duration]);
+    if (!isCurrentMessagePlaying || localPlaybackState.duration === 0) return 0;
+    return localPlaybackState.currentPosition / localPlaybackState.duration;
+  }, [isCurrentMessagePlaying, localPlaybackState.currentPosition, localPlaybackState.duration]);
 
   /**
-   * Toggle playback
+   * Toggle playback for a specific voice message
    */
   const togglePlayback = useCallback(async (voiceMessage?: VoiceMessage): Promise<void> => {
-    if (playbackState.isPlaying) {
+    if (isCurrentMessagePlaying) {
       await pausePlayback();
     } else if (voiceMessage) {
       await playVoiceMessage(voiceMessage);
     } else {
       await resumePlayback();
     }
-  }, [playbackState.isPlaying, playVoiceMessage, pausePlayback, resumePlayback]);
+  }, [isCurrentMessagePlaying, playVoiceMessage, pausePlayback, resumePlayback]);
 
   return {
-    playbackState,
+    playbackState: localPlaybackState,
+    globalPlaybackState,
+    isCurrentMessagePlaying,
     playVoiceMessage,
     stopPlayback,
     pausePlayback,

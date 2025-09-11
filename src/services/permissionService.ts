@@ -1,6 +1,7 @@
 import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 export interface PermissionState {
   microphone: boolean;
@@ -20,12 +21,19 @@ class PermissionService {
   private readonly SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours
   private storageAvailable: boolean = true;
   private isSimulator: boolean = false;
+  private isExpoGo: boolean = false;
 
   static getInstance(): PermissionService {
     if (!PermissionService.instance) {
       PermissionService.instance = new PermissionService();
     }
     return PermissionService.instance;
+  }
+
+  constructor() {
+    // Detect if we're running in Expo Go
+    this.isExpoGo = Constants.appOwnership === 'expo' ||
+                    (Constants.executionEnvironment === 'storeClient' && __DEV__);
   }
 
   private async checkStorageAvailability(): Promise<boolean> {
@@ -105,22 +113,40 @@ class PermissionService {
 
   private async checkCurrentPermissions(): Promise<void> {
     try {
+      // Check if we're in Expo Go environment
+      if (this.isExpoGo) {
+        console.log('🎭 Permission service: Running in Expo Go - permissions not available');
+        this.permissionState.microphone = false;
+        return;
+      }
+
       // Check microphone permission
       const audioStatus = await Audio.getPermissionsAsync();
       this.permissionState.microphone = audioStatus.status === 'granted';
     } catch (error) {
-      console.error('Error checking current permissions:', error);
+      const safeMessage = error instanceof Error ? error.message : String(error);
+      console.warn('⚠️ Error checking current permissions (likely Expo Go):', safeMessage);
+      this.permissionState.microphone = false;
     }
   }
 
   async requestPermissions(): Promise<PermissionState> {
     // If we've already requested permissions this session and they were granted, return current state
-    if (this.permissionState.hasRequestedThisSession && 
+    if (this.permissionState.hasRequestedThisSession &&
         this.permissionState.microphone) {
       return this.permissionState;
     }
 
     try {
+      // Check if we're in Expo Go environment
+      if (this.isExpoGo) {
+        console.log('🎭 Permission service: Permissions not available in Expo Go');
+        this.permissionState.microphone = false;
+        this.permissionState.hasRequestedThisSession = true;
+        this.permissionState.lastRequestTime = Date.now();
+        return this.permissionState;
+      }
+
       // Request microphone permission
       const audioResult = await Audio.requestPermissionsAsync();
       this.permissionState.microphone = audioResult.status === 'granted';
@@ -134,7 +160,11 @@ class PermissionService {
 
       return this.permissionState;
     } catch (error) {
-      console.error('Error requesting permissions:', error);
+      const safeMessage = error instanceof Error ? error.message : String(error);
+      console.warn('⚠️ Error requesting permissions (likely Expo Go):', safeMessage);
+      this.permissionState.microphone = false;
+      this.permissionState.hasRequestedThisSession = true;
+      this.permissionState.lastRequestTime = Date.now();
       return this.permissionState;
     }
   }

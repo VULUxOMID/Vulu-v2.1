@@ -25,6 +25,7 @@ import { firestoreService } from '../services/firestoreService';
 import { BiometricSettings } from '../components/auth/BiometricAuthButton';
 import SecurityMonitor from '../components/security/SecurityMonitor';
 import SecuritySettings from '../components/security/SecuritySettings';
+import DiscordThemeToggle from '../components/DiscordThemeToggle';
 
 const { height } = Dimensions.get('window');
 
@@ -1043,6 +1044,9 @@ const AccountScreen = () => {
 
         <SecurityMonitor showDetails={true} />
         <SecuritySettings />
+
+        {/* Discord Theme Toggle */}
+        <DiscordThemeToggle style={{ marginHorizontal: 20, marginVertical: 10 }} />
 
         {renderAccountManagement()}
         
