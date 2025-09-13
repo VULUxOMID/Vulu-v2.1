@@ -17,6 +17,26 @@ import DiscordChatHeader from './DiscordChatHeader';
 import DiscordChatInput from './DiscordChatInput';
 import DiscordMessage from './DiscordMessage';
 
+// Lightweight skeletons to avoid blocking navigation while loading
+const DiscordMessageSkeleton: React.FC = () => (
+  <View style={{ flexDirection: 'row', marginBottom: 12, paddingHorizontal: 12 }}>
+    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', marginRight: 10 }} />
+    <View style={{ flex: 1 }}>
+      <View style={{ width: '35%', height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.10)', marginBottom: 8 }} />
+      <View style={{ width: '85%', height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.12)', marginBottom: 6 }} />
+      <View style={{ width: '60%', height: 12, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.10)' }} />
+    </View>
+  </View>
+);
+
+const DiscordSkeletonList: React.FC = () => (
+  <View style={{ flex: 1, paddingTop: 12 }}>
+    {[1,2,3,4,5].map((i) => (
+      <DiscordMessageSkeleton key={i} />
+    ))}
+  </View>
+);
+
 interface DiscordChatWrapperProps {
   // Chat data
   messages: Array<{
@@ -161,27 +181,31 @@ const DiscordChatWrapper: React.FC<DiscordChatWrapperProps> = ({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id}
-          style={styles.messagesList}
-          contentContainerStyle={styles.messagesContent}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => {
-            flatListRef.current?.scrollToEnd({ animated: false });
-          }}
-          initialNumToRender={20}
-          maxToRenderPerBatch={10}
-          windowSize={10}
-          removeClippedSubviews={true}
-          getItemLayout={(data, index) => ({
-            length: 60, // Approximate message height
-            offset: 60 * index,
-            index,
-          })}
-        />
+        {loading ? (
+          <DiscordSkeletonList />
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={renderMessage}
+            keyExtractor={(item) => item.id}
+            style={styles.messagesList}
+            contentContainerStyle={styles.messagesContent}
+            showsVerticalScrollIndicator={false}
+            onContentSizeChange={() => {
+              flatListRef.current?.scrollToEnd({ animated: false });
+            }}
+            initialNumToRender={20}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            removeClippedSubviews={true}
+            getItemLayout={(data, index) => ({
+              length: 60, // Approximate message height
+              offset: 60 * index,
+              index,
+            })}
+          />
+        )}
 
         <DiscordChatInput
           placeholder={`Message ${participantName}`}

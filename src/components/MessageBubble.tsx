@@ -18,7 +18,30 @@ import ForwardedMessage from './ForwardedMessage';
 
 const { width } = Dimensions.get('window');
 
+// Deduplicate noisy dev logs for corrupted messages
+const loggedCorruptedMessages = new Set<string>();
+
 // Type alias for timestamp prop
+// Throttle logging so dev console isn't flooded
+let corruptedLogCount = 0;
+let corruptedLogWindowStart = Date.now();
+const CORRUPTED_LOG_MAX_PER_MIN = 5;
+
+const shouldLogCorruption = (key: string) => {
+  if (!__DEV__) return false; // never log in production builds
+  const now = Date.now();
+  if (now - corruptedLogWindowStart > 60_000) {
+    corruptedLogWindowStart = now;
+    corruptedLogCount = 0;
+    loggedCorruptedMessages.clear();
+  }
+  if (loggedCorruptedMessages.has(key)) return false;
+  if (corruptedLogCount >= CORRUPTED_LOG_MAX_PER_MIN) return false;
+  loggedCorruptedMessages.add(key);
+  corruptedLogCount += 1;
+  return true;
+};
+
 type TimestampType = string | Date | Timestamp;
 
 export interface Attachment {
@@ -177,7 +200,7 @@ const MessageBubble = ({
       return typeof timestamp === 'string' ? timestamp : 'Invalid date';
     }
   };
-  
+
   // Helper function to filter out corrupted/garbled text
   const filterCorruptedText = (text: string): string | null => {
     if (!text || text.trim().length === 0) {
@@ -214,7 +237,10 @@ const MessageBubble = ({
     // Only flag if the ENTIRE message matches a corruption pattern
     // This prevents legitimate messages with long words from being flagged
     if (corruptionPatterns.some(pattern => pattern.test(text.trim()))) {
-      console.warn('Message flagged as corrupted:', text.substring(0, 50) + '...');
+      const sample = (text || '').slice(0, 60);
+      if (shouldLogCorruption(sample)) {
+        console.warn('Message flagged as corrupted:', sample + '...');
+      }
       return null;
     }
 
@@ -235,10 +261,10 @@ const MessageBubble = ({
 
     // Sort mentions by startIndex to process them in order
     const sortedMentions = [...mentions].sort((a, b) => a.startIndex - b.startIndex);
-    
+
     const textFragments = [];
     let lastIndex = 0;
-    
+
     sortedMentions.forEach((mention, index) => {
       // Add text before the mention
       if (mention.startIndex > lastIndex) {
@@ -270,10 +296,10 @@ const MessageBubble = ({
         </Text>
       );
     }
-    
+
     return <Text>{textFragments}</Text>;
   };
-  
+
   // Render attachments
   const renderAttachments = () => {
     if (!attachments || attachments.length === 0) return null;
@@ -297,7 +323,7 @@ const MessageBubble = ({
       </View>
     );
   };
-  
+
   // Render reply reference
   const renderReplyReference = () => {
     if (!replyTo) return null;
@@ -315,11 +341,11 @@ const MessageBubble = ({
       />
     );
   };
-  
+
   // Render reactions
   const renderReactions = () => {
     if (!reactions || reactions.length === 0) return null;
-    
+
     return (
       <View style={styles.reactionsContainer}>
         {reactions.map((reaction, index) => (
@@ -335,7 +361,7 @@ const MessageBubble = ({
       </View>
     );
   };
-  
+
   // If this is a forwarded message, render it with ForwardedMessage component
   if (isForwarded && message?.forwardedFrom) {
     return (
@@ -411,7 +437,7 @@ const MessageBubble = ({
             </View>
           </View>
         </TouchableOpacity>
-        
+
         {renderReactions()}
       </View>
     </Animated.View>
@@ -615,4 +641,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MessageBubble; 
+export default MessageBubble;

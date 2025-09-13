@@ -26,7 +26,7 @@ import { presenceService } from '../services/presenceService';
 import { useAuth } from '../context/AuthContext';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import { useErrorReporting } from '../hooks/useErrorReporting';
-import { LoadingState, ErrorState, EmptyState } from '../components/ErrorHandling';
+import { ErrorState, EmptyState, MessageSkeletonLoader } from '../components/ErrorHandling';
 import GroupChatCreation from '../components/GroupChatCreation';
 import { Conversation, AppUser } from '../services/types';
 import { FirebaseErrorHandler } from '../utils/firebaseErrorHandler';
@@ -209,12 +209,10 @@ const DirectMessagesScreen = () => {
         return;
       }
 
-      // Initialize presence service
-      try {
-        await presenceService.initialize(currentUser.uid);
-      } catch (error) {
+      // Initialize presence service (non-blocking)
+      presenceService.initialize(currentUser.uid).catch((error) => {
         console.warn('Failed to initialize presence service:', error);
-      }
+      });
 
       try {
         setIsLoading(true);
@@ -660,7 +658,7 @@ const DirectMessagesScreen = () => {
             }}
           />
         ) : isLoading ? (
-          <LoadingState message="Loading your messages..." />
+          <MessageSkeletonLoader />
         ) : error ? (
           <ErrorState
             error={error}

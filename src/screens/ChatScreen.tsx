@@ -54,10 +54,12 @@ import { useMessageListOptimization } from '../hooks/useVirtualization';
 import { firestoreService } from '../services/firestoreService';
 import { messagingService } from '../services/messagingService';
 import { presenceService, PresenceService } from '../services/presenceService';
+import { messageCacheService } from '../services/messageCacheService';
+
 import { UnifiedMessage, MessageConverter, DirectMessage } from '../services/types';
 import { ChatOperations, chatSubscriptionManager, MessageValidator } from '../utils/chatUtils';
 import { useAuthSafe } from '../context/AuthContext';
-import { LoadingState, ErrorState, MessageSkeletonLoader, useErrorHandler } from '../components/ErrorHandling';
+import { ErrorState, MessageSkeletonLoader, useErrorHandler } from '../components/ErrorHandling';
 // Hooks
 import { useErrorReporting } from '../hooks/useErrorReporting';
 import { useMessageReactions } from '../hooks/useMessageReactions';
@@ -165,19 +167,19 @@ const LiveChatPreview = () => {
           </View>
           <Text style={styles.liveTime}>Started 45 min ago</Text>
         </View>
-        
+
         <Text style={styles.liveChatTitle}>Feature Showcase: New UI Components</Text>
-        
+
         <View style={styles.liveChatImageRow}>
-          <Image 
+          <Image
             source={{ uri: 'https://randomuser.me/api/portraits/women/1.jpg' }}
             style={styles.liveChatImage}
           />
-          <Image 
+          <Image
             source={{ uri: 'https://randomuser.me/api/portraits/men/1.jpg' }}
             style={[styles.liveChatImage, { marginLeft: -15 }]}
           />
-          <Image 
+          <Image
             source={{ uri: 'https://randomuser.me/api/portraits/women/2.jpg' }}
             style={[styles.liveChatImage, { marginLeft: -15 }]}
           />
@@ -185,7 +187,7 @@ const LiveChatPreview = () => {
             <Text style={styles.viewerCountText}>2.5K</Text>
           </View>
         </View>
-        
+
         <View style={styles.liveChatTextContainer}>
           <Text style={styles.liveChatMessage} numberOfLines={2}>
             Join me as I showcase the latest UI components we've been working on. I'll demonstrate how they work and answer any questions.
@@ -202,7 +204,7 @@ const LiveChatPreview = () => {
           </View>
         </View>
       </View>
-      
+
       <TouchableOpacity style={styles.joinLiveButton}>
         <Text style={styles.joinLiveText}>Join Stream</Text>
         <SVGIcon name="arrow-back" size={18} color="#FFFFFF" />
@@ -266,7 +268,7 @@ const useScrollToBottom = (ref: React.RefObject<FlatList>) => {
       ref.current.scrollToEnd({ animated: true });
     }
   };
-  
+
   return { scrollToBottom };
 };
 
@@ -528,14 +530,14 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   // Create animations for the swipe back gesture
   const [backgroundOpacity] = useState(new Animated.Value(0));
   const [screenTranslate] = useState(new Animated.Value(0));
-  
+
   // Create transforms for the swipe gesture
   const screenTransform = {
     transform: [
       { translateX: screenTranslate },
     ]
   };
-  
+
   // Cleanup animations and state when unmounting
   useEffect(() => {
     return () => {
@@ -544,7 +546,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       screenTranslate.setValue(0);
     };
   }, [backgroundOpacity, screenTranslate]);
-  
+
   // Create the PanResponder for swipe back gesture
   const panResponder = React.useRef(
     PanResponder.create({
@@ -584,7 +586,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       },
     })
   ).current;
-  
+
   // Load conversation and messages
   useEffect(() => {
     let isMounted = true;
@@ -616,28 +618,27 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           console.warn('Failed to clear conversation notifications:', error);
         });
 
-        // Load existing messages with pagination
-        const messageResult = await messagingService.getConversationMessages(newConversationId, 30); // Load 30 initial messages
-        // Filter out deleted messages for current user
-        const filteredMessages = messageResult.messages.filter((msg: DirectMessage) => !isDeletedForUser(msg));
-        const unifiedMessages = filteredMessages.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
+        // Local-first: try cached messages for instant render
+        let initialMessages: DirectMessage[] | null = await messageCacheService.getCachedMessages(newConversationId);
+
+        // Network fetch in background; fall back if no cache
+        const messageResult = await messagingService.getConversationMessages(newConversationId, 30);
+        const networkMessages = messageResult.messages.filter((msg: DirectMessage) => !isDeletedForUser(msg));
+
+        // If no cache, use network immediately; otherwise update state when network returns
+        const toDisplay = (initialMessages && initialMessages.length > 0) ? initialMessages : networkMessages;
+        const unifiedMessages = toDisplay.map((msg: DirectMessage) => MessageConverter.fromDirectMessage(msg));
 
         if (isMounted) {
-          // Sort messages by timestamp ascending (oldest first) for proper chronological display
-          const sortedMessages = unifiedMessages.sort((a, b) => {
-            const timeA = tsToMs(a.timestamp);
-            const timeB = tsToMs(b.timestamp);
-            return timeA - timeB; // Ascending order (oldest first)
-          });
-
+          const sortedMessages = unifiedMessages.sort((a, b) => tsToMs(a.timestamp) - tsToMs(b.timestamp));
           setMessages(sortedMessages);
           setHasMoreMessages(messageResult.hasMore);
           setMessageCursor(messageResult.nextCursor);
 
-          // Auto-scroll to bottom after initial load
-          setTimeout(() => {
-            scrollToBottom();
-          }, 200);
+          // Cache freshest from network for next open
+          messageCacheService.cacheMessages(newConversationId, networkMessages).catch(() => {});
+
+          setTimeout(() => { scrollToBottom(); }, 200);
         }
 
         // Set up real-time listener for messages
@@ -823,7 +824,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       setIsLoadingMore(false);
     }
   };
-  
+
   // Navigation handler that respects the source parameter
   const handleNavigation = useCallback(() => {
     if (source === 'notifications') {
@@ -1143,7 +1144,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       }
     } catch (error: any) {
       console.error('Error handling message send:', error);
-      
+
       // Track failed message send for analytics
       try {
         trackFeatureUsage('message_send_failed', currentUser?.uid || 'unknown', {
@@ -1158,7 +1159,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       } catch (analyticsError) {
         console.warn('Failed to track message send failure:', analyticsError);
       }
-      
+
       removeOptimisticMessage(optimisticId);
       handleError(`Failed to send message: ${error.message}`);
     }
@@ -1299,6 +1300,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         isTyping={otherUserTyping}
         currentUserId={currentUser?.uid || ''}
         currentUserName={currentUser?.displayName || 'You'}
+        loading={isLoading}
         onSendMessage={(text) => {
           handleSendMessage(text);
         }}
@@ -1319,7 +1321,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1D1E26" />
-      
+
       {/* Background for swipe gesture */}
       <Animated.View
         style={[
@@ -1329,10 +1331,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
       >
         <MaterialIcons name="arrow-back" size={30} color="#FFF" style={styles.backIcon} />
       </Animated.View>
-      
+
       {/* Swipeable Screen Content */}
-      <Animated.View 
-        style={[styles.screenContent, screenTransform]} 
+      <Animated.View
+        style={[styles.screenContent, screenTransform]}
         {...panResponder.panHandlers}
       >
         {/* Custom Chat Header */}
@@ -1355,12 +1357,12 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
           }}
           onToggleCloseFriend={handleToggleCloseFriend}
         />
-        
+
         {/* Live Chat Preview - if needed */}
         {messages.some(msg => msg.isLive) && (
           <LiveChatPreview />
         )}
-        
+
         {/* Messages List with loading and error states */}
         {isLoading ? (
           <MessageSkeletonLoader />
@@ -1379,7 +1381,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
         ) : (
           safeRenderMessages()
         )}
-        
+
         {/* Reply Input */}
         <ReplyInput
           replyTo={replyingTo}
@@ -1538,10 +1540,10 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 const ChatScreen = (props: any) => {
   // Extract params from route - handle both navigation patterns
   const routeParams = props.route?.params || props;
-  
+
   // Handle different parameter structures
   let userId, name, avatar, goBack, goToDMs, source;
-  
+
   if (routeParams.recipientId) {
     // New pattern: { recipientId, recipientName, recipientAvatar, conversationId }
     userId = routeParams.recipientId;
@@ -1569,7 +1571,7 @@ const ChatScreen = (props: any) => {
         <Text style={{ color: '#fff', fontSize: 16 }}>Error loading chat.</Text>
         <Text style={{ color: '#666', fontSize: 14, marginTop: 8 }}>Missing required information</Text>
       </View>
-    ); 
+    );
   }
 
   // Provide default goBack if not provided
@@ -1578,7 +1580,7 @@ const ChatScreen = (props: any) => {
   }
 
   return (
-    <ChatScreenInternal 
+    <ChatScreenInternal
       userId={userId}
       name={name}
       avatar={avatar || defaultAvatarUrl} // Provide a default avatar if needed
@@ -1638,7 +1640,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginHorizontal: 8,
   },
-  
+
   // Keep other necessary styles from original file
   liveChatContainer: {
     margin: 16,
