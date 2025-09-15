@@ -82,7 +82,7 @@ class MessageCacheService {
     try {
       // Load sync status
       await this.loadSyncStatus();
-      
+
       // Perform cleanup if needed
       await this.performMaintenanceIfNeeded();
 
@@ -124,7 +124,7 @@ class MessageCacheService {
       }
 
       await AsyncStorage.setItem(cacheKey, cacheData);
-      
+
       // Update metadata
       await this.updateCacheMetadata();
 
@@ -343,7 +343,7 @@ class MessageCacheService {
           if (!data) continue;
 
           const entry = JSON.parse(data);
-          
+
           // Remove expired entries
           if (entry.expiresAt && now > entry.expiresAt) {
             await AsyncStorage.removeItem(key);
@@ -366,7 +366,7 @@ class MessageCacheService {
 
       // Update metadata
       await this.updateCacheMetadata();
-      
+
       console.log(`🧹 Cache maintenance completed. Removed ${removedCount} entries.`);
     } catch (error) {
       console.error('Error performing cache maintenance:', error);
@@ -414,7 +414,7 @@ class MessageCacheService {
       this.syncStatus.pendingSync = this.syncStatus.pendingSync.filter(id => id !== conversationId);
       this.syncStatus.failedSync = this.syncStatus.failedSync.filter(id => id !== conversationId);
       this.syncStatus.lastSync = Date.now();
-      
+
       await this.updateSyncStatus({
         pendingSync: this.syncStatus.pendingSync,
         failedSync: this.syncStatus.failedSync,
@@ -431,11 +431,11 @@ class MessageCacheService {
   async markSyncFailed(conversationId: string): Promise<void> {
     try {
       this.syncStatus.pendingSync = this.syncStatus.pendingSync.filter(id => id !== conversationId);
-      
+
       if (!this.syncStatus.failedSync.includes(conversationId)) {
         this.syncStatus.failedSync.push(conversationId);
       }
-      
+
       await this.updateSyncStatus({
         pendingSync: this.syncStatus.pendingSync,
         failedSync: this.syncStatus.failedSync,
@@ -558,6 +558,27 @@ class MessageCacheService {
   }
 
   /**
+   * RN-safe UTF-8 byte length helper (no Node Buffer)
+   */
+  private getUtf8ByteLength(str: string): number {
+    try {
+      if (typeof TextEncoder !== 'undefined') {
+        return new TextEncoder().encode(str).length;
+      }
+    } catch {}
+    try {
+      // Accurate in RN as well
+      return new Blob([str]).size;
+    } catch {}
+    try {
+      // Fallback approximation
+      return unescape(encodeURIComponent(str)).length;
+    } catch {}
+    return str.length;
+  }
+
+
+  /**
    * Update cache metadata
    */
   private async updateCacheMetadata(): Promise<void> {
@@ -571,7 +592,7 @@ class MessageCacheService {
       for (const key of cacheKeys) {
         const data = await AsyncStorage.getItem(key);
         if (data) {
-          totalSize += Buffer.byteLength(data, 'utf8');
+          totalSize += this.getUtf8ByteLength(data);
         }
       }
 
