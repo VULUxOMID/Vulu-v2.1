@@ -450,7 +450,7 @@ class StreamModerationService {
 
     } catch (error: any) {
       console.error('Failed to create moderation rule:', error);
-      throw new Error(`Failed to create moderation rule: ${error.message}`);
+      throw new Error('Failed to create moderation rule. Please try again or contact support.');
     }
   }
 

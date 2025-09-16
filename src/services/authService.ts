@@ -267,7 +267,8 @@ class AuthService {
         photoURL: user.photoURL
       };
     } catch (error: any) {
-      throw new Error(error.message);
+      console.error('signUp failed:', error);
+      throw new Error('Failed to sign up. Please try again or contact support.');
     }
   }
 
@@ -330,7 +331,8 @@ class AuthService {
       await this.clearGuestUser();
       await signOut(auth);
     } catch (error: any) {
-      throw new Error(error.message);
+      console.error('signOut failed:', error);
+      throw new Error('Failed to sign out. Please try again.');
     }
   }
 

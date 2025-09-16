@@ -29,8 +29,6 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       // Allow public read for username checking during registration
       allow read: if true;
-      // Allow authenticated users to update friends array for friend management
-      allow update: if isAuthenticated();
 
       // Active stream tracking subcollection - specific document path
       match /activeStream/current {
@@ -274,12 +272,13 @@ service cloud.firestore {
                    request.auth.uid == request.resource.data.hostId &&
                    request.resource.data.isActive == true;
 
-      // Simplified stream updates - authenticated users can update streams they participate in
+      // Stream updates - host or participant only
       allow update: if isAuthenticated() && (
-        // Host can always update their stream
         request.auth.uid == resource.data.hostId ||
-        // Participants can update stream (join/leave)
-        resource.data.isActive == true
+        (
+          resource.data.participants != null &&
+          request.auth.uid in resource.data.participants
+        )
       ) ||
 
       // ADMIN/CLEANUP: Allow system cleanup operations for stale/inactive streams

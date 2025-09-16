@@ -39,6 +39,7 @@ import { encryptionService } from './encryptionService';
 import { messageCacheService } from './messageCacheService';
 import { contentModerationService } from './contentModerationService';
 import { messagingAnalyticsService } from './messagingAnalyticsService';
+import errorHandlingService from './errorHandlingService';
 
 export class MessagingService {
   private static instance: MessagingService;
@@ -484,16 +485,16 @@ export class MessagingService {
         conversationsRef,
         where('participants', 'array-contains', userId1)
       );
-      
+
       const querySnapshot = await getDocs(q);
-      
+
       for (const doc of querySnapshot.docs) {
         const conversation = { id: doc.id, ...doc.data() } as Conversation;
         if (conversation.participants.includes(userId2) && conversation.participants.length === 2) {
           return conversation;
         }
       }
-      
+
       return null;
     } catch (error: any) {
       console.error('Error finding existing conversation:', error);
@@ -649,9 +650,27 @@ export class MessagingService {
               keyId: enc.keyId,
             };
             isEncrypted = true;
-          } catch (encryptionError) {
-            // If encryption is required but fails, abort the send with a descriptive error
-            throw new Error(`Failed to encrypt message: ${encryptionError instanceof Error ? encryptionError.message : 'Unknown encryption error'}. Please try again or contact support if the issue persists.`);
+          } catch (encryptionError: any) {
+            // Log full details internally without exposing sensitive info
+            try {
+              await errorHandlingService.handleError(
+                encryptionError instanceof Error ? encryptionError : new Error(String(encryptionError)),
+                {
+                  component: 'MessagingService',
+                  action: 'encryptMessage',
+                  conversationId,
+                  userId: senderId,
+                  additionalData: { reason: 'encryption_failed_during_send' }
+                },
+                'high',
+                false
+              );
+            } catch (logErr) {
+              // Ensure logging failure never blocks user flow
+              console.error('Failed to log encryption error:', logErr);
+            }
+            // Throw a generic, non-sensitive error to the caller
+            throw new Error('Failed to encrypt message. Please try again or contact support.');
           }
         }
 
@@ -712,7 +731,7 @@ export class MessagingService {
             type
           },
           lastMessageTime: serverTimestamp(),
-          [`unreadCount.${recipientId}`]: (conversation.unreadCount[recipientId] || 0) + 1,
+          [`unreadCount.${recipientId}`]: ((conversation.unreadCount || {})[recipientId] || 0) + 1,
           updatedAt: serverTimestamp()
         };
 
@@ -1203,7 +1222,7 @@ export class MessagingService {
       return requestRef.id;
     } catch (error: any) {
       console.error('Error sending friend request:', error);
-      throw new Error(`Failed to send friend request: ${error.message}`);
+      throw new Error('Failed to send friend request. Please try again.');
     }
   }
 
@@ -1387,7 +1406,7 @@ export class MessagingService {
       console.log(`✅ Toggled reaction ${emoji} for message ${messageId}`);
     } catch (error: any) {
       console.error('Error toggling message reaction:', error);
-      throw new Error(`Failed to toggle reaction: ${error.message}`);
+      throw new Error('Failed to toggle reaction. Please try again.');
     }
   }
 
@@ -1494,7 +1513,7 @@ export class MessagingService {
       console.log(`✅ Reply sent to message ${replyToMessageId} in conversation ${conversationId}`);
     } catch (error: any) {
       console.error('Error sending reply message:', error);
-      throw new Error(`Failed to send reply: ${error.message}`);
+      throw new Error('Failed to send reply. Please try again.');
     }
   }
 
@@ -1606,7 +1625,7 @@ export class MessagingService {
       console.log(`✅ Message ${messageId} edited successfully`);
     } catch (error: any) {
       console.error('Error editing message:', error);
-      throw new Error(`Failed to edit message: ${error.message}`);
+      throw new Error('Failed to edit message. Please try again or contact support.');
     }
   }
 
@@ -1722,7 +1741,7 @@ export class MessagingService {
       console.log(`✅ Message ${messageId} deleted for everyone`);
     } catch (error: any) {
       console.error('Error deleting message for everyone:', error);
-      throw new Error(`Failed to delete message: ${error.message}`);
+      throw new Error('Failed to delete message. Please try again.');
     }
   }
 
@@ -1879,7 +1898,7 @@ export class MessagingService {
       };
     } catch (error: any) {
       console.error('Error uploading attachment:', error);
-      throw new Error(`Failed to upload attachment: ${error.message}`);
+      throw new Error('Failed to upload attachment. Please try again or contact support.');
     }
   }
 
@@ -1939,7 +1958,7 @@ export class MessagingService {
       console.log(`✅ Message with attachment sent to conversation ${conversationId}`);
     } catch (error: any) {
       console.error('Error sending message with attachment:', error);
-      throw new Error(`Failed to send message with attachment: ${error.message}`);
+      throw new Error('Failed to send message with attachment. Please try again.');
     }
   }
 
@@ -2793,7 +2812,7 @@ export class MessagingService {
       return docRef.id;
     } catch (error: any) {
       console.error('Error forwarding message:', error);
-      throw new Error(`Failed to forward message: ${error.message}`);
+      throw new Error('Failed to forward message. Please try again.');
     }
   }
 

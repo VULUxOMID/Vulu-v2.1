@@ -199,8 +199,10 @@ class EncryptionService {
       // This is a simplified implementation
       // In production, use proper RSA key generation libraries
       const privateKey = CryptoJS.lib.WordArray.random(256/8).toString();
-      const publicKey = CryptoJS.SHA256(privateKey).toString();
-      
+      // For the current symmetric key-wrapping placeholder, use the same secret for wrap/unwrap
+      // so that encryptConversationKey(deps) and decryptConversationKey use identical passphrases.
+      const publicKey = privateKey;
+
       return { publicKey, privateKey };
     } catch (error) {
       // Fallback to a simpler random generation if crypto module fails
@@ -337,20 +339,22 @@ class EncryptionService {
         }
       }
 
-      // Derive HMAC key and prepare key/IV
+      // Derive independent ENC and MAC keys (simple KDF placeholder)
       const keyWordArray = CryptoJS.enc.Hex.parse(conversationKey);
+      const encKey = CryptoJS.SHA256(keyWordArray.clone().concat(CryptoJS.enc.Utf8.parse('enc')));
+      const macKey = CryptoJS.SHA256(keyWordArray.clone().concat(CryptoJS.enc.Utf8.parse('mac')));
       const ivWordArray = iv;
 
       // Encrypt with AES-CBC (PKCS7 padding by default)
-      const encrypted = CryptoJS.AES.encrypt(message, keyWordArray, {
+      const encrypted = CryptoJS.AES.encrypt(message, encKey, {
         iv: ivWordArray,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7,
       });
 
-      // Compute HMAC-SHA256 over iv + ciphertext
+      // Compute HMAC-SHA256 over iv + ciphertext using macKey
       const macData = ivWordArray.clone().concat(encrypted.ciphertext);
-      const authTag = CryptoJS.HmacSHA256(macData, keyWordArray).toString();
+      const authTag = CryptoJS.HmacSHA256(macData, macKey).toString();
 
       return {
         encryptedContent: encrypted.ciphertext.toString(),
@@ -387,15 +391,17 @@ class EncryptionService {
       const iv = CryptoJS.enc.Hex.parse(encryptedMessage.iv);
       const ciphertext = CryptoJS.enc.Hex.parse(encryptedMessage.encryptedContent);
 
-      // Verify HMAC-SHA256 over iv + ciphertext
+      // Verify HMAC-SHA256 over iv + ciphertext using macKey derived from conversationKey
       const keyWordArray = CryptoJS.enc.Hex.parse(conversationKey);
+      const macKey = CryptoJS.SHA256(keyWordArray.clone().concat(CryptoJS.enc.Utf8.parse('mac')));
       const macData = iv.clone().concat(ciphertext);
-      const expectedTag = CryptoJS.HmacSHA256(macData, keyWordArray).toString();
+      const expectedTag = CryptoJS.HmacSHA256(macData, macKey).toString();
       if (expectedTag !== encryptedMessage.authTag) {
         throw new Error('Auth tag mismatch');
       }
 
-      // Decrypt with AES-CBC (PKCS7 padding)
+      // Decrypt with AES-CBC (PKCS7 padding) using encKey
+      const encKey = CryptoJS.SHA256(keyWordArray.clone().concat(CryptoJS.enc.Utf8.parse('enc')));
       const decrypted = CryptoJS.AES.decrypt(
         { ciphertext } as any,
         keyWordArray,
