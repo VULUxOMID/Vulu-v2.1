@@ -632,9 +632,9 @@ export class MessagingService {
         let isEncrypted = false;
         let encryptedData: any = null;
 
-        try {
-          const shouldEncrypt = !!conversation.isEncrypted;
-          if (shouldEncrypt) {
+        const shouldEncrypt = !!conversation.isEncrypted;
+        if (shouldEncrypt) {
+          try {
             const enc = await encryptionService.encryptMessage(
               finalText,
               conversationId,
@@ -649,9 +649,10 @@ export class MessagingService {
               keyId: enc.keyId,
             };
             isEncrypted = true;
+          } catch (encryptionError) {
+            // If encryption is required but fails, abort the send with a descriptive error
+            throw new Error(`Failed to encrypt message: ${encryptionError instanceof Error ? encryptionError.message : 'Unknown encryption error'}. Please try again or contact support if the issue persists.`);
           }
-        } catch (e) {
-          console.warn('Encryption failed, sending plaintext:', e);
         }
 
         // Create message data, filtering out undefined values
