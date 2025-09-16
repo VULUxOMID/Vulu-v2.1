@@ -4,8 +4,13 @@
  */
 
 import { Alert } from 'react-native';
-import { captureException, captureMessage, addBreadcrumb } from '@sentry/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Optional Sentry shims: avoid hard dependency if package not installed
+// If you install @sentry/react-native later, we can wire these to the real SDK
+const captureException = (..._args: any[]) => {};
+const captureMessage = (..._args: any[]) => {};
+const addBreadcrumb = (..._args: any[]) => {};
 
 export interface ErrorContext {
   userId?: string;

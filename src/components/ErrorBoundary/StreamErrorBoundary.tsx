@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { captureException } from '@sentry/react-native';
+
+// Optional Sentry shim to avoid hard dependency if not installed
+const captureException = (..._args: any[]) => {};
 
 // Discord-inspired colors
 const colors = {
