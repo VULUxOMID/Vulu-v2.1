@@ -117,6 +117,32 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // ENCRYPTION KEY MATERIAL
+    // Store each user's public key; user can create/update their own doc, public read allowed for participants
+    match /userPublicKeys/{userId} {
+      allow create, update: if isOwner(userId);
+      // Limit updates to keyId/publicKey fields only
+      allow update: if isOwner(userId) &&
+        request.resource.data.keys().hasOnly(['keyId','publicKey','createdAt','userId']) &&
+        request.resource.data.userId == userId;
+      allow read: if isAuthenticated();
+    }
+
+    // Store per-conversation encrypted symmetric keys
+    match /conversationKeys/{conversationId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.participants != null &&
+        request.resource.data.participants.hasAny([request.auth.uid]);
+
+      allow read: if isAuthenticated() &&
+        resource.data.participants != null &&
+        resource.data.participants.hasAny([request.auth.uid]);
+
+      // Disallow client updates to prevent tampering; rotation should be create-only or via functions
+      allow update, delete: if false;
+    }
+
+
     // SOCIAL & ACTIVITY COLLECTIONS
     match /friendActivities/{activityId} {
       allow read: if isAuthenticated(); // Users can see friends' activities
@@ -127,36 +153,36 @@ service cloud.firestore {
     // FRIEND REQUESTS COLLECTION - for friend request management
     match /friendRequests/{requestId} {
       // Allow creating if the sender is the authenticated user
-      allow create: if isAuthenticated() && 
+      allow create: if isAuthenticated() &&
         request.auth.uid == request.resource.data.senderId;
-      
+
       // Allow reading if user is sender or recipient
-      allow read: if isAuthenticated() && 
-        (request.auth.uid == resource.data.senderId || 
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == resource.data.senderId ||
          request.auth.uid == resource.data.recipientId);
-      
+
       // Allow updating if user is sender or recipient
-      allow update: if isAuthenticated() && 
-        (request.auth.uid == resource.data.senderId || 
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == resource.data.senderId ||
          request.auth.uid == resource.data.recipientId);
-      
+
       // Allow deleting if user is sender or recipient
-      allow delete: if isAuthenticated() && 
-        (request.auth.uid == resource.data.senderId || 
+      allow delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.senderId ||
          request.auth.uid == resource.data.recipientId);
     }
 
     // FRIENDSHIPS COLLECTION - for established friend relationships
     match /friendships/{friendshipId} {
       allow create: if isAuthenticated();
-      allow read: if isAuthenticated() && 
-        (request.auth.uid == resource.data.userId1 || 
+      allow read: if isAuthenticated() &&
+        (request.auth.uid == resource.data.userId1 ||
          request.auth.uid == resource.data.userId2);
-      allow update: if isAuthenticated() && 
-        (request.auth.uid == resource.data.userId1 || 
+      allow update: if isAuthenticated() &&
+        (request.auth.uid == resource.data.userId1 ||
          request.auth.uid == resource.data.userId2);
-      allow delete: if isAuthenticated() && 
-        (request.auth.uid == resource.data.userId1 || 
+      allow delete: if isAuthenticated() &&
+        (request.auth.uid == resource.data.userId1 ||
          request.auth.uid == resource.data.userId2);
     }
 
@@ -301,10 +327,39 @@ service cloud.firestore {
       allow list: if isAuthenticated();
     }
 
-    // Conversation messages - users can access messages in conversations they participate in
+    // Conversation messages - participant-only with strict sender/recipient permissions
     match /conversations/{conversationId}/messages/{messageId} {
-      allow read, write: if isAuthenticated() &&
+      // Read: only participants
+      allow read: if isAuthenticated() &&
         request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+
+      // Create: only participants, and only if the authenticated user is the sender
+      allow create: if isAuthenticated() &&
+        (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants) &&
+        (request.auth.uid == request.resource.data.senderId);
+
+      // Update: participants
+      // - Sender can edit/delete their own message content/flags
+      // - Recipient can append their own receipts (delivered/read metadata) and advance status
+      allow update: if isAuthenticated() &&
+        (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants) && (
+          // Sender-only branch: the original sender can update any fields (content, deletes, etc.)
+          (request.auth.uid == resource.data.senderId) ||
+
+          // Recipient receipts branch: only recipient may update receipt-related fields
+          (
+            resource.data.recipientId == request.auth.uid &&
+            // Only allow changing these specific top-level fields
+            resource.data.diff(request.resource.data).changedKeys().hasOnly([
+              'deliveredTo','deliveredAt','readBy','readAt','status'
+            ])
+          )
+        );
+
+      // Delete: only the sender may delete
+      allow delete: if isAuthenticated() &&
+        (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants) &&
+        (request.auth.uid == resource.data.senderId);
     }
 
     // SCHEDULED MESSAGES - users can manage their own scheduled messages

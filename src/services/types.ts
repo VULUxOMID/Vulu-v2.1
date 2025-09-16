@@ -4,6 +4,7 @@ import { Timestamp } from 'firebase/firestore';
 export interface EncryptedMessageData {
   ciphertext: string;
   iv?: string;
+  authTag?: string;
   algorithm?: string;
   keyId?: string;
 }

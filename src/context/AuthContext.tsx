@@ -14,6 +14,7 @@ try {
 import { biometricAuthService } from '../services/biometricAuthService';
 import { securityService } from '../services/securityService';
 import { profileSyncService } from '../services/profileSyncService';
+import { encryptionService } from '../services/encryptionService';
 
 interface AuthContextType {
   user: User | GuestUser | null;
@@ -284,6 +285,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 });
                 // Don't throw - profile sync failure is not critical for user experience
               }
+              // Initialize encryption for existing user
+              try {
+                await encryptionService.initialize(firebaseUser.uid);
+              } catch (encryptionError) {
+                console.warn('Encryption initialization failed:', encryptionError);
+              }
             } else {
               // Create new user profile with messaging fields
               const displayName = firebaseUser.displayName || 'User';
@@ -335,6 +342,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     });
                     // Don't throw - profile sync failure is not critical for user experience
                   }
+                }
+                // Initialize encryption for the new user
+                try {
+                  await encryptionService.initialize(firebaseUser.uid);
+                } catch (encryptionError) {
+                  console.warn('Encryption initialization failed for new user:', encryptionError);
                 }
               } catch (createError) {
                 console.error('Error creating user profile:', createError);

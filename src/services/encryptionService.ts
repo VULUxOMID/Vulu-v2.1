@@ -238,14 +238,18 @@ class EncryptionService {
       const keyDoc = await getDoc(doc(db, 'conversationKeys', conversationId));
       
       if (keyDoc.exists()) {
-        const keyData = keyDoc.data() as ConversationKey;
-        
+        const keyData = keyDoc.data() as any; // expect { keyId, encryptedKeys: { [userId]: string }, ... }
+        const perUserEncryptedKey = keyData.encryptedKeys && keyData.encryptedKeys[currentUserId];
+        if (!perUserEncryptedKey) {
+          throw new Error('No encrypted conversation key for current user');
+        }
+
         // Decrypt the key using our private key
         const decryptedKey = this.decryptConversationKey(
-          keyData.encryptedKey,
+          perUserEncryptedKey,
           this.userKeyPair?.privateKey || ''
         );
-        
+
         this.conversationKeys.set(conversationId, decryptedKey);
         return decryptedKey;
       }
@@ -319,31 +323,39 @@ class EncryptionService {
         currentUserId
       );
 
-      // Generate IV
+      // Generate IV (16 bytes for AES-CBC)
       let iv: CryptoJS.lib.WordArray;
       try {
-        iv = CryptoJS.lib.WordArray.random(96/8); // 96 bits for GCM
+        iv = CryptoJS.lib.WordArray.random(16);
       } catch (error) {
-        // Fallback using secure RNG - attempt to use Node's crypto.randomBytes(12) or window.crypto.getRandomValues
+        // Fallback using secure RNG - attempt to use Node's crypto.randomBytes(16) or window.crypto.getRandomValues
         try {
-          iv = secureRandomWordArray(12); // 96 bits = 12 bytes
+          iv = secureRandomWordArray(16);
         } catch (secureError) {
           // If no secure RNG is available, fail fast instead of using Math.random()
           throw new Error('Cryptographically secure random number generation is required for IV generation');
         }
       }
 
-      // Encrypt message
-      const encrypted = CryptoJS.AES.encrypt(message, conversationKey, {
-        iv: iv,
-        mode: CryptoJS.mode.GCM,
-        padding: CryptoJS.pad.NoPadding
+      // Derive HMAC key and prepare key/IV
+      const keyWordArray = CryptoJS.enc.Hex.parse(conversationKey);
+      const ivWordArray = iv;
+
+      // Encrypt with AES-CBC (PKCS7 padding by default)
+      const encrypted = CryptoJS.AES.encrypt(message, keyWordArray, {
+        iv: ivWordArray,
+        mode: CryptoJS.mode.CBC,
+        padding: CryptoJS.pad.Pkcs7,
       });
+
+      // Compute HMAC-SHA256 over iv + ciphertext
+      const macData = ivWordArray.clone().concat(encrypted.ciphertext);
+      const authTag = CryptoJS.HmacSHA256(macData, keyWordArray).toString();
 
       return {
         encryptedContent: encrypted.ciphertext.toString(),
-        iv: iv.toString(),
-        authTag: encrypted.tag?.toString() || '',
+        iv: ivWordArray.toString(),
+        authTag: authTag,
         keyId: this.userKeyPair.keyId,
         timestamp: Date.now(),
       };
@@ -374,19 +386,23 @@ class EncryptionService {
       // Reconstruct cipher params
       const iv = CryptoJS.enc.Hex.parse(encryptedMessage.iv);
       const ciphertext = CryptoJS.enc.Hex.parse(encryptedMessage.encryptedContent);
-      const authTag = CryptoJS.enc.Hex.parse(encryptedMessage.authTag);
 
-      // Decrypt
+      // Verify HMAC-SHA256 over iv + ciphertext
+      const keyWordArray = CryptoJS.enc.Hex.parse(conversationKey);
+      const macData = iv.clone().concat(ciphertext);
+      const expectedTag = CryptoJS.HmacSHA256(macData, keyWordArray).toString();
+      if (expectedTag !== encryptedMessage.authTag) {
+        throw new Error('Auth tag mismatch');
+      }
+
+      // Decrypt with AES-CBC (PKCS7 padding)
       const decrypted = CryptoJS.AES.decrypt(
-        {
-          ciphertext: ciphertext,
-          tag: authTag,
-        } as any,
-        conversationKey,
+        { ciphertext } as any,
+        keyWordArray,
         {
           iv: iv,
-          mode: CryptoJS.mode.GCM,
-          padding: CryptoJS.pad.NoPadding
+          mode: CryptoJS.mode.CBC,
+          padding: CryptoJS.pad.Pkcs7
         }
       );
 

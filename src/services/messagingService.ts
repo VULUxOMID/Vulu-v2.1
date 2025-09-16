@@ -627,10 +627,32 @@ export class MessagingService {
 
         const conversation = conversationSnap.data() as Conversation;
 
-        // Encryption disabled - send all messages as plain text
+        // Opt-in encryption: encrypt if conversation.isEncrypted, else send plaintext
         let finalText = validation.sanitizedText!;
         let isEncrypted = false;
-        let encryptedData = null;
+        let encryptedData: any = null;
+
+        try {
+          const shouldEncrypt = !!conversation.isEncrypted;
+          if (shouldEncrypt) {
+            const enc = await encryptionService.encryptMessage(
+              finalText,
+              conversationId,
+              conversation.participants || [],
+              senderId
+            );
+            encryptedData = {
+              ciphertext: enc.encryptedContent,
+              iv: enc.iv,
+              authTag: enc.authTag,
+              algorithm: 'AES-256-CBC-HMAC',
+              keyId: enc.keyId,
+            };
+            isEncrypted = true;
+          }
+        } catch (e) {
+          console.warn('Encryption failed, sending plaintext:', e);
+        }
 
         // Create message data, filtering out undefined values
         const messageData: any = {
@@ -649,8 +671,12 @@ export class MessagingService {
           reactions: []
         };
 
-        // Always use plain text (encryption disabled)
-        messageData.text = finalText;
+        if (isEncrypted && encryptedData) {
+          messageData.text = '';
+          messageData.encryptedData = encryptedData;
+        } else {
+          messageData.text = finalText;
+        }
 
         // Only add optional fields if they have values
         if (senderAvatar) {
@@ -674,9 +700,10 @@ export class MessagingService {
         const messageRef = await addDoc(messagesRef, messageData);
 
         // Update conversation
+        const lastMessageText = isEncrypted ? '[Encrypted]' : text;
         const conversationUpdate = {
           lastMessage: {
-            text,
+            text: lastMessageText,
             senderId,
             senderName,
             timestamp: serverTimestamp(),
@@ -834,8 +861,8 @@ export class MessagingService {
 
         const nextCursor = hasMore ? docs[limitCount - 1].id : undefined;
 
-        // Process messages to handle encryption disabled state
-        const processedMessages = this.processMessagesForDisplay(messages);
+        // Process messages with decryption if needed
+        const processedMessages = await this.processMessagesForDisplay(messages);
         return { messages: processedMessages, hasMore, nextCursor };
 
       } catch (indexError: any) {
@@ -873,8 +900,8 @@ export class MessagingService {
         const messages = filteredMessages.slice(0, limitCount);
         const nextCursor = hasMore && messages.length > 0 ? messages[messages.length - 1].id : undefined;
 
-        // Process messages to handle encryption disabled state
-        const processedMessages = this.processMessagesForDisplay(messages);
+        // Process messages with decryption if needed
+        const processedMessages = await this.processMessagesForDisplay(messages);
         return { messages: processedMessages, hasMore, nextCursor };
       }
     } catch (error: any) {
@@ -887,34 +914,40 @@ export class MessagingService {
    * Process messages for display with encryption disabled
    * Handles old encrypted messages by showing fallback text and validates message content
    */
-  private processMessagesForDisplay(messages: DirectMessage[]): DirectMessage[] {
-    return messages.map(message => {
-      // If message was previously encrypted but encryption is now disabled
+  private async processMessagesForDisplay(messages: DirectMessage[]): Promise<DirectMessage[]> {
+    const results: DirectMessage[] = [];
+    for (const message of messages) {
       if (message.isEncrypted && message.encryptedData) {
-        console.log(`📝 Processing old encrypted message ${message.id} - showing fallback text`);
-        return {
-          ...message,
-          text: 'This message was encrypted and cannot be displayed',
-          isEncrypted: false, // Mark as no longer encrypted
-          encryptedData: undefined, // Remove encrypted data
-        };
-      }
-
-      // Validate and clean message text for display
-      if (message.text && typeof message.text === 'string') {
-        // Ensure text is properly formatted for display
-        const cleanedText = message.text.trim();
-        if (cleanedText.length > 0) {
-          return {
-            ...message,
-            text: cleanedText
-          };
+        try {
+          const decrypted = await encryptionService.decryptMessage(
+            {
+              encryptedContent: message.encryptedData.ciphertext,
+              iv: message.encryptedData.iv || '',
+              authTag: message.encryptedData.authTag || '',
+              keyId: message.encryptedData.keyId || '',
+              timestamp: 0,
+            },
+            message.conversationId
+          );
+          results.push({ ...message, text: decrypted });
+          continue;
+        } catch (e) {
+          results.push({ ...message, text: 'This message is encrypted and unavailable' });
+          continue;
         }
       }
 
-      // For plain text messages, return as-is
-      return message;
-    });
+      if (message.text && typeof message.text === 'string') {
+        const cleanedText = message.text.trim();
+        if (cleanedText.length > 0) {
+          results.push({ ...message, text: cleanedText });
+          continue;
+        }
+      }
+
+      results.push(message);
+    }
+    return results;
   }
 
   /**
@@ -989,9 +1022,13 @@ export class MessagingService {
           ...doc.data()
         })) as DirectMessage[];
 
-        // Process messages to handle encryption disabled state
-        const processedMessages = this.processMessagesForDisplay(messages);
-        callback(processedMessages);
+        // Process messages with decryption if needed
+        this.processMessagesForDisplay(messages)
+          .then(processed => callback(processed))
+          .catch(err => {
+            console.warn('processMessagesForDisplay failed:', err);
+            callback(messages);
+          });
       }, (error) => {
         console.log('Optimized query failed, using fallback strategy');
         // Switch to fallback strategy
@@ -1018,9 +1055,13 @@ export class MessagingService {
           .filter(msg => !msg.isDeleted)
           .slice(0, 50);
 
-        // Process messages to handle encryption disabled state
-        const processedMessages = this.processMessagesForDisplay(filteredMessages);
-        callback(processedMessages);
+        // Process messages with decryption if needed
+        this.processMessagesForDisplay(filteredMessages)
+          .then(processed => callback(processed))
+          .catch(err => {
+            console.warn('processMessagesForDisplay failed:', err);
+            callback(filteredMessages);
+          });
       }, (error) => {
         console.error('Error listening to messages:', error);
         callback([]);
@@ -1434,10 +1475,17 @@ export class MessagingService {
       const messagesRef = collection(db, 'conversations', conversationId, 'messages');
       await addDoc(messagesRef, replyMessage);
 
-      // Update conversation's last message
+      // Update conversation's last message (normalized object)
       const conversationRef = doc(db, 'conversations', conversationId);
       await updateDoc(conversationRef, {
-        lastMessage: messageText,
+        lastMessage: {
+          text: messageText,
+          senderId,
+          senderName,
+          timestamp: serverTimestamp(),
+          messageId: replyMessageId,
+          type: 'text',
+        },
         lastMessageTime: serverTimestamp(),
         lastMessageSenderId: senderId
       });
@@ -1872,10 +1920,17 @@ export class MessagingService {
       const messagesRef = collection(db, 'conversations', conversationId, 'messages');
       await addDoc(messagesRef, messageData);
 
-      // Update conversation's last message
+      // Update conversation's last message (normalized object)
       const conversationRef = doc(db, 'conversations', conversationId);
       await updateDoc(conversationRef, {
-        lastMessage: text || `📎 ${attachment.fileName}`,
+        lastMessage: {
+          text: text || `📎 ${attachment.fileName}`,
+          senderId,
+          senderName,
+          timestamp: serverTimestamp(),
+          messageId: '',
+          type: 'attachment',
+        },
         lastMessageTime: serverTimestamp(),
         lastMessageSenderId: senderId,
       });
@@ -2795,7 +2850,7 @@ export class MessagingService {
       const conversationsQuery = query(
         collection(db, 'conversations'),
         where('participants', 'array-contains', userId),
-        orderBy('lastMessageTimestamp', 'desc'),
+        orderBy('lastMessageTime', 'desc'),
         limit(50)
       );
 
