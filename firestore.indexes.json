@@ -1,24 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "streams",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "isLive",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "startedAt",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "conversations",
       "queryScope": "COLLECTION",
       "fields": [
@@ -380,7 +362,7 @@
       "fields": [
         { "fieldPath": "recipientId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "__name__", "order": "ASCENDING" }
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
   ],
