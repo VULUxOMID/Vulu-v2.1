@@ -112,26 +112,28 @@ export class ActiveStreamTracker {
 
       console.log(`✅ Cleared active stream for user ${userId}`);
     } catch (error: any) {
-      console.error('❌ Error clearing active stream:', error);
+      const code = error?.code;
 
-      // Handle permission errors gracefully
-      if (error?.code === 'permission-denied') {
-        console.warn(`⚠️ Permission denied clearing active stream for user ${userId}. User may be guest or rules need updating.`);
+      // Handle permission errors gracefully without noisy redbox
+      if (code === 'permission-denied') {
+        console.warn(`⚠️ Permission denied clearing active stream for user ${userId}. Likely cross-user delete or rules propagation delay.`);
         return;
       }
 
       // Handle not found errors (document doesn't exist)
-      if (error?.code === 'not-found') {
+      if (code === 'not-found') {
         console.log(`ℹ️ Active stream record for user ${userId} doesn't exist, nothing to clear.`);
         return;
       }
 
-      // Handle other Firebase errors
-      if (error?.code === 'unavailable' || error?.code === 'deadline-exceeded') {
+      // Handle transient Firebase errors
+      if (code === 'unavailable' || code === 'deadline-exceeded') {
         console.warn(`⚠️ Firebase temporarily unavailable for clearing active stream. Continuing.`);
         return;
       }
 
+      // Unexpected errors only
+      console.error('❌ Error clearing active stream:', error);
       throw error;
     }
   }

@@ -172,22 +172,13 @@ class StreamLifecycleManager {
     try {
       if (!session?.participants) return;
 
-      console.log(`🧹 [LIFECYCLE] Cleaning up active stream records for ${session.participants.length} participants`);
-
-      // Import here to avoid circular dependency
-      const { ActiveStreamTracker } = await import('../services/activeStreamTracker');
-
-      for (const participant of session.participants) {
-        try {
-          await ActiveStreamTracker.clearActiveStream(participant.id);
-          console.log(`🧹 [LIFECYCLE] Cleared active stream record for participant ${participant.id}`);
-        } catch (error) {
-          console.warn(`⚠️ [LIFECYCLE] Failed to clear active stream record for ${participant.id}:`, error);
-        }
-      }
+      console.log(`🧹 [LIFECYCLE] Participant record cleanup requested for ${session.participants.length} participants`);
+      console.log('ℹ️ [LIFECYCLE] Skipping client-side cross-user deletions; server function endStreamAndCleanup handles this.');
+      // Note: Client should not delete other users' documents due to Firestore rules.
+      // Server-side cleanup is triggered in streamingService.endStream via callable function.
 
     } catch (error) {
-      console.warn(`⚠️ [LIFECYCLE] Error cleaning up participant records for stream ${streamId}:`, error);
+      console.warn(`⚠️ [LIFECYCLE] Error during participant cleanup noop for stream ${streamId}:`, error);
     }
   }
 

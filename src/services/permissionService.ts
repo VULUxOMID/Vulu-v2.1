@@ -113,12 +113,7 @@ class PermissionService {
 
   private async checkCurrentPermissions(): Promise<void> {
     try {
-      // Check if we're in Expo Go environment
-      if (this.isExpoGo) {
-        console.log('🎭 Permission service: Running in Expo Go - permissions not available');
-        this.permissionState.microphone = false;
-        return;
-      }
+
 
       // Check microphone permission
       const audioStatus = await Audio.getPermissionsAsync();
@@ -138,14 +133,7 @@ class PermissionService {
     }
 
     try {
-      // Check if we're in Expo Go environment
-      if (this.isExpoGo) {
-        console.log('🎭 Permission service: Permissions not available in Expo Go');
-        this.permissionState.microphone = false;
-        this.permissionState.hasRequestedThisSession = true;
-        this.permissionState.lastRequestTime = Date.now();
-        return this.permissionState;
-      }
+
 
       // Request microphone permission
       const audioResult = await Audio.requestPermissionsAsync();

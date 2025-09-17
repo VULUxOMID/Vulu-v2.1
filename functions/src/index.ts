@@ -93,6 +93,8 @@ export {
   aggregatePerformanceStats,
   cleanupPerformanceData
 };
+export { endStreamAndCleanup } from './streamEndCleanup';
+
 
 // Use enhanced token generation function
 export const generateAgoraToken = enhancedGenerateAgoraToken;
@@ -155,7 +157,7 @@ export const validateStreamAccess = functions.https.onCall(async (data, context)
     // Check if stream has reached maximum capacity
     const maxParticipants = streamData.maxParticipants || 50;
     const currentParticipants = streamData.participants?.length || 0;
-    
+
     if (currentParticipants >= maxParticipants) {
       throw new functions.https.HttpsError(
         'resource-exhausted',
@@ -178,11 +180,11 @@ export const validateStreamAccess = functions.https.onCall(async (data, context)
 
   } catch (error) {
     console.error('Error validating stream access:', error);
-    
+
     if (error instanceof functions.https.HttpsError) {
       throw error;
     }
-    
+
     throw new functions.https.HttpsError(
       'internal',
       'Failed to validate stream access'

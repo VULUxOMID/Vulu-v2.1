@@ -48,6 +48,7 @@ const LiveStreamViewSimple = () => {
   // Get stream data
   const streamId = params.streamId as string;
   const stream = getStreamById(streamId);
+  const isHostParam = (params.isHost as string) === 'true';
 
   // Handle empty/missing titles gracefully with fallback
   const rawTitle = stream ? stream.title : (params.title as string);
@@ -72,9 +73,24 @@ const LiveStreamViewSimple = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [permissionsGranted, setPermissionsGranted] = useState(false);
-  
+
   // Refs
   const chatListRef = useRef<FlatList>(null);
+
+  // Determine role (hosts need mic; viewers don't)
+  const isHost = useMemo(() => {
+    // Prefer explicit param if provided
+    if (typeof isHostParam === 'boolean') return isHostParam;
+    if (!stream || !user) return false;
+    try {
+      const name = user.displayName || (user as any).username;
+      const inHosts = Array.isArray(stream.hosts) && stream.hosts.some((h: any) => h?.name === name);
+      const matchesHostId = stream.hostId === user.uid;
+      return Boolean(inHosts || matchesHostId);
+    } catch {
+      return false;
+    }
+  }, [isHostParam, stream, user]);
 
   // Agora configuration
   const isAgoraEnabled = isAgoraConfigured();
@@ -94,48 +110,42 @@ const LiveStreamViewSimple = () => {
         const storageStatus = permissionService.getStorageStatus();
         console.log('📱 Permission service status:', storageStatus);
 
-        const hasPermissions = permissionService.hasRequiredPermissions();
-        console.log('🎤 Current permission state:', { hasPermissions });
+        // Only require microphone when hosting
+        if (isHost) {
+          const hasPermissions = permissionService.hasRequiredPermissions();
+          console.log('🎤 Current permission state:', { hasPermissions });
 
-        if (!hasPermissions) {
-          console.log('🔄 Requesting microphone permissions...');
-          const result = await permissionService.requestPermissions();
-          setPermissionsGranted(result.microphone);
+          if (!hasPermissions) {
+            console.log('🔄 Requesting microphone permissions (host only)...');
+            const result = await permissionService.requestPermissions();
+            setPermissionsGranted(result.microphone);
 
-          console.log('✅ Permission request result:', result);
+            console.log('✅ Permission request result:', result);
 
-          if (!result.microphone) {
-            console.log('❌ Microphone permission denied');
-            Alert.alert(
-              'Permission Required',
-              permissionService.handlePermissionDenied('microphone'),
-              [{ text: 'OK', onPress: () => router.back() }]
-            );
+            if (!result.microphone) {
+              console.log('❌ Microphone permission denied');
+              Alert.alert(
+                'Permission Required',
+                permissionService.handlePermissionDenied('microphone'),
+                [{ text: 'OK', onPress: () => router.back() }]
+              );
+              return;
+            }
           } else {
-            console.log('✅ Microphone permission granted');
+            console.log('✅ Microphone permission already granted');
           }
-        } else {
-          console.log('✅ Permissions already granted');
-          setPermissionsGranted(true);
         }
+
+        // Viewers don't need mic permission to watch
+        setPermissionsGranted(true);
       } catch (error) {
         console.error('❌ Permission initialization failed:', error);
-
-        // Don't block the user - allow them to continue with limited functionality
-        console.log('🔄 Continuing with default permission state...');
-        setPermissionsGranted(true); // Allow continuation for development
-
-        // Show a warning but don't block
-        Alert.alert(
-          'Permission Setup Warning',
-          'There was an issue setting up permissions, but you can continue. Some features may be limited.',
-          [{ text: 'Continue' }]
-        );
+        setPermissionsGranted(true); // don't block viewing
       }
     };
 
     initPermissions();
-  }, []); // Empty dependency array - only run once on mount
+  }, [isHost]); // re-run if role changes
 
   // Set up mini player exit callback
   useEffect(() => {

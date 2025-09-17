@@ -478,10 +478,20 @@ class StreamingService {
         console.log(`⚠️ [STREAMING] Stream ${streamId} not found in local cache, proceeding with Firebase cleanup`);
       }
 
-      // Use the dedicated endStream method which sets both isActive: false and endedAt
-      console.log(`🔄 [STREAMING] Updating Firebase to mark stream ${streamId} as ended...`);
-      await firestoreService.endStream(streamId, 'system_cleanup');
-      console.log(`✅ [STREAMING] Updated Firebase: stream ${streamId} marked as ended`);
+      // Prefer server-side end+cleanup to avoid client permission issues
+      console.log(`🔄 [STREAMING] Requesting server to end stream ${streamId} and cleanup participants...`);
+      try {
+        const { functions } = await import('./firebase');
+        const { httpsCallable } = await import('firebase/functions');
+        const endStreamAndCleanup = httpsCallable(functions, 'endStreamAndCleanup');
+        await endStreamAndCleanup({ streamId });
+        console.log(`✅ [STREAMING] Server-side endStreamAndCleanup completed for ${streamId}`);
+      } catch (fnErr) {
+        console.warn('⚠️ [STREAMING] Server-side cleanup failed or unavailable, falling back to client update:', fnErr);
+        // Fallback: Update Firestore directly
+        await firestoreService.endStream(streamId, 'system_cleanup');
+        console.log(`✅ [STREAMING] Fallback: marked stream ${streamId} as ended in Firestore`);
+      }
 
       // Leave Agora channel if this is the current stream
       if (isAgoraConfigured() && this.currentStreamId === streamId) {
