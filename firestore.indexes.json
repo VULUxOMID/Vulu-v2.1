@@ -365,6 +365,16 @@
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
     }
+,
+    {
+      "collectionGroup": "messages",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "recipientId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    }
   ],
   "fieldOverrides": []
 }
