@@ -268,16 +268,19 @@ service cloud.firestore {
       allow read: if true;
 
       // Simplified stream creation - authenticated users can create streams
+      // Allow creation regardless of initial isActive value; host must match
       allow create: if isAuthenticated() &&
-                   request.auth.uid == request.resource.data.hostId &&
-                   request.resource.data.isActive == true;
+                   request.auth.uid == request.resource.data.hostId;
 
-      // Stream updates - host or participant only
+      // Stream updates - host or participant (via participants subcollection) or moderator
       allow update: if isAuthenticated() && (
         request.auth.uid == resource.data.hostId ||
+        // Treat presence in participants subcollection as membership
+        exists(/databases/$(database)/documents/streams/$(streamId)/participants/$(request.auth.uid)) ||
+        // Moderators can also update
         (
-          resource.data.participants != null &&
-          request.auth.uid in resource.data.participants
+          resource.data.moderatorIds != null &&
+          request.auth.uid in resource.data.moderatorIds
         )
       ) ||
 
@@ -308,6 +311,35 @@ service cloud.firestore {
     match /streams/{streamId}/messages/{messageId} {
       allow read: if true; // Public read access for stream messages
       allow write: if isAuthenticated();
+    }
+
+    // Stream chat subcollection - public read, authenticated create, sender/host/moderator updates
+    match /streams/{streamId}/chat/{messageId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        // Sender can edit/delete
+        request.auth.uid == resource.data.senderId ||
+        // Host or moderator can moderate
+        request.auth.uid == get(/databases/$(database)/documents/streams/$(streamId)).data.hostId ||
+        (
+          get(/databases/$(database)/documents/streams/$(streamId)).data.moderatorIds != null &&
+          request.auth.uid in get(/databases/$(database)/documents/streams/$(streamId)).data.moderatorIds
+        )
+      );
+    }
+
+    // Stream participants subcollection - authenticated read; self/host/moderator can write
+    match /streams/{streamId}/participants/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        request.auth.uid == get(/databases/$(database)/documents/streams/$(streamId)).data.hostId ||
+        (
+          get(/databases/$(database)/documents/streams/$(streamId)).data.moderatorIds != null &&
+          request.auth.uid in get(/databases/$(database)/documents/streams/$(streamId)).data.moderatorIds
+        )
+      );
     }
 
     // CONVERSATIONS - users can access conversations they participate in
