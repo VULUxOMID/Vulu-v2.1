@@ -124,7 +124,7 @@ extend type MovieMetadata {
   """
   ✨ Count the number of rows in the `MovieMetadata` table.
   """
-  _count: Int! @fdc_generated(from: "MovieMetadata", purpose: QUERY_COUNT)
+  _count: Int! @fdc_generated(from: "MovieMetadata.", purpose: QUERY_COUNT)
   """
   ✨ Count the number of rows in the `MovieMetadata` table where the `description` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
   """
@@ -231,7 +231,7 @@ extend type Review {
   """
   ✨ Count the number of rows in the `Review` table.
   """
-  _count: Int! @fdc_generated(from: "Review", purpose: QUERY_COUNT)
+  _count: Int! @fdc_generated(from: "Review.", purpose: QUERY_COUNT)
   """
   ✨ Count the number of rows in the `Review` table where the `movieId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
   """
@@ -388,7 +388,7 @@ extend type User {
   """
   ✨ Count the number of rows in the `User` table.
   """
-  _count: Int! @fdc_generated(from: "User", purpose: QUERY_COUNT)
+  _count: Int! @fdc_generated(from: "User.", purpose: QUERY_COUNT)
   """
   ✨ Count the number of rows in the `User` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
   """
