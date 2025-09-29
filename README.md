@@ -12,9 +12,11 @@ A social streaming app with real-time chat, direct messages, and Discord-style d
 
 ## Quick Start
 
-Prerequisites
+### Prerequisites
 - Node.js 18+
 - npm or yarn
+
+
 - Expo CLI
 
 Install & run

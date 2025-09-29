@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, FlatList, TextInput, TouchableOpacity, Image, SafeAreaView, KeyboardAvoidingView, Platform, StatusBar, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TextInput, TouchableOpacity, Image, KeyboardAvoidingView, Platform, StatusBar, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 
 interface ChatScreenProps {

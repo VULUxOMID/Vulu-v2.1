@@ -23,7 +23,7 @@ export const optimizedImports = {
   imageCompression: () => import('browser-image-compression'),
   
   // Audio utilities
-  audioRecorder: () => import('expo-av/build/Audio'),
+  audioRecorder: () => import('expo-audio'),
 };
 
 // Dynamic feature loading based on user permissions and device capabilities

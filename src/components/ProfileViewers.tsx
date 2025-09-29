@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useUserProfile } from '../context/UserProfileContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

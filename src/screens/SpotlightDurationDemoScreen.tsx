@@ -1,5 +1,6 @@
 import React from 'react';
-import { SafeAreaView, StyleSheet, ScrollView, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import SpotlightDurationDemo from '../components/SpotlightDurationDemo';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';

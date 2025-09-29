@@ -1,5 +1,5 @@
 import { StreamSyncValidator } from '../services/streamSyncValidator';
-import { StreamCleanupService } from '../services/streamCleanupService';
+import { CleanupServiceRegistry } from '../interfaces/ICleanupService';
 
 /**
  * Utility for recovering from Firestore internal errors and listener issues
@@ -53,7 +53,10 @@ export class FirestoreErrorRecovery {
       
       // Step 2: Stop cleanup service temporarily
       console.log('🛑 Step 2: Stopping cleanup service');
-      StreamCleanupService.stopCleanupService();
+      const cleanupService = CleanupServiceRegistry.getInstance().getService();
+      if (cleanupService) {
+        cleanupService.stopCleanupService();
+      }
       
       // Step 3: Wait for cleanup to complete
       console.log('⏳ Step 3: Waiting for cleanup to complete');
@@ -64,7 +67,10 @@ export class FirestoreErrorRecovery {
         console.log('🔄 Step 4: Restarting services');
         
         // Restart cleanup service
-        StreamCleanupService.startCleanupService();
+        const cleanupService = CleanupServiceRegistry.getInstance().getService();
+        if (cleanupService) {
+          cleanupService.startCleanupService();
+        }
         
         // Restart sync validation with delay
         setTimeout(() => {

@@ -78,7 +78,7 @@ extend type Movie {
   """
   ✨ Count the number of rows in the `Movie` table.
   """
-  _count: Int! @fdc_generated(from: "Movie", purpose: QUERY_COUNT)
+  _count: Int! @fdc_generated(from: "Movie.", purpose: QUERY_COUNT)
   """
   ✨ Count the number of rows in the `Movie` table where the `genre` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
   """

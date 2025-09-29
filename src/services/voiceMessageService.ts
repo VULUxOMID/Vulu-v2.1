@@ -3,7 +3,7 @@
  * Handles voice message recording, playback, and audio processing
  */
 
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const TestInputScreen: React.FC = () => {
   const [testValue, setTestValue] = useState('');

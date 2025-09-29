@@ -1,13 +1,13 @@
 import { collection, query, where, getDocs, doc, getDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { ActiveStreamTracker } from './activeStreamTracker';
-import { FirestoreErrorRecovery } from '../utils/firestoreErrorRecovery';
+import { ICleanupService, CleanupServiceRegistry } from '../interfaces/ICleanupService';
 
 /**
  * Background service for cleaning up stale stream data and orphaned records
  * Runs periodically to maintain data integrity
  */
-export class StreamCleanupService {
+export class StreamCleanupService implements ICleanupService {
   private static cleanupInterval: NodeJS.Timeout | null = null;
   private static isRunning = false;
   private static errorCount = 0;
@@ -29,9 +29,16 @@ export class StreamCleanupService {
       console.log('🧹 Cleanup service already running');
       return;
     }
-    
+
     console.log('🧹 Starting stream cleanup service');
     this.isRunning = true;
+
+    // Register this service instance
+    CleanupServiceRegistry.getInstance().register({
+      startCleanupService: () => StreamCleanupService.startCleanupService(),
+      stopCleanupService: () => StreamCleanupService.stopCleanupService(),
+      isRunning: () => StreamCleanupService.isRunning()
+    });
     
     // Run initial cleanup
     this.runCleanupCycle().catch(error => {
@@ -56,6 +63,13 @@ export class StreamCleanupService {
     }
     this.isRunning = false;
     console.log('🧹 Stopped stream cleanup service');
+  }
+
+  /**
+   * Check if the cleanup service is currently running
+   */
+  static isRunning(): boolean {
+    return this.isRunning;
   }
   
   /**
@@ -97,7 +111,7 @@ export class StreamCleanupService {
       this.lastErrorTime = Date.now();
 
       // Check if this is a Firestore internal error
-      if (FirestoreErrorRecovery.isFirestoreInternalError(error)) {
+      if (this.isFirestoreInternalError(error)) {
         console.error('🚨 Firestore internal error detected in cleanup cycle');
 
         // Trigger aggressive recovery
@@ -156,8 +170,8 @@ export class StreamCleanupService {
       // Stop the cleanup service immediately
       this.stopCleanupService();
 
-      // Trigger the global error recovery system
-      await FirestoreErrorRecovery.handleFirestoreError(error, 'StreamCleanupService');
+      // Wait for a bit to let things settle
+      await new Promise(resolve => setTimeout(resolve, 5000));
 
       console.log('✅ Firestore error recovery completed');
 
@@ -235,7 +249,7 @@ export class StreamCleanupService {
       console.error('❌ Error cleaning stale streams:', error);
 
       // Handle Firestore internal errors
-      if (FirestoreErrorRecovery.isFirestoreInternalError(error)) {
+      if (this.isFirestoreInternalError(error)) {
         console.error('🚨 Firestore internal error in stale streams cleanup');
         throw error; // Re-throw to trigger main error handling
       }

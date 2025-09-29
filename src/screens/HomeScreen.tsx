@@ -2384,7 +2384,9 @@ const HomeScreen = () => {
               onPress: async () => {
                 try {
                   await authService.signOut();
-                  router.replace('/auth');
+                  if (router && typeof router.replace === 'function') {
+                    router.replace('/auth');
+                  }
                 } catch (error) {
                   console.error('Sign out error:', error);
                 }

@@ -131,7 +131,12 @@ class BiometricAuthService {
 
       // Remove from secure storage first, fallback to AsyncStorage
       try {
-        await SecureStore.deleteItemAsync(this.BIOMETRIC_CREDENTIALS_KEY);
+        // Validate key before attempting to delete
+        if (this.BIOMETRIC_CREDENTIALS_KEY && this.BIOMETRIC_CREDENTIALS_KEY.trim() !== '') {
+          await SecureStore.deleteItemAsync(this.BIOMETRIC_CREDENTIALS_KEY);
+        } else {
+          console.warn('Invalid biometric credentials key, skipping SecureStore deletion');
+        }
       } catch (error) {
         console.warn('Failed to remove from secure storage, trying AsyncStorage:', error);
         await AsyncStorage.removeItem(this.BIOMETRIC_CREDENTIALS_KEY);
