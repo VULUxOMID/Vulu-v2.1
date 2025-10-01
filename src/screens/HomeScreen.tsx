@@ -48,7 +48,8 @@ const HomeScreen = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('Week');
   const scrollViewRef = useRef<ScrollView>(null);
-  const scrollX = useRef(new Animated.Value(0)).current;
+  const scrollXRef = useRef(new Animated.Value(0));
+  const scrollX = scrollXRef.current;
   const [contentWidth, setContentWidth] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
   
@@ -101,7 +102,8 @@ const HomeScreen = () => {
   const [otherSpotlightTimeLeft, setOtherSpotlightTimeLeft] = useState<number>(180);
   
   // Remove pulsing animation but keep fade effect for transitions
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnimRef = useRef(new Animated.Value(1));
+  const fadeAnim = fadeAnimRef.current;
 
   const [spotlightModalVisible, setSpotlightModalVisible] = useState(false);
   const [spotlightQueuePosition, setSpotlightQueuePosition] = useState<number>(0);
@@ -1605,10 +1607,14 @@ const HomeScreen = () => {
   const [sliderActive, setSliderActive] = useState(false);
   
   // Animation values for gold popup
-  const goldPopupOpacity = useRef(new Animated.Value(0)).current;
-  const goldPopupTranslateY = useRef(new Animated.Value(50)).current;
-  const sliderWidth = useRef(new Animated.Value(0)).current;
-  const sliderPosition = useRef(new Animated.Value(0)).current;
+  const goldPopupOpacityRef = useRef(new Animated.Value(0));
+  const goldPopupOpacity = goldPopupOpacityRef.current;
+  const goldPopupTranslateYRef = useRef(new Animated.Value(50));
+  const goldPopupTranslateY = goldPopupTranslateYRef.current;
+  const sliderWidthRef = useRef(new Animated.Value(0));
+  const sliderWidth = sliderWidthRef.current;
+  const sliderPositionRef = useRef(new Animated.Value(0));
+  const sliderPosition = sliderPositionRef.current;
   const sliderContainerWidth = useRef(0);
   
   // Conversion rate: 1 gem = 36 gold

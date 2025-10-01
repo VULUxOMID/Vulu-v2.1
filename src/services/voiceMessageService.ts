@@ -122,13 +122,17 @@ class VoiceMessageService {
       }
 
       // Configure audio mode (only in development builds or production)
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        playThroughEarpieceAndroid: false,
-        staysActiveInBackground: false,
-        shouldDuckAndroid: true,
-      });
+      if (Audio && Audio.setAudioModeAsync) {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          playThroughEarpieceAndroid: false,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+      } else {
+        console.warn('⚠️ Audio.setAudioModeAsync not available - running in limited mode');
+      }
 
       console.log('✅ Voice message service initialized');
     } catch (error) {
