@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "VULU",
-    "slug": "vulugonew",
+    "slug": "vulu",
     "version": "0.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -15,7 +15,7 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.vulugonew.app",
+      "bundleIdentifier": "com.vulu.app",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "VuluGO needs access to your camera to enable live streaming.",
@@ -27,7 +27,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1C1D23"
       },
-      "package": "com.vulugonew.app",
+      "package": "com.vulu.app",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -39,7 +39,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [],
-    "scheme": "vulugonew",
+    "scheme": "vulu",
     "experiments": {
       "tsconfigPaths": true
     },
