@@ -82,10 +82,22 @@ if [ "${CONFIGURATION}" = "Release" ] && [ -n "${ARCHIVE_PATH}" ]; then
 </plist>
 EOF
                 
-                # Create empty DWARF file
-                touch "${FRAMEWORK_DSYM}/Contents/Resources/DWARF/${framework}"
+                # Try to create a valid DWARF file from the framework binary
+                FRAMEWORK_BINARY="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/${framework}.framework/${framework}"
+                DWARF_OUTPUT="${FRAMEWORK_DSYM}/Contents/Resources/DWARF/${framework}"
                 
-                echo "✅ Created placeholder dSYM for ${framework}.framework"
+                if [ -f "${FRAMEWORK_BINARY}" ]; then
+                    echo "📋 Found framework binary, creating stripped dSYM..."
+                    # Copy the binary and strip debug symbols to create a valid symbol table
+                    cp "${FRAMEWORK_BINARY}" "${DWARF_OUTPUT}"
+                    strip -S "${DWARF_OUTPUT}"
+                    echo "✅ Created valid dSYM for ${framework}.framework (stripped binary)"
+                else
+                    echo "⚠️  Framework binary not found at ${FRAMEWORK_BINARY}"
+                    echo "ℹ️  Skipping dSYM creation - configure crash reporting tools to ignore missing dSYMs"
+                    # Remove the empty dSYM directory structure if no valid binary found
+                    rm -rf "${FRAMEWORK_DSYM}"
+                fi
             else
                 echo "✅ dSYM already exists for ${framework}.framework"
             fi

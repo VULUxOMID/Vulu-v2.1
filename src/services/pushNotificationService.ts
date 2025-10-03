@@ -11,7 +11,7 @@ import { DirectMessage, AppUser } from './types';
 import { messagingService } from './messagingService';
 
 // Permission status types
-export type PermissionStatus = 'unknown' | 'granted' | 'denied' | 'provisional' | 'undetermined';
+export type PermissionStatus = 'unknown' | 'granted' | 'denied' | 'provisional' | 'undetermined' | 'device_not_supported' | 'token_error';
 
 // Notification error types
 export class NotificationPermissionError extends Error {
@@ -120,7 +120,7 @@ class PushNotificationService {
     try {
       if (!Device.isDevice) {
         console.warn('Push notifications only work on physical devices');
-        this.permissionStatus = 'device_not_supported' as any;
+        this.permissionStatus = 'device_not_supported';
         return;
       }
 
@@ -140,14 +140,18 @@ class PushNotificationService {
           
           console.log('✅ Push notification token obtained:', token);
         } catch (tokenError) {
+          // Token retrieval failed - log error and set status, but continue initialization
           console.warn('Could not get push token:', tokenError);
-          throw new NotificationPermissionError('token_error');
+          this.permissionStatus = 'token_error';
+          // Don't throw - allow app to continue without push token
+          return;
         }
       } else {
         console.log(`📵 Push notifications not yet authorized (status: ${status})`);
       }
     } catch (error) {
       console.error('Error checking notification permissions:', error);
+      // Don't rethrow - allow app to continue without notifications
     }
   }
 
@@ -174,7 +178,7 @@ class PushNotificationService {
     try {
       if (!Device.isDevice) {
         console.warn('Push notifications only work on physical devices');
-        this.permissionStatus = 'device_not_supported' as any;
+        this.permissionStatus = 'device_not_supported';
         throw new NotificationPermissionError('device_not_supported');
       }
 
