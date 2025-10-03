@@ -10,6 +10,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DirectMessage, AppUser } from './types';
 import { messagingService } from './messagingService';
 
+// Permission status types
+export type PermissionStatus = 'unknown' | 'granted' | 'denied' | 'provisional' | 'undetermined';
+
+// Notification error types
+export class NotificationPermissionError extends Error {
+  constructor(public reason: 'denied' | 'device_not_supported' | 'network_error' | 'token_error') {
+    super(`Notification permission error: ${reason}`);
+    this.name = 'NotificationPermissionError';
+  }
+}
+
 // Notification data interface
 export interface MessageNotificationData {
   messageId: string;
@@ -45,6 +56,7 @@ class PushNotificationService {
   private expoPushToken: string | null = null;
   private notificationListener: any = null;
   private responseListener: any = null;
+  private permissionStatus: PermissionStatus = 'unknown';
   private settings: NotificationSettings = {
     enabled: true,
     sound: true,
@@ -88,8 +100,8 @@ class PushNotificationService {
       // Load settings
       await this.loadSettings();
 
-      // Register for push notifications
-      await this.registerForPushNotifications();
+      // Check for existing permissions WITHOUT requesting new ones
+      await this.checkExistingPermissions();
 
       // Set up notification listeners
       this.setupNotificationListeners();
@@ -97,34 +109,93 @@ class PushNotificationService {
       console.log('✅ Push notification service initialized');
     } catch (error) {
       console.error('Error initializing push notification service:', error);
+      // Don't rethrow - allow app to continue without notifications
     }
   }
 
   /**
-   * Register for push notifications
+   * Check for existing notification permissions without requesting
+   */
+  private async checkExistingPermissions(): Promise<void> {
+    try {
+      if (!Device.isDevice) {
+        console.warn('Push notifications only work on physical devices');
+        this.permissionStatus = 'device_not_supported' as any;
+        return;
+      }
+
+      const { status } = await Notifications.getPermissionsAsync();
+      this.permissionStatus = this.mapPermissionStatus(status);
+      
+      if (status === 'granted') {
+        // Only get token if we already have permission
+        try {
+          const token = await this.getTokenWithRetry(3);
+          this.expoPushToken = token;
+          
+          // Configure notification channels for Android
+          if (Platform.OS === 'android') {
+            await this.setupAndroidChannels();
+          }
+          
+          console.log('✅ Push notification token obtained:', token);
+        } catch (tokenError) {
+          console.warn('Could not get push token:', tokenError);
+          throw new NotificationPermissionError('token_error');
+        }
+      } else {
+        console.log(`📵 Push notifications not yet authorized (status: ${status})`);
+      }
+    } catch (error) {
+      console.error('Error checking notification permissions:', error);
+    }
+  }
+
+  /**
+   * Map Expo permission status to our internal status
+   */
+  private mapPermissionStatus(status: string): PermissionStatus {
+    switch (status) {
+      case 'granted':
+        return 'granted';
+      case 'denied':
+        return 'denied';
+      case 'undetermined':
+        return 'undetermined';
+      default:
+        return 'unknown';
+    }
+  }
+
+  /**
+   * Register for push notifications with retry logic (call this explicitly when user grants permission)
    */
   async registerForPushNotifications(): Promise<string | null> {
     try {
       if (!Device.isDevice) {
         console.warn('Push notifications only work on physical devices');
-        return null;
+        this.permissionStatus = 'device_not_supported' as any;
+        throw new NotificationPermissionError('device_not_supported');
       }
 
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
+      // EXPLICITLY request permissions - only call this when user takes action
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
 
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
+      this.permissionStatus = this.mapPermissionStatus(status);
+
+      if (status !== 'granted') {
+        console.warn(`Push notification permission not granted (status: ${status})`);
+        throw new NotificationPermissionError('denied');
       }
 
-      if (finalStatus !== 'granted') {
-        console.warn('Push notification permission not granted');
-        return null;
-      }
-
-      // Get the token
-      const token = (await Notifications.getExpoPushTokenAsync()).data;
+      // Get the token with retry logic
+      const token = await this.getTokenWithRetry(3);
       this.expoPushToken = token;
 
       // Configure notification channels for Android
@@ -135,9 +206,43 @@ class PushNotificationService {
       console.log('✅ Push notification token obtained:', token);
       return token;
     } catch (error) {
+      if (error instanceof NotificationPermissionError) {
+        console.error('Notification permission error:', error.reason);
+        throw error;
+      }
       console.error('Error registering for push notifications:', error);
-      return null;
+      throw new NotificationPermissionError('network_error');
     }
+  }
+
+  /**
+   * Get push token with retry logic for network failures
+   */
+  private async getTokenWithRetry(maxRetries: number = 3): Promise<string> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Attempting to get push token (attempt ${attempt}/${maxRetries})...`);
+        const token = (await Notifications.getExpoPushTokenAsync()).data;
+        console.log(`✅ Token obtained on attempt ${attempt}`);
+        return token;
+      } catch (error: any) {
+        lastError = error;
+        console.warn(`⚠️ Token request failed (attempt ${attempt}/${maxRetries}):`, error.message);
+        
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s, 4s
+          const delayMs = 1000 * Math.pow(2, attempt - 1);
+          console.log(`⏳ Retrying in ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+
+    // All retries failed
+    console.error(`❌ Failed to get push token after ${maxRetries} attempts`);
+    throw new NotificationPermissionError('token_error');
   }
 
   /**
@@ -418,6 +523,20 @@ class PushNotificationService {
    */
   getPushToken(): string | null {
     return this.expoPushToken;
+  }
+
+  /**
+   * Get current permission status
+   */
+  getPermissionStatus(): PermissionStatus {
+    return this.permissionStatus;
+  }
+
+  /**
+   * Check if notifications are available and enabled
+   */
+  isNotificationEnabled(): boolean {
+    return this.permissionStatus === 'granted' && !!this.expoPushToken;
   }
 
   /**

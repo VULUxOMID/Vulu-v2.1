@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,19 +9,66 @@ import { OnboardingHeader } from '../../components/onboarding/OnboardingHeader';
 import { OnboardingFooter } from '../../components/onboarding/OnboardingFooter';
 import { AuthColors, AuthTypography } from '../../components/auth/AuthDesignSystem';
 import { useOnboarding } from '../../context/OnboardingContext';
+import { pushNotificationService, NotificationPermissionError } from '../../services/pushNotificationService';
 
 type NotificationsPermissionScreenNavigationProp = StackNavigationProp<OnboardingStackParamList, 'NotificationsPermission'>;
 
 const NotificationsPermissionScreen: React.FC = () => {
   const navigation = useNavigation<NotificationsPermissionScreenNavigationProp>();
   const { updateOnboardingData, markStepCompleted, currentStep } = useOnboarding();
+  const [isRequesting, setIsRequesting] = useState(false);
 
   const handleBack = () => navigation.goBack();
 
-  const handleAllow = () => {
-    updateOnboardingData({ notificationsEnabled: true });
-    markStepCompleted(8);
-    navigation.navigate('AvatarPicker');
+  const handleAllow = async () => {
+    try {
+      setIsRequesting(true);
+      // Actually request notification permissions from the system
+      const token = await pushNotificationService.registerForPushNotifications();
+      
+      updateOnboardingData({ notificationsEnabled: !!token });
+      markStepCompleted(8);
+      navigation.navigate('AvatarPicker');
+    } catch (error) {
+      console.error('Error requesting notification permissions:', error);
+      
+      // Handle specific error types
+      if (error instanceof NotificationPermissionError) {
+        let errorMessage = '';
+        switch (error.reason) {
+          case 'denied':
+            errorMessage = 'Notification permission was denied. You can enable it later in Settings.';
+            break;
+          case 'device_not_supported':
+            errorMessage = 'Notifications are only available on physical devices.';
+            break;
+          case 'network_error':
+            errorMessage = 'Network error occurred. Please check your connection and try again.';
+            break;
+          case 'token_error':
+            errorMessage = 'Failed to register for notifications. You can try again later in Settings.';
+            break;
+        }
+        
+        Alert.alert('Notification Setup', errorMessage, [
+          {
+            text: 'Continue',
+            onPress: () => {
+              updateOnboardingData({ notificationsEnabled: false });
+              markStepCompleted(8);
+              navigation.navigate('AvatarPicker');
+            },
+          },
+        ]);
+      } else {
+        // Unknown error - continue anyway
+        updateOnboardingData({ notificationsEnabled: false });
+        markStepCompleted(8);
+        navigation.navigate('AvatarPicker');
+      }
+    } finally {
+      setIsRequesting(false);
+    }
   };
 
   const handleNotNow = () => {
@@ -62,12 +109,18 @@ const NotificationsPermissionScreen: React.FC = () => {
         </View>
       </OnboardingCenteredCard>
       <OnboardingFooter
-        primaryButtonText="Allow Notifications"
+        primaryButtonText={isRequesting ? "Requesting..." : "Allow Notifications"}
         onPrimaryPress={handleAllow}
         secondaryText="Not now"
         onSecondaryPress={handleNotNow}
         currentStep={currentStep}
+        primaryButtonDisabled={isRequesting}
       />
+      {isRequesting && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color={AuthColors.primaryButton} />
+        </View>
+      )}
     </View>
   );
 };
@@ -105,6 +158,16 @@ const styles = StyleSheet.create({
     ...AuthTypography.bodyText,
     fontSize: 14,
     color: AuthColors.secondaryText,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

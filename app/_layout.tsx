@@ -174,11 +174,13 @@ export default function RootLayout() {
       }
 
       try {
-        // Initialize push notification service
+        // Initialize push notification service (does NOT request permissions)
+        // Permissions will be requested explicitly when user grants them in onboarding or settings
         await pushNotificationService.initialize();
         setupQuickReplyActions();
       } catch (error) {
         console.error('Failed to initialize push notifications:', error);
+        // Continue app initialization even if notifications fail
       }
 
       try {

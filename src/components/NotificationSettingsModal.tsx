@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { usePushNotifications, useNotificationTesting } from '../hooks/usePushNotifications';
+import { NotificationPermissionError } from '../services/pushNotificationService';
 
 interface NotificationSettingsModalProps {
   visible: boolean;
@@ -83,7 +84,34 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
         Alert.alert('Permission Denied', 'Please enable notifications in your device settings.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to request permissions');
+      // Handle specific error types
+      if (error instanceof NotificationPermissionError) {
+        let errorTitle = 'Permission Error';
+        let errorMessage = '';
+        
+        switch (error.reason) {
+          case 'denied':
+            errorTitle = 'Permission Denied';
+            errorMessage = 'Notification permission was denied. Please enable it in your device settings.';
+            break;
+          case 'device_not_supported':
+            errorTitle = 'Not Supported';
+            errorMessage = 'Notifications are only available on physical devices.';
+            break;
+          case 'network_error':
+            errorTitle = 'Network Error';
+            errorMessage = 'Could not register for notifications. Please check your connection and try again.';
+            break;
+          case 'token_error':
+            errorTitle = 'Registration Failed';
+            errorMessage = 'Failed to register for notifications. Please try again later.';
+            break;
+        }
+        
+        Alert.alert(errorTitle, errorMessage);
+      } else {
+        Alert.alert('Error', 'Failed to request permissions. Please try again.');
+      }
     }
   };
 
