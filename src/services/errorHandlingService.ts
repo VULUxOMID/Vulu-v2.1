@@ -497,7 +497,8 @@ class ErrorHandlingService {
    */
   private async loadErrorLogs(): Promise<void> {
     try {
-      const logsStr = await AsyncStorage.getItem('error_logs');
+      const { safeStorage } = await import('./safeAsyncStorage');
+      const logsStr = await safeStorage.getItem('error_logs');
       if (logsStr) {
         const logs = JSON.parse(logsStr);
         this.errorLogs = logs.map((log: any) => ({
@@ -525,7 +526,8 @@ class ErrorHandlingService {
         }
       }));
 
-      await AsyncStorage.setItem('error_logs', JSON.stringify(logsToSave));
+      const { safeStorage } = await import('./safeAsyncStorage');
+      await safeStorage.setItem('error_logs', JSON.stringify(logsToSave));
     } catch (error) {
       console.error('Failed to save error logs:', error);
     }
@@ -575,7 +577,8 @@ class ErrorHandlingService {
   async clearErrorLogs(): Promise<void> {
     try {
       this.errorLogs = [];
-      await AsyncStorage.removeItem('error_logs');
+      const { safeStorage } = await import('./safeAsyncStorage');
+      await safeStorage.removeItem('error_logs');
       console.log('✅ Error logs cleared');
     } catch (error) {
       console.error('Failed to clear error logs:', error);

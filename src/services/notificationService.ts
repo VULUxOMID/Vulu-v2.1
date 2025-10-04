@@ -337,13 +337,13 @@ class NotificationService {
   private async getDeviceId(): Promise<string> {
     if (this._cachedDeviceId) return this._cachedDeviceId;
     try {
-      const { default: AsyncStorage } = await import('@react-native-async-storage/async-storage');
+      const { safeStorage } = await import('./safeAsyncStorage');
       const key = 'notification_device_id';
-      let deviceId = await AsyncStorage.getItem(key);
+      let deviceId = await safeStorage.getItem(key);
       if (!deviceId) {
         const rand = Math.random().toString(36).slice(2);
         deviceId = `device_${Platform.OS}_${Date.now()}_${rand}`;
-        await AsyncStorage.setItem(key, deviceId);
+        await safeStorage.setItem(key, deviceId);
       }
       this._cachedDeviceId = deviceId;
       return deviceId;

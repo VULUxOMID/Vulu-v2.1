@@ -172,8 +172,9 @@ export class SecurityService {
   // Get stored device fingerprint
   private async getStoredDeviceFingerprint(): Promise<DeviceFingerprint | null> {
     try {
-      const stored = await AsyncStorage.getItem(this.DEVICE_FINGERPRINT_KEY);
-      return stored ? JSON.parse(stored) : null;
+      const { safeGetJSON } = await import('../utils/storageUtils');
+      const result = await safeGetJSON<DeviceFingerprint>(this.DEVICE_FINGERPRINT_KEY);
+      return result.success ? result.data : null;
     } catch (error) {
       console.warn('Error getting device fingerprint:', error);
       return null;
@@ -237,9 +238,10 @@ export class SecurityService {
   // Check if account is locked
   async isAccountLocked(userIdentifier: string): Promise<AccountLockInfo> {
     try {
-      const stored = await AsyncStorage.getItem(this.ACCOUNT_LOCKS_KEY);
-      const locks: Record<string, AccountLockInfo> = stored ? JSON.parse(stored) : {};
-      
+      const { safeGetJSON, safeSetJSON } = await import('../utils/storageUtils');
+      const result = await safeGetJSON<Record<string, AccountLockInfo>>(this.ACCOUNT_LOCKS_KEY);
+      const locks = result.success && result.data ? result.data : {};
+
       const lockInfo = locks[userIdentifier] || {
         isLocked: false,
         attemptCount: 0,
@@ -251,10 +253,10 @@ export class SecurityService {
         lockInfo.isLocked = false;
         lockInfo.lockUntil = undefined;
         lockInfo.attemptCount = 0;
-        
-        // Update storage
+
+        // Update storage using safe utilities
         locks[userIdentifier] = lockInfo;
-        await AsyncStorage.setItem(this.ACCOUNT_LOCKS_KEY, JSON.stringify(locks));
+        await safeSetJSON(this.ACCOUNT_LOCKS_KEY, locks);
       }
 
       return lockInfo;
@@ -364,8 +366,9 @@ export class SecurityService {
   // Clear failed attempts (on successful login)
   async clearFailedAttempts(userIdentifier: string): Promise<void> {
     try {
-      const stored = await AsyncStorage.getItem(this.ACCOUNT_LOCKS_KEY);
-      const locks: Record<string, AccountLockInfo> = stored ? JSON.parse(stored) : {};
+      const { safeGetJSON, safeSetJSON } = await import('../utils/storageUtils');
+      const result = await safeGetJSON<Record<string, AccountLockInfo>>(this.ACCOUNT_LOCKS_KEY);
+      const locks = result.success && result.data ? result.data : {};
 
       if (locks[userIdentifier]) {
         locks[userIdentifier] = {
@@ -374,7 +377,7 @@ export class SecurityService {
           lastAttempt: Date.now(),
         };
 
-        await AsyncStorage.setItem(this.ACCOUNT_LOCKS_KEY, JSON.stringify(locks));
+        await safeSetJSON(this.ACCOUNT_LOCKS_KEY, locks);
       }
     } catch (error) {
       console.warn('Error clearing failed attempts:', error);
@@ -505,13 +508,15 @@ export class SecurityService {
       const recentEvents = events.filter(event => event.timestamp > cutoff);
       
       if (recentEvents.length !== events.length) {
-        await AsyncStorage.setItem(this.SECURITY_EVENTS_KEY, JSON.stringify(recentEvents));
+        const { safeSetJSON } = await import('../utils/storageUtils');
+        await safeSetJSON(this.SECURITY_EVENTS_KEY, recentEvents);
       }
 
       // Clean up expired locks
-      const stored = await AsyncStorage.getItem(this.ACCOUNT_LOCKS_KEY);
-      const locks: Record<string, AccountLockInfo> = stored ? JSON.parse(stored) : {};
-      
+      const { safeGetJSON, safeSetJSON } = await import('../utils/storageUtils');
+      const result = await safeGetJSON<Record<string, AccountLockInfo>>(this.ACCOUNT_LOCKS_KEY);
+      const locks = result.success && result.data ? result.data : {};
+
       let hasChanges = false;
       for (const [userIdentifier, lockInfo] of Object.entries(locks)) {
         if (lockInfo.isLocked && lockInfo.lockUntil && Date.now() > lockInfo.lockUntil) {
@@ -525,7 +530,7 @@ export class SecurityService {
       }
 
       if (hasChanges) {
-        await AsyncStorage.setItem(this.ACCOUNT_LOCKS_KEY, JSON.stringify(locks));
+        await safeSetJSON(this.ACCOUNT_LOCKS_KEY, locks);
       }
     } catch (error) {
       console.warn('Error during security cleanup:', error);

@@ -1,8 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { crashPrevention, safeAsyncStorageGet, safeAsyncStorageSet, safeAsyncStorageRemove } from './asyncStorageCrashPrevention';
+import { safeStorage } from '../services/safeAsyncStorage';
 
 /**
  * Utility functions for handling AsyncStorage operations with proper error handling
- * for development environments where storage may not be available
+ * for development environments where storage may not be available.
+ * Enhanced with crash prevention for React Native TurboModule bridge safety.
  */
 
 export interface StorageResult<T> {
@@ -16,7 +19,8 @@ export interface StorageResult<T> {
  */
 export const safeGetItem = async (key: string): Promise<StorageResult<string | null>> => {
   try {
-    const value = await AsyncStorage.getItem(key);
+    // Use SafeAsyncStorage service for maximum crash protection
+    const value = await safeStorage.getItem(key);
     return { success: true, data: value };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
@@ -66,7 +70,8 @@ export const safeGetItem = async (key: string): Promise<StorageResult<string | n
  */
 export const safeSetItem = async (key: string, value: string): Promise<StorageResult<void>> => {
   try {
-    await AsyncStorage.setItem(key, value);
+    // Use SafeAsyncStorage service for maximum crash protection
+    await safeStorage.setItem(key, value);
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
@@ -122,7 +127,8 @@ export const safeSetItem = async (key: string, value: string): Promise<StorageRe
  */
 export const safeRemoveItem = async (key: string): Promise<StorageResult<void>> => {
   try {
-    await AsyncStorage.removeItem(key);
+    // Use SafeAsyncStorage service for maximum crash protection
+    await safeStorage.removeItem(key);
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown storage error';
@@ -225,4 +231,68 @@ export const getStorageStatus = async (): Promise<{
     available: true,
     environment: __DEV__ ? 'development' : 'production'
   };
+};
+
+/**
+ * Get comprehensive storage health status including crash prevention metrics
+ */
+export const getStorageHealthStatus = async (): Promise<{
+  available: boolean;
+  environment: 'development' | 'production' | 'unknown';
+  crashPrevention: {
+    isHealthy: boolean;
+    recoveryMode: boolean;
+    lastHealthCheck: number;
+  };
+  error?: string;
+}> => {
+  const basicStatus = await getStorageStatus();
+  const crashPreventionStatus = crashPrevention.getStatus();
+
+  return {
+    ...basicStatus,
+    crashPrevention: crashPreventionStatus,
+  };
+};
+
+/**
+ * Perform a comprehensive storage health check and recovery if needed
+ */
+export const performStorageHealthCheck = async (): Promise<{
+  success: boolean;
+  details: {
+    isHealthy: boolean;
+    diskSpaceAvailable: boolean;
+    manifestIntact: boolean;
+    bridgeResponsive: boolean;
+  };
+  error?: string;
+}> => {
+  try {
+    const healthCheck = await crashPrevention.performHealthCheck();
+
+    return {
+      success: healthCheck.isHealthy,
+      details: {
+        isHealthy: healthCheck.isHealthy,
+        diskSpaceAvailable: healthCheck.diskSpaceAvailable,
+        manifestIntact: healthCheck.manifestIntact,
+        bridgeResponsive: healthCheck.bridgeResponsive,
+      },
+      error: healthCheck.error,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown health check error';
+
+    return {
+      success: false,
+      details: {
+        isHealthy: false,
+        diskSpaceAvailable: false,
+        manifestIntact: false,
+        bridgeResponsive: false,
+      },
+      error: errorMessage,
+    };
+  }
 };

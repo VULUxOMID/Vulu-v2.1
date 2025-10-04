@@ -153,6 +153,28 @@ export default function RootLayout() {
     // Initialize all services in an async sequence
     const initializeServices = async () => {
       try {
+        // CRITICAL: Validate app startup first to prevent crashes
+        console.log('🚀 Starting app initialization...');
+        const { validateAppStartup } = await import('../src/services/appStartupValidation');
+        const validationResult = await validateAppStartup();
+
+        if (!validationResult.canContinue) {
+          console.error('🚨 App startup validation failed, cannot continue');
+          return; // Stop initialization if critical errors
+        }
+
+        if (!validationResult.success) {
+          console.warn('⚠️ App startup validation completed with warnings');
+          console.log('Validation details:', validationResult);
+        } else {
+          console.log('✅ App startup validation passed');
+        }
+      } catch (error) {
+        console.error('Failed to validate app startup:', error);
+        // Continue initialization but log the failure
+      }
+
+      try {
         // Initialize analytics service
         await analyticsService.initialize();
       } catch (error) {
