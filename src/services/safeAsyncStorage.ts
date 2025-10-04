@@ -41,40 +41,55 @@ class SafeAsyncStorage {
   }
 
   private async performInitialization(): Promise<boolean> {
-    console.log('🔧 Initializing SafeAsyncStorage...');
+    console.log('🔧 Initializing SafeAsyncStorage with patched AsyncStorage...');
 
     try {
       // Check crash history first (using basic try-catch)
       await this.checkCrashHistory();
 
-      // Test basic AsyncStorage functionality
+      // Test basic AsyncStorage functionality with timeout
       const testKey = '__storage_init_test__';
       const testValue = `test_${Date.now()}`;
 
-      // Test write
-      await AsyncStorage.setItem(testKey, testValue);
-      
-      // Test read
-      const retrieved = await AsyncStorage.getItem(testKey);
-      
-      // Test delete
-      await AsyncStorage.removeItem(testKey);
+      // Test write with timeout
+      await Promise.race([
+        AsyncStorage.setItem(testKey, testValue),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('setItem timeout')), 5000))
+      ]);
+
+      // Test read with timeout
+      const retrieved = await Promise.race([
+        AsyncStorage.getItem(testKey),
+        new Promise<string | null>((_, reject) => setTimeout(() => reject(new Error('getItem timeout')), 5000))
+      ]);
+
+      // Test delete with timeout
+      await Promise.race([
+        AsyncStorage.removeItem(testKey),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('removeItem timeout')), 5000))
+      ]);
 
       // Validate test results
       if (retrieved !== testValue) {
         throw new Error('AsyncStorage read/write validation failed');
       }
 
-      // Test multiSet (the operation that was crashing)
-      await AsyncStorage.multiSet([
-        ['__test_multi_1__', 'value1'],
-        ['__test_multi_2__', 'value2']
+      // Test multiSet (the operation that was crashing) with timeout
+      await Promise.race([
+        AsyncStorage.multiSet([
+          ['__test_multi_1__', 'value1'],
+          ['__test_multi_2__', 'value2']
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('multiSet timeout')), 10000))
       ]);
-      
-      // Clean up test data
-      await AsyncStorage.multiRemove(['__test_multi_1__', '__test_multi_2__']);
 
-      console.log('✅ AsyncStorage initialization successful');
+      // Clean up test data with timeout
+      await Promise.race([
+        AsyncStorage.multiRemove(['__test_multi_1__', '__test_multi_2__']),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('multiRemove timeout')), 5000))
+      ]);
+
+      console.log('✅ AsyncStorage initialization successful with patched native module');
       this.status.isAvailable = true;
       this.status.fallbackMode = false;
       this.status.lastError = null;
@@ -85,8 +100,8 @@ class SafeAsyncStorage {
       return true;
 
     } catch (error: any) {
-      console.error('❌ AsyncStorage initialization failed:', error);
-      
+      console.error('❌ AsyncStorage initialization failed (falling back to memory):', error);
+
       this.status.isAvailable = false;
       this.status.fallbackMode = true;
       this.status.lastError = error.message;

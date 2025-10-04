@@ -1,0 +1,198 @@
+diff --git a/node_modules/@react-native-async-storage/async-storage/android/.classpath b/node_modules/@react-native-async-storage/async-storage/android/.classpath
+new file mode 100644
+index 0000000..bbe97e5
+--- /dev/null
++++ b/node_modules/@react-native-async-storage/async-storage/android/.classpath
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<classpath>
++	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-17/"/>
++	<classpathentry kind="con" path="org.eclipse.buildship.core.gradleclasspathcontainer"/>
++	<classpathentry kind="output" path="bin/default"/>
++</classpath>
+diff --git a/node_modules/@react-native-async-storage/async-storage/android/.project b/node_modules/@react-native-async-storage/async-storage/android/.project
+new file mode 100644
+index 0000000..4a4be8d
+--- /dev/null
++++ b/node_modules/@react-native-async-storage/async-storage/android/.project
+@@ -0,0 +1,34 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<projectDescription>
++	<name>react-native-async-storage_async-storage</name>
++	<comment>Project react-native-async-storage_async-storage created by Buildship.</comment>
++	<projects>
++	</projects>
++	<buildSpec>
++		<buildCommand>
++			<name>org.eclipse.jdt.core.javabuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++		<buildCommand>
++			<name>org.eclipse.buildship.core.gradleprojectbuilder</name>
++			<arguments>
++			</arguments>
++		</buildCommand>
++	</buildSpec>
++	<natures>
++		<nature>org.eclipse.jdt.core.javanature</nature>
++		<nature>org.eclipse.buildship.core.gradleprojectnature</nature>
++	</natures>
++	<filteredResources>
++		<filter>
++			<id>1759160413070</id>
++			<name></name>
++			<type>30</type>
++			<matcher>
++				<id>org.eclipse.core.resources.regexFilterMatcher</id>
++				<arguments>node_modules|\.git|__CREATED_BY_JAVA_LANGUAGE_SERVER__</arguments>
++			</matcher>
++		</filter>
++	</filteredResources>
++</projectDescription>
+diff --git a/node_modules/@react-native-async-storage/async-storage/android/.settings/org.eclipse.buildship.core.prefs b/node_modules/@react-native-async-storage/async-storage/android/.settings/org.eclipse.buildship.core.prefs
+new file mode 100644
+index 0000000..68c9fab
+--- /dev/null
++++ b/node_modules/@react-native-async-storage/async-storage/android/.settings/org.eclipse.buildship.core.prefs
+@@ -0,0 +1,2 @@
++connection.project.dir=../../../../android
++eclipse.preferences.version=1
+diff --git a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
+index fa3bb04..2339183 100644
+--- a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
++++ b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
+@@ -128,26 +128,45 @@ static void RCTAppendError(NSDictionary *error, NSMutableArray<NSDictionary *> *
+ 
+ static NSString *RCTCreateStorageDirectoryPath(NSString *storageDir)
+ {
+-    NSString *storageDirectoryPath = @"";
++    @try {
++        NSString *storageDirectoryPath = @"";
+ 
+ #if TARGET_OS_TV
+-    storageDirectoryPath =
+-        NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
++        NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES);
++        if (paths == nil || paths.count == 0) {
++            RCTLogError(@"[AsyncStorage] No valid cache paths found for tvOS. Device may be in restricted mode.");
++            return nil;
++        }
++        storageDirectoryPath = paths.firstObject;
+ #else
+-    storageDirectoryPath =
+-        NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES)
+-            .firstObject;
+-    // We should use the "Application Support/[bundleID]" folder for persistent data storage that's
+-    // hidden from users
+-    storageDirectoryPath = [storageDirectoryPath
+-        stringByAppendingPathComponent:[[NSBundle mainBundle] bundleIdentifier]];
++        NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
++        if (paths == nil || paths.count == 0) {
++            RCTLogError(@"[AsyncStorage] No valid Application Support paths found. Device may be in restricted mode.");
++            return nil;
++        }
++        storageDirectoryPath = paths.firstObject;
++
++        // We should use the "Application Support/[bundleID]" folder for persistent data storage that's
++        // hidden from users
++        NSString *bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
++        if (bundleIdentifier == nil || bundleIdentifier.length == 0) {
++            RCTLogError(@"[AsyncStorage] Bundle identifier is nil or empty. Cannot create storage path.");
++            return nil;
++        }
++        storageDirectoryPath = [storageDirectoryPath stringByAppendingPathComponent:bundleIdentifier];
+ #endif
+ 
+-    // Per Apple's docs, all app content in Application Support must be within a subdirectory of the
+-    // app's bundle identifier
+-    storageDirectoryPath = [storageDirectoryPath stringByAppendingPathComponent:storageDir];
++        // Per Apple's docs, all app content in Application Support must be within a subdirectory of the
++        // app's bundle identifier
++        if (storageDir != nil && storageDir.length > 0) {
++            storageDirectoryPath = [storageDirectoryPath stringByAppendingPathComponent:storageDir];
++        }
+ 
+-    return storageDirectoryPath;
++        return storageDirectoryPath;
++    } @catch (NSException *exception) {
++        RCTLogError(@"[AsyncStorage] Exception creating storage directory path: %@", exception.reason);
++        return nil;
++    }
+ }
+ 
+ static NSString *RCTGetStorageDirectory()
+@@ -282,10 +301,52 @@ static void RCTStorageDirectoryCleanupOld(NSString *oldDirectoryPath)
+ 
+ static void _createStorageDirectory(NSString *storageDirectory, NSError **error)
+ {
+-    [[NSFileManager defaultManager] createDirectoryAtPath:storageDirectory
+-                              withIntermediateDirectories:YES
+-                                               attributes:nil
+-                                                    error:error];
++    @try {
++        if (storageDirectory == nil || storageDirectory.length == 0) {
++            if (error != NULL) {
++                *error = [NSError errorWithDomain:@"RNCAsyncStorage"
++                                             code:1001
++                                         userInfo:@{NSLocalizedDescriptionKey: @"Storage directory path is nil or empty"}];
++            }
++            RCTLogError(@"[AsyncStorage] Cannot create directory: path is nil or empty");
++            return;
++        }
++
++        NSFileManager *fileManager = [NSFileManager defaultManager];
++
++        // Check if directory already exists
++        BOOL isDir;
++        if ([fileManager fileExistsAtPath:storageDirectory isDirectory:&isDir] && isDir) {
++            RCTLogInfo(@"[AsyncStorage] Storage directory already exists: %@", storageDirectory);
++            return;
++        }
++
++        // Try to create the directory
++        NSError *createError = nil;
++        BOOL success = [fileManager createDirectoryAtPath:storageDirectory
++                                  withIntermediateDirectories:YES
++                                                   attributes:nil
++                                                        error:&createError];
++
++        if (!success) {
++            RCTLogError(@"[AsyncStorage] Failed to create storage directory at %@: %@",
++                       storageDirectory, createError.localizedDescription);
++            if (error != NULL) {
++                *error = createError;
++            }
++            return;
++        }
++
++        RCTLogInfo(@"[AsyncStorage] Successfully created storage directory: %@", storageDirectory);
++
++    } @catch (NSException *exception) {
++        RCTLogError(@"[AsyncStorage] Exception while creating storage directory: %@", exception.reason);
++        if (error != NULL) {
++            *error = [NSError errorWithDomain:@"RNCAsyncStorage"
++                                         code:1002
++                                     userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"Exception: %@", exception.reason]}];
++        }
++    }
+ }
+ 
+ static void RCTStorageDirectoryMigrate(NSString *oldDirectoryPath,
+@@ -508,8 +569,15 @@ - (NSDictionary *)_ensureSetup
+ 
+     NSError *error = nil;
+     if (!RCTHasCreatedStorageDirectory) {
+-        _createStorageDirectory(RCTGetStorageDirectory(), &error);
++        NSString *storageDirectory = RCTGetStorageDirectory();
++        if (storageDirectory == nil) {
++            RCTLogError(@"[AsyncStorage] Cannot get storage directory path. AsyncStorage will not function properly.");
++            return RCTMakeError(@"Failed to get storage directory path. Device may be in restricted mode or have insufficient permissions.", nil, nil);
++        }
++
++        _createStorageDirectory(storageDirectory, &error);
+         if (error) {
++            RCTLogError(@"[AsyncStorage] Storage directory creation failed: %@", error.localizedDescription);
+             return RCTMakeError(@"Failed to create storage directory.", error, nil);
+         }
+         RCTHasCreatedStorageDirectory = YES;

@@ -153,8 +153,20 @@ export default function RootLayout() {
     // Initialize all services in an async sequence
     const initializeServices = async () => {
       try {
-        // CRITICAL: Validate app startup first to prevent crashes
-        console.log('🚀 Starting app initialization...');
+        // CRITICAL: Initialize SafeAsyncStorage first to prevent crashes
+        console.log('🚀 Starting app initialization with AsyncStorage crash protection...');
+        const { safeStorage } = await import('../src/services/safeAsyncStorage');
+        const storageAvailable = await safeStorage.initialize();
+
+        if (storageAvailable) {
+          console.log('✅ SafeAsyncStorage initialized successfully');
+        } else {
+          console.warn('⚠️ SafeAsyncStorage using memory fallback mode');
+          const status = safeStorage.getStatus();
+          console.log('Storage status:', status);
+        }
+
+        // CRITICAL: Validate app startup to prevent other crashes
         const { validateAppStartup } = await import('../src/services/appStartupValidation');
         const validationResult = await validateAppStartup();
 
@@ -170,7 +182,7 @@ export default function RootLayout() {
           console.log('✅ App startup validation passed');
         }
       } catch (error) {
-        console.error('Failed to validate app startup:', error);
+        console.error('Failed to initialize app with crash protection:', error);
         // Continue initialization but log the failure
       }
 
