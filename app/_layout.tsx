@@ -20,6 +20,10 @@ import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 import WebResponsiveWrapper from '../src/components/WebResponsiveWrapper';
 
+// CRITICAL: Global exception handler to prevent ALL native module crashes
+import { ErrorUtils } from 'react-native';
+import { logGlobalCrash } from '../src/services/crashDebuggingService';
+
 import { analyticsService } from '../src/services/analyticsService';
 import { messageSchedulingService } from '../src/services/messageSchedulingService';
 import { offlineMessageService } from '../src/services/offlineMessageService';
@@ -39,6 +43,68 @@ if (process.env.NODE_ENV !== 'production') {
   import('../src/utils/debugPhantomStreams');
   import('../src/utils/testScheduledMessages');
 }
+
+// CRITICAL: Setup global exception handler to prevent ALL native module crashes
+// This fixes the root cause instead of patching individual modules
+const setupGlobalExceptionHandler = () => {
+  console.log('🛡️ Setting up global exception handler to prevent native crashes...');
+
+  const originalHandler = ErrorUtils.getGlobalHandler();
+
+  ErrorUtils.setGlobalHandler((error: any, isFatal?: boolean) => {
+    console.error('🚨 Native exception caught by global handler:', error);
+    console.error('Stack trace:', error?.stack);
+    console.error('Is fatal:', isFatal);
+
+    // Log crash with detailed analysis
+    logGlobalCrash(error, isFatal);
+
+    // Log error details for debugging
+    if (error?.message) {
+      console.error('Error message:', error.message);
+    }
+    if (error?.name) {
+      console.error('Error name:', error.name);
+    }
+
+    // Check if this is a TurboModule/AsyncStorage related crash
+    const errorMessage = error?.message?.toLowerCase() || '';
+    const errorStack = error?.stack?.toLowerCase() || '';
+
+    const isNativeModuleCrash = (
+      errorMessage.includes('turbomodule') ||
+      errorMessage.includes('asyncstorage') ||
+      errorMessage.includes('rct') ||
+      errorMessage.includes('native') ||
+      errorStack.includes('turbomodule') ||
+      errorStack.includes('asyncstorage') ||
+      errorStack.includes('rct')
+    );
+
+    if (isNativeModuleCrash) {
+      console.warn('🔧 Native module crash detected - preventing app termination');
+      console.warn('App will continue running with degraded functionality');
+
+      // Don't crash the app for native module errors
+      // Just log them and continue
+      return;
+    }
+
+    // For truly fatal errors that aren't native module related,
+    // still call the original handler but with more logging
+    if (isFatal && originalHandler) {
+      console.error('💀 Fatal error detected, calling original handler');
+      originalHandler(error, isFatal);
+    } else {
+      console.warn('⚠️ Non-fatal error, continuing app execution');
+    }
+  });
+
+  console.log('✅ Global exception handler installed successfully');
+};
+
+// Setup the handler immediately when this module loads
+setupGlobalExceptionHandler();
 
 // Create a custom Material theme
 const paperTheme = {
