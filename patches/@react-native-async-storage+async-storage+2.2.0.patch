@@ -59,7 +59,7 @@ index 0000000..68c9fab
 +connection.project.dir=../../../../android
 +eclipse.preferences.version=1
 diff --git a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
-index fa3bb04..2339183 100644
+index fa3bb04..6f69735 100644
 --- a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
 +++ b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
 @@ -128,26 +128,45 @@ static void RCTAppendError(NSDictionary *error, NSMutableArray<NSDictionary *> *
@@ -196,3 +196,191 @@ index fa3bb04..2339183 100644
              return RCTMakeError(@"Failed to create storage directory.", error, nil);
          }
          RCTHasCreatedStorageDirectory = YES;
+@@ -561,18 +629,91 @@ - (NSDictionary *)_ensureSetup
+ 
+ - (NSDictionary *)_writeManifest:(NSMutableArray<NSDictionary *> *__autoreleasing *)errors
+ {
+-    NSError *error;
+-    NSString *serialized = RCTJSONStringify(_manifest, &error);
+-    [serialized writeToFile:RCTCreateStorageDirectoryPath(RCTGetManifestFilePath())
+-                 atomically:YES
+-                   encoding:NSUTF8StringEncoding
+-                      error:&error];
+-    NSDictionary *errorOut;
+-    if (error) {
+-        errorOut = RCTMakeError(@"Failed to write manifest file.", error, nil);
++    @try {
++        NSError *error = nil;
++        NSString *serialized = RCTJSONStringify(_manifest, &error);
++
++        if (error || !serialized) {
++            RCTLogError(@"[AsyncStorage] Failed to serialize manifest: %@", error.localizedDescription);
++            NSDictionary *errorOut = RCTMakeError(@"Failed to serialize manifest.", error, nil);
++            RCTAppendError(errorOut, errors);
++            return errorOut;
++        }
++
++        NSString *manifestPath = RCTCreateStorageDirectoryPath(RCTGetManifestFilePath());
++        if (!manifestPath || manifestPath.length == 0) {
++            RCTLogError(@"[AsyncStorage] Invalid manifest file path");
++            NSDictionary *errorOut = RCTMakeError(@"Invalid manifest file path.", nil, nil);
++            RCTAppendError(errorOut, errors);
++            return errorOut;
++        }
++
++        // Check path length (iOS has limits)
++        if (manifestPath.length > 1024) {
++            RCTLogError(@"[AsyncStorage] Manifest path too long: %lu characters", (unsigned long)manifestPath.length);
++            NSDictionary *errorOut = RCTMakeError(@"Manifest file path too long.", nil, nil);
++            RCTAppendError(errorOut, errors);
++            return errorOut;
++        }
++
++        RCTLogInfo(@"[AsyncStorage] Writing manifest to: %@", manifestPath);
++
++        // Convert string to data to avoid CFURL issues
++        NSData *manifestData = [serialized dataUsingEncoding:NSUTF8StringEncoding];
++        if (!manifestData) {
++            RCTLogError(@"[AsyncStorage] Failed to convert manifest to data");
++            NSDictionary *errorOut = RCTMakeError(@"Failed to convert manifest to data.", nil, nil);
++            RCTAppendError(errorOut, errors);
++            return errorOut;
++        }
++
++        // Try atomic write first
++        NSError *writeError = nil;
++        BOOL success = [manifestData writeToFile:manifestPath
++                                         options:NSDataWritingAtomic
++                                           error:&writeError];
++
++        if (!success) {
++            RCTLogWarn(@"[AsyncStorage] Atomic write failed: %@, trying non-atomic", writeError.localizedDescription);
++
++            // Fallback: try non-atomic write
++            writeError = nil;
++            success = [manifestData writeToFile:manifestPath
++                                        options:0
++                                          error:&writeError];
++
++            if (!success) {
++                RCTLogWarn(@"[AsyncStorage] Non-atomic write failed: %@, trying file manager", writeError.localizedDescription);
++
++                // Final fallback: use NSFileManager directly
++                NSFileManager *fileManager = [NSFileManager defaultManager];
++                success = [fileManager createFileAtPath:manifestPath
++                                               contents:manifestData
++                                             attributes:nil];
++
++                if (!success) {
++                    RCTLogError(@"[AsyncStorage] All write methods failed for manifest");
++                    NSDictionary *errorOut = RCTMakeError(@"Failed to write manifest file with all methods.", writeError, nil);
++                    RCTAppendError(errorOut, errors);
++                    return errorOut;
++                } else {
++                    RCTLogInfo(@"[AsyncStorage] Manifest written successfully using file manager fallback");
++                }
++            } else {
++                RCTLogInfo(@"[AsyncStorage] Manifest written successfully using non-atomic write");
++            }
++        } else {
++            RCTLogInfo(@"[AsyncStorage] Manifest written successfully using atomic write");
++        }
++
++        return nil; // Success
++
++    } @catch (NSException *exception) {
++        RCTLogError(@"[AsyncStorage] Exception writing manifest: %@ - %@", exception.name, exception.reason);
++        NSDictionary *errorOut = RCTMakeError([NSString stringWithFormat:@"Exception writing manifest: %@", exception.reason], nil, nil);
+         RCTAppendError(errorOut, errors);
++        return errorOut;
+     }
+-    return errorOut;
+ }
+ 
+ - (NSDictionary *)_appendItemForKey:(NSString *)key
+@@ -716,40 +857,57 @@ - (BOOL)_passthroughDelegate
+                   callback:(RCTResponseSenderBlock)callback)
+ // clang-format on
+ {
+-    if (self.delegate != nil) {
+-        NSMutableArray<NSString *> *keys = [NSMutableArray arrayWithCapacity:kvPairs.count];
+-        NSMutableArray<NSString *> *values = [NSMutableArray arrayWithCapacity:kvPairs.count];
+-        for (NSArray<NSString *> *entry in kvPairs) {
+-            [keys addObject:entry[0]];
+-            [values addObject:entry[1]];
++    @try {
++        RCTLogInfo(@"[AsyncStorage] multiSet called with %lu pairs", (unsigned long)kvPairs.count);
++
++        if (self.delegate != nil) {
++            NSMutableArray<NSString *> *keys = [NSMutableArray arrayWithCapacity:kvPairs.count];
++            NSMutableArray<NSString *> *values = [NSMutableArray arrayWithCapacity:kvPairs.count];
++            for (NSArray<NSString *> *entry in kvPairs) {
++                [keys addObject:entry[0]];
++                [values addObject:entry[1]];
++            }
++            [self.delegate setValues:values
++                             forKeys:keys
++                          completion:^(NSArray<id<NSObject>> *results) {
++                            NSArray<NSDictionary *> *errors = RCTMakeErrors(results);
++                            callback(@[RCTNullIfNil(errors)]);
++                          }];
++
++            if (![self _passthroughDelegate]) {
++                return;
++            }
+         }
+-        [self.delegate setValues:values
+-                         forKeys:keys
+-                      completion:^(NSArray<id<NSObject>> *results) {
+-                        NSArray<NSDictionary *> *errors = RCTMakeErrors(results);
+-                        callback(@[RCTNullIfNil(errors)]);
+-                      }];
+ 
+-        if (![self _passthroughDelegate]) {
++        NSDictionary *errorOut = [self _ensureSetup];
++        if (errorOut) {
++            RCTLogError(@"[AsyncStorage] Setup failed in multiSet: %@", errorOut);
++            callback(@[@[errorOut]]);
+             return;
+         }
+-    }
+ 
+-    NSDictionary *errorOut = [self _ensureSetup];
+-    if (errorOut) {
+-        callback(@[@[errorOut]]);
+-        return;
+-    }
+-    BOOL changedManifest = NO;
+-    NSMutableArray<NSDictionary *> *errors;
+-    for (NSArray<NSString *> *entry in kvPairs) {
+-        NSDictionary *keyError = [self _writeEntry:entry changedManifest:&changedManifest];
+-        RCTAppendError(keyError, &errors);
+-    }
+-    if (changedManifest) {
+-        [self _writeManifest:&errors];
++        BOOL changedManifest = NO;
++        NSMutableArray<NSDictionary *> *errors;
++        for (NSArray<NSString *> *entry in kvPairs) {
++            NSDictionary *keyError = [self _writeEntry:entry changedManifest:&changedManifest];
++            RCTAppendError(keyError, &errors);
++        }
++
++        if (changedManifest) {
++            RCTLogInfo(@"[AsyncStorage] Manifest changed, writing to disk");
++            [self _writeManifest:&errors];
++        }
++
++        RCTLogInfo(@"[AsyncStorage] multiSet completed successfully");
++        callback(@[RCTNullIfNil(errors)]);
++
++    } @catch (NSException *exception) {
++        RCTLogError(@"[AsyncStorage] Exception in multiSet: %@ - %@", exception.name, exception.reason);
++        NSDictionary *errorOut = RCTMakeError([NSString stringWithFormat:@"AsyncStorage multiSet failed: %@", exception.reason], nil, nil);
++        if (callback) {
++            callback(@[@[errorOut]]);
++        }
+     }
+-    callback(@[RCTNullIfNil(errors)]);
+ }
+ 
+ // clang-format off

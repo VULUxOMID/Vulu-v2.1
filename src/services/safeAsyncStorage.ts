@@ -289,11 +289,11 @@ class SafeAsyncStorage {
   }
 
   /**
-   * Check if error is critical (directory access, permissions, etc.)
+   * Check if error is critical (directory access, permissions, file write, etc.)
    */
   private isCriticalError(error: any): boolean {
     const message = error.message?.toLowerCase() || '';
-    
+
     return (
       message.includes('directory') ||
       message.includes('permission') ||
@@ -303,7 +303,18 @@ class SafeAsyncStorage {
       message.includes('createstorageDirectoryPath') ||
       message.includes('nsearchpathfordirectories') ||
       message.includes('disk') ||
-      message.includes('space')
+      message.includes('space') ||
+      message.includes('failed to write manifest') ||
+      message.includes('failed to serialize manifest') ||
+      message.includes('manifest file path too long') ||
+      message.includes('invalid manifest file path') ||
+      message.includes('cfurl') ||
+      message.includes('createprotectedtemporaryfile') ||
+      message.includes('writetofile') ||
+      message.includes('atomic write failed') ||
+      message.includes('non-atomic write failed') ||
+      message.includes('_cfruntimecreateinstance') ||
+      message.includes('_cfurlcreatewithrangesandflags')
     );
   }
 
