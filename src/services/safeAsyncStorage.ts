@@ -314,7 +314,13 @@ class SafeAsyncStorage {
       message.includes('atomic write failed') ||
       message.includes('non-atomic write failed') ||
       message.includes('_cfruntimecreateinstance') ||
-      message.includes('_cfurlcreatewithrangesandflags')
+      message.includes('_cfurlcreatewithrangesandflags') ||
+      message.includes('rename') ||
+      message.includes('__rename') ||
+      message.includes('file rename') ||
+      message.includes('atomic operation') ||
+      message.includes('temp file') ||
+      message.includes('temporary file')
     );
   }
 

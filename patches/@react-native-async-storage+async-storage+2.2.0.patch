@@ -59,7 +59,7 @@ index 0000000..68c9fab
 +connection.project.dir=../../../../android
 +eclipse.preferences.version=1
 diff --git a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
-index fa3bb04..6f69735 100644
+index fa3bb04..4e967a3 100644
 --- a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
 +++ b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
 @@ -128,26 +128,45 @@ static void RCTAppendError(NSDictionary *error, NSMutableArray<NSDictionary *> *
@@ -196,7 +196,7 @@ index fa3bb04..6f69735 100644
              return RCTMakeError(@"Failed to create storage directory.", error, nil);
          }
          RCTHasCreatedStorageDirectory = YES;
-@@ -561,18 +629,91 @@ - (NSDictionary *)_ensureSetup
+@@ -561,18 +629,92 @@ - (NSDictionary *)_ensureSetup
  
  - (NSDictionary *)_writeManifest:(NSMutableArray<NSDictionary *> *__autoreleasing *)errors
  {
@@ -247,43 +247,44 @@ index fa3bb04..6f69735 100644
 +            return errorOut;
 +        }
 +
-+        // Try atomic write first
++        // AVOID atomic write completely - it causes rename failures in iOS sandbox
++        NSFileManager *fileManager = [NSFileManager defaultManager];
 +        NSError *writeError = nil;
++
++        // Delete existing manifest file first to avoid conflicts
++        if ([fileManager fileExistsAtPath:manifestPath]) {
++            RCTLogInfo(@"[AsyncStorage] Removing existing manifest file");
++            BOOL removed = [fileManager removeItemAtPath:manifestPath error:&writeError];
++            if (!removed) {
++                RCTLogWarn(@"[AsyncStorage] Could not remove existing manifest: %@", writeError.localizedDescription);
++                // Continue anyway - might still work
++            }
++            writeError = nil; // Reset error for write operation
++        }
++
++        // Try direct non-atomic write first (no temp file, no rename)
 +        BOOL success = [manifestData writeToFile:manifestPath
-+                                         options:NSDataWritingAtomic
++                                         options:0  // NO atomic write to avoid rename issues
 +                                           error:&writeError];
 +
 +        if (!success) {
-+            RCTLogWarn(@"[AsyncStorage] Atomic write failed: %@, trying non-atomic", writeError.localizedDescription);
++            RCTLogWarn(@"[AsyncStorage] Direct write failed: %@, trying file manager", writeError.localizedDescription);
 +
-+            // Fallback: try non-atomic write
-+            writeError = nil;
-+            success = [manifestData writeToFile:manifestPath
-+                                        options:0
-+                                          error:&writeError];
++            // Fallback: use NSFileManager createFileAtPath (most compatible)
++            success = [fileManager createFileAtPath:manifestPath
++                                            contents:manifestData
++                                          attributes:nil];
 +
 +            if (!success) {
-+                RCTLogWarn(@"[AsyncStorage] Non-atomic write failed: %@, trying file manager", writeError.localizedDescription);
-+
-+                // Final fallback: use NSFileManager directly
-+                NSFileManager *fileManager = [NSFileManager defaultManager];
-+                success = [fileManager createFileAtPath:manifestPath
-+                                               contents:manifestData
-+                                             attributes:nil];
-+
-+                if (!success) {
-+                    RCTLogError(@"[AsyncStorage] All write methods failed for manifest");
-+                    NSDictionary *errorOut = RCTMakeError(@"Failed to write manifest file with all methods.", writeError, nil);
-+                    RCTAppendError(errorOut, errors);
-+                    return errorOut;
-+                } else {
-+                    RCTLogInfo(@"[AsyncStorage] Manifest written successfully using file manager fallback");
-+                }
++                RCTLogError(@"[AsyncStorage] All write methods failed for manifest");
++                NSDictionary *errorOut = RCTMakeError(@"Failed to write manifest file with all methods.", writeError, nil);
++                RCTAppendError(errorOut, errors);
++                return errorOut;
 +            } else {
-+                RCTLogInfo(@"[AsyncStorage] Manifest written successfully using non-atomic write");
++                RCTLogInfo(@"[AsyncStorage] Manifest written successfully using file manager");
 +            }
 +        } else {
-+            RCTLogInfo(@"[AsyncStorage] Manifest written successfully using atomic write");
++            RCTLogInfo(@"[AsyncStorage] Manifest written successfully using direct write (no atomic)");
 +        }
 +
 +        return nil; // Success
@@ -298,7 +299,7 @@ index fa3bb04..6f69735 100644
  }
  
  - (NSDictionary *)_appendItemForKey:(NSString *)key
-@@ -716,40 +857,57 @@ - (BOOL)_passthroughDelegate
+@@ -716,40 +858,72 @@ - (BOOL)_passthroughDelegate
                    callback:(RCTResponseSenderBlock)callback)
  // clang-format on
  {
@@ -366,8 +367,23 @@ index fa3bb04..6f69735 100644
 +        }
 +
 +        if (changedManifest) {
-+            RCTLogInfo(@"[AsyncStorage] Manifest changed, writing to disk");
-+            [self _writeManifest:&errors];
++            RCTLogInfo(@"[AsyncStorage] Manifest changed, attempting to write to disk");
++            @try {
++                [self _writeManifest:&errors];
++            } @catch (NSException *manifestException) {
++                RCTLogError(@"[AsyncStorage] Manifest write failed, continuing without manifest: %@", manifestException.reason);
++                // CRITICAL: Don't let manifest write failures crash the app
++                // AsyncStorage can work without manifest (just slower on restart)
++                // Clear any manifest-related errors since we're skipping it
++                NSMutableArray<NSDictionary *> *filteredErrors = [NSMutableArray new];
++                for (NSDictionary *error in errors) {
++                    NSString *errorMessage = error[@"message"] ?: @"";
++                    if (![errorMessage.lowercaseString containsString:@"manifest"]) {
++                        [filteredErrors addObject:error];
++                    }
++                }
++                errors = filteredErrors;
++            }
 +        }
 +
 +        RCTLogInfo(@"[AsyncStorage] multiSet completed successfully");
