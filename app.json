@@ -13,10 +13,12 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "jsEngine": "hermes",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.vulu.app",
       "usesAppleSignIn": true,
+      "jsEngine": "hermes",
       "infoPlist": {
         "NSCameraUsageDescription": "VuluGO needs access to your camera to enable live streaming.",
         "NSMicrophoneUsageDescription": "VuluGO needs access to your microphone to enable live streaming audio."
@@ -28,6 +30,7 @@
         "backgroundColor": "#1C1D23"
       },
       "package": "com.vulu.app",
+      "jsEngine": "hermes",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",

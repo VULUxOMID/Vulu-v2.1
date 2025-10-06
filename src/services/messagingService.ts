@@ -1928,7 +1928,7 @@ export class MessagingService {
         reactions: [],
         attachments: [{
           id: `attachment_${Date.now()}`,
-          type: attachment.fileType.startsWith('image/') ? 'image' : 'file',
+          type: (attachment.fileType && attachment.fileType.startsWith('image/')) ? 'image' : 'file',
           url: attachment.downloadURL,
           name: attachment.fileName,
           size: attachment.fileSize,

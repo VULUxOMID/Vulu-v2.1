@@ -632,6 +632,45 @@ class AgoraService {
   }
 
   /**
+   * Critical: Clean up Agora resources to prevent memory leaks
+   */
+  async cleanup(): Promise<void> {
+    try {
+      console.log('🧹 Cleaning up Agora resources...');
+
+      // Leave channel if connected
+      if (this.rtcEngine) {
+        try {
+          await this.rtcEngine.leaveChannel();
+        } catch (leaveError) {
+          console.warn('Error leaving channel:', leaveError);
+        }
+
+        // Destroy engine instance
+        try {
+          await this.rtcEngine.destroy();
+        } catch (destroyError) {
+          console.warn('Error destroying engine:', destroyError);
+        }
+
+        this.rtcEngine = null;
+      }
+
+      // Clear any cached data
+      this.streamState.channelName = '';
+      this.streamState.localUid = 0;
+      this.streamState.isConnected = false;
+      this.streamState.isJoined = false;
+      this.currentToken = null;
+      this.tokenExpiresAt = 0;
+
+      console.log('✅ Agora cleanup complete');
+    } catch (error) {
+      console.error('❌ Agora cleanup failed:', error);
+    }
+  }
+
+  /**
    * Cleanup and destroy engine
    */
   async destroy(): Promise<void> {

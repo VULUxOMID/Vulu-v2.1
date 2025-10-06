@@ -26,6 +26,7 @@ import { streamingService } from '../services/streamingService';
 import { AgoraStreamView } from '../components/streaming/AgoraStreamView';
 import { isAgoraConfigured } from '../config/agoraConfig';
 import { permissionService } from '../services/permissionService';
+import agoraService from '../services/agoraService';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -978,6 +979,16 @@ const LiveStreamView = () => {
       }
     }
   }, [isMinimized, participants, widgetPan, calculateWidgetSize, screenHeight]);
+
+  // CRITICAL: Always cleanup Agora on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // CRITICAL: Always cleanup Agora on unmount
+      agoraService.cleanup().catch((error) => {
+        console.warn('Error during Agora cleanup:', error);
+      });
+    };
+  }, []);
 
   // Render the minimized draggable widget with dynamic sizing
   const renderMinimizedView = () => {

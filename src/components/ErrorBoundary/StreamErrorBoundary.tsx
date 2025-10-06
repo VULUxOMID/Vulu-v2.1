@@ -78,31 +78,31 @@ export class StreamErrorBoundary extends Component<StreamErrorBoundaryProps, Str
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const errorId = this.generateErrorId();
-    
+
+    // CRITICAL: Limit error info size to prevent memory issues
+    const safeErrorInfo = {
+      componentStack: errorInfo.componentStack?.substring(0, 500) || 'N/A'
+    };
+
     this.setState({
-      errorInfo,
+      errorInfo: safeErrorInfo,
       errorId
     });
 
-    // Log error to console
-    console.error('StreamErrorBoundary caught an error:', error, errorInfo);
+    // Log error with truncated stack to prevent memory exhaustion
+    const safeError = {
+      name: error.name,
+      message: error.message,
+      stack: error.stack?.substring(0, 1000) || 'N/A'
+    };
 
-    // Report to crash analytics (Sentry, Crashlytics, etc.)
-    try {
-      captureException(error, {
-        contexts: {
-          react: {
-            componentStack: errorInfo.componentStack
-          }
-        },
-        tags: {
-          errorBoundary: 'StreamErrorBoundary',
-          errorId
-        }
-      });
-    } catch (reportingError) {
-      console.error('Failed to report error:', reportingError);
-    }
+    console.error('StreamErrorBoundary caught error:', safeError);
+
+    // REMOVED: Don't call captureException here to avoid memory issues
+    // captureException(error, { ... });
+
+    // Call custom error handler with safe data
+    this.props.onError?.(error, safeErrorInfo);
 
     // Call custom error handler
     this.props.onError?.(error, errorInfo);

@@ -154,8 +154,9 @@ export const getInternationalPhoneNumber = (
 export const parseInternationalPhoneNumber = (
   internationalNumber: string
 ): { country?: Country; localNumber: string } => {
-  if (!internationalNumber.startsWith('+')) {
-    return { localNumber: internationalNumber };
+  // CRITICAL: Safe string check to prevent null crashes
+  if (!internationalNumber || typeof internationalNumber !== 'string' || !internationalNumber.startsWith('+')) {
+    return { localNumber: internationalNumber || '' };
   }
   
   // Try to match against known country codes
@@ -163,7 +164,8 @@ export const parseInternationalPhoneNumber = (
   const sortedCountries = [...COUNTRIES].sort((a, b) => b.dialCode.length - a.dialCode.length);
   
   for (const country of sortedCountries) {
-    if (internationalNumber.startsWith(country.dialCode)) {
+    // CRITICAL: Safe string check to prevent null crashes
+    if (country.dialCode && internationalNumber.startsWith(country.dialCode)) {
       const localNumber = internationalNumber.substring(country.dialCode.length);
       return { country, localNumber };
     }

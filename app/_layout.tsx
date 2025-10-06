@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { Provider as PaperProvider, MD3DarkTheme } from 'react-native-paper';
 import { MenuPositionProvider } from '../src/components/SidebarMenu';
-import { View, ActivityIndicator, Platform, Text } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { UserProfileProvider } from '../src/context/UserProfileContext';
@@ -20,9 +20,78 @@ import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 import WebResponsiveWrapper from '../src/components/WebResponsiveWrapper';
 
+// CRITICAL: Prevent Hermes memory crashes
 // CRITICAL: Global exception handler to prevent ALL native module crashes
 import { ErrorUtils } from 'react-native';
 import { logGlobalCrash } from '../src/services/crashDebuggingService';
+
+// CRITICAL: Hermes Memory Protection - Must be at top level
+if (!__DEV__) {
+  // Limit stack trace depth to prevent memory exhaustion
+  Error.stackTraceLimit = 10;
+  // Disable expensive console logs in production
+  LogBox.ignoreAllLogs(true);
+}
+
+// Disable promise rejection tracking in Hermes (reduces GC pressure)
+if (global.HermesInternal) {
+  try {
+    const hermesInternal = global.HermesInternal;
+    if (hermesInternal?.enablePromiseRejectionTracker) {
+      hermesInternal.enablePromiseRejectionTracker(false);
+      console.log('✅ Disabled Hermes promise rejection tracking');
+    }
+  } catch (error) {
+    console.warn('Could not disable promise rejection tracker:', error);
+  }
+}
+
+// CRITICAL: Protect against null string operations that crash Hermes
+const originalStringIncludes = String.prototype.includes;
+const originalStringStartsWith = String.prototype.startsWith;
+const originalStringEndsWith = String.prototype.endsWith;
+const originalStringToLowerCase = String.prototype.toLowerCase;
+const originalStringToUpperCase = String.prototype.toUpperCase;
+
+String.prototype.includes = function(...args) {
+  if (this == null) {
+    console.warn('⚠️ includes() called on null/undefined, returning false');
+    return false;
+  }
+  return originalStringIncludes.apply(this, args);
+};
+
+String.prototype.startsWith = function(...args) {
+  if (this == null) {
+    console.warn('⚠️ startsWith() called on null/undefined, returning false');
+    return false;
+  }
+  return originalStringStartsWith.apply(this, args);
+};
+
+String.prototype.endsWith = function(...args) {
+  if (this == null) {
+    console.warn('⚠️ endsWith() called on null/undefined, returning false');
+    return false;
+  }
+  return originalStringEndsWith.apply(this, args);
+};
+
+String.prototype.toLowerCase = function() {
+  if (this == null) {
+    console.warn('⚠️ toLowerCase() called on null/undefined, returning empty string');
+    return '';
+  }
+  return originalStringToLowerCase.apply(this);
+};
+
+String.prototype.toUpperCase = function() {
+  if (this == null) {
+    console.warn('⚠️ toUpperCase() called on null/undefined, returning empty string');
+    return '';
+  }
+  return originalStringToUpperCase.apply(this);
+};
 
 import { analyticsService } from '../src/services/analyticsService';
 import { messageSchedulingService } from '../src/services/messageSchedulingService';
@@ -31,6 +100,7 @@ import { pushNotificationService, setupQuickReplyActions } from '../src/services
 import { encryptionService } from '../src/services/encryptionService';
 import { voiceMessageService } from '../src/services/voiceMessageService';
 import { messageCacheService } from '../src/services/messageCacheService';
+import { startMemoryMonitoring, stopMemoryMonitoring } from '../src/utils/memoryMonitor';
 
 // Development utilities
 import { contentModerationService } from '../src/services/contentModerationService';
@@ -214,6 +284,21 @@ export default function RootLayout() {
   useFonts({
     // Add any custom fonts here if needed
   });
+
+  // CRITICAL: Memory monitoring setup
+  useEffect(() => {
+    let monitoringInterval: NodeJS.Timeout | null = null;
+
+    if (!__DEV__) {
+      monitoringInterval = startMemoryMonitoring();
+    }
+
+    return () => {
+      if (monitoringInterval) {
+        stopMemoryMonitoring(monitoringInterval);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     // Initialize all services in an async sequence

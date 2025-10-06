@@ -434,9 +434,12 @@ class MessagingAnalyticsService {
     if (message.voiceData) return 'voice';
     if (message.attachments && message.attachments.length > 0) {
       const attachment = message.attachments[0];
-      if (attachment.type.startsWith('image/')) return 'image';
-      if (attachment.type.startsWith('video/')) return 'video';
-      if (attachment.type.startsWith('audio/')) return 'audio';
+      // CRITICAL: Safe string checks to prevent null crashes
+      if (attachment.type && typeof attachment.type === 'string') {
+        if (attachment.type.startsWith('image/')) return 'image';
+        if (attachment.type.startsWith('video/')) return 'video';
+        if (attachment.type.startsWith('audio/')) return 'audio';
+      }
       return 'file';
     }
     return 'text';

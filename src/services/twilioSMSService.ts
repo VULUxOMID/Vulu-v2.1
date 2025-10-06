@@ -213,8 +213,9 @@ export class TwilioSMSService {
     // Remove all non-digit characters except +
     let formatted = phoneNumber.replace(/[^\d+]/g, '');
     
+    // CRITICAL: Safe string check to prevent null crashes
     // Ensure it starts with +
-    if (!formatted.startsWith('+')) {
+    if (formatted && typeof formatted === 'string' && !formatted.startsWith('+')) {
       formatted = '+' + formatted;
     }
     
