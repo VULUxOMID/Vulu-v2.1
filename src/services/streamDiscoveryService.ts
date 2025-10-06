@@ -81,6 +81,7 @@ class StreamDiscoveryService {
   private realtimeListeners = new Map<string, () => void>();
   private trendingStreams: DiscoveredStream[] = [];
   private popularCategories: { category: StreamCategory; count: number }[] = [];
+  private trendingAnalysisInterval: NodeJS.Timeout | null = null;
 
   private constructor() {
     this.startTrendingAnalysis();
@@ -522,7 +523,7 @@ class StreamDiscoveryService {
    */
   private startTrendingAnalysis(): void {
     // Update trending streams every 5 minutes
-    setInterval(async () => {
+    this.trendingAnalysisInterval = setInterval(async () => {
       try {
         await this.getTrendingStreams();
         console.log('📈 Updated trending streams');
@@ -530,12 +531,21 @@ class StreamDiscoveryService {
         console.error('Failed to update trending streams:', error);
       }
     }, 5 * 60 * 1000);
+
+    console.log('🔄 Started trending analysis interval (5 minute updates)');
   }
 
   /**
    * Destroy service and cleanup resources
    */
   destroy(): void {
+    // Clear trending analysis interval
+    if (this.trendingAnalysisInterval) {
+      clearInterval(this.trendingAnalysisInterval);
+      this.trendingAnalysisInterval = null;
+      console.log('⏹️ Stopped trending analysis interval');
+    }
+
     // Stop all real-time listeners
     this.realtimeListeners.forEach((unsubscribe) => {
       unsubscribe();

@@ -59,7 +59,7 @@ index 0000000..68c9fab
 +connection.project.dir=../../../../android
 +eclipse.preferences.version=1
 diff --git a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
-index fa3bb04..077784a 100644
+index fa3bb04..809a9be 100644
 --- a/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
 +++ b/node_modules/@react-native-async-storage/async-storage/ios/RNCAsyncStorage.mm
 @@ -128,26 +128,45 @@ static void RCTAppendError(NSDictionary *error, NSMutableArray<NSDictionary *> *
@@ -412,14 +412,113 @@ index fa3bb04..077784a 100644
      }
      callback(@[RCTNullIfNil(errors)]);
  }
-@@ -850,7 +1027,9 @@ - (BOOL)_passthroughDelegate
-         RCTAppendError(keyError, &errors);
-     }
-     if (changedManifest) {
+@@ -815,44 +992,78 @@ - (BOOL)_passthroughDelegate
+                      callback:(RCTResponseSenderBlock)callback)
+ // clang-format on
+ {
+-    if (self.delegate != nil) {
+-        [self.delegate removeValuesForKeys:keys
+-                                completion:^(NSArray<id<NSObject>> *results) {
+-                                  NSArray<NSDictionary *> *errors = RCTMakeErrors(results);
+-                                  callback(@[RCTNullIfNil(errors)]);
+-                                }];
++    @try {
++        if (self.delegate != nil) {
++            [self.delegate removeValuesForKeys:keys
++                                    completion:^(NSArray<id<NSObject>> *results) {
++                                      NSArray<NSDictionary *> *errors = RCTMakeErrors(results);
++                                      callback(@[RCTNullIfNil(errors)]);
++                                    }];
++
++            if (![self _passthroughDelegate]) {
++                return;
++            }
++        }
+ 
+-        if (![self _passthroughDelegate]) {
++        NSDictionary *errorOut = [self _ensureSetup];
++        if (errorOut) {
++            callback(@[@[errorOut]]);
+             return;
+         }
+-    }
+ 
+-    NSDictionary *errorOut = [self _ensureSetup];
+-    if (errorOut) {
+-        callback(@[@[errorOut]]);
+-        return;
+-    }
+-    NSMutableArray<NSDictionary *> *errors;
+-    BOOL changedManifest = NO;
+-    for (NSString *key in keys) {
+-        NSDictionary *keyError = RCTErrorForKey(key);
+-        if (!keyError) {
+-            if (_manifest[key] == (id)kCFNull) {
+-                NSString *filePath = [self _filePathForKey:key];
+-                [[NSFileManager defaultManager] removeItemAtPath:filePath error:nil];
+-                [RCTGetCache() removeObjectForKey:key];
+-            }
+-            if (_manifest[key]) {
+-                changedManifest = YES;
+-                [_manifest removeObjectForKey:key];
++        NSMutableArray<NSDictionary *> *errors;
++        BOOL changedManifest = NO;
++
++        for (NSString *key in keys) {
++            NSDictionary *keyError = RCTErrorForKey(key);
++            if (!keyError) {
++                @try {
++                    if (_manifest[key] == (id)kCFNull) {
++                        NSString *filePath = [self _filePathForKey:key];
++
++                        // Safe file removal with proper error handling
++                        if ([[NSFileManager defaultManager] fileExistsAtPath:filePath]) {
++                            NSError *removeError = nil;
++                            BOOL removed = [[NSFileManager defaultManager] removeItemAtPath:filePath error:&removeError];
++
++                            if (!removed || removeError) {
++                                RCTLogWarn(@"[AsyncStorage] Could not remove file for key '%@': %@", key, removeError.localizedDescription);
++                            } else {
++                                RCTLogInfo(@"[AsyncStorage] Successfully removed file for key '%@'", key);
++                            }
++                        }
++
++                        [RCTGetCache() removeObjectForKey:key];
++                    }
++                    if (_manifest[key]) {
++                        changedManifest = YES;
++                        [_manifest removeObjectForKey:key];
++                    }
++                } @catch (NSException *exception) {
++                    RCTLogError(@"[AsyncStorage] Exception removing key '%@': %@", key, exception.reason);
++                    // Don't crash - just log and continue with next key
++                }
+             }
++            RCTAppendError(keyError, &errors);
+         }
+-        RCTAppendError(keyError, &errors);
+-    }
+-    if (changedManifest) {
 -        [self _writeManifest:&errors];
-+        // NUCLEAR OPTION: DISABLE MANIFEST WRITING TO PREVENT CRASHES
-+        RCTLogWarn(@"[AsyncStorage] Manifest changed in multiRemove, but skipping write to prevent crashes");
-+        // [self _writeManifest:&errors];  // <-- DISABLED TO PREVENT CRASHES
++
++        if (changedManifest) {
++            // NUCLEAR OPTION: DISABLE MANIFEST WRITING TO PREVENT CRASHES
++            RCTLogWarn(@"[AsyncStorage] Manifest changed in multiRemove, but skipping write to prevent crashes");
++            // [self _writeManifest:&errors];  // <-- DISABLED TO PREVENT CRASHES
++        }
++
++        callback(@[RCTNullIfNil(errors)]);
++
++    } @catch (NSException *exception) {
++        RCTLogError(@"[AsyncStorage] multiRemove crashed: %@", exception.reason);
++        // Return error instead of crashing the app
++        NSDictionary *error = @{
++            @"message": exception.reason ?: @"AsyncStorage multiRemove failed",
++            @"code": @"E_ASYNCSTORAGE_MULTIREMOVE"
++        };
++        callback(@[@[error]]);
      }
-     callback(@[RCTNullIfNil(errors)]);
+-    callback(@[RCTNullIfNil(errors)]);
  }
+ 
+ // clang-format off
