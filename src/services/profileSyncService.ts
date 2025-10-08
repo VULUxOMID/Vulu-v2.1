@@ -147,58 +147,150 @@ class ProfileSyncService {
       );
 
       const conversationsSnapshot = await getDocs(conversationsQuery);
-      
+
       if (conversationsSnapshot.empty) {
         console.log(`No conversations found for user ${userId}`);
         return;
       }
 
+      console.log(`Found ${conversationsSnapshot.docs.length} conversations for user ${userId}`);
+
       // Use batch writes for better performance
       const batch = writeBatch(db);
       let updateCount = 0;
+      const failedUpdates: string[] = [];
 
       conversationsSnapshot.docs.forEach((conversationDoc) => {
-        const conversationData = conversationDoc.data();
-        const conversationRef = doc(db, 'conversations', conversationDoc.id);
+        try {
+          const conversationData = conversationDoc.data();
+          const conversationRef = doc(db, 'conversations', conversationDoc.id);
 
-        // Update participant names if displayName changed
-        if (profileData.displayName && conversationData.participantNames) {
-          const updatedParticipantNames = {
-            ...conversationData.participantNames,
-            [userId]: profileData.displayName
-          };
+          // Verify user is actually in participants array
+          if (!conversationData.participants || !conversationData.participants.includes(userId)) {
+            console.warn(`⚠️ User ${userId} not found in participants for conversation ${conversationDoc.id}`);
+            failedUpdates.push(conversationDoc.id);
+            return;
+          }
 
-          batch.update(conversationRef, {
-            participantNames: updatedParticipantNames
-          });
-          updateCount++;
-        }
+          let hasUpdates = false;
 
-        // Update participant avatars if photoURL changed
-        if (profileData.photoURL !== undefined && conversationData.participantAvatars) {
-          const updatedParticipantAvatars = {
-            ...conversationData.participantAvatars,
-            [userId]: profileData.photoURL || ''
-          };
+          // Update participant names if displayName changed
+          if (profileData.displayName && conversationData.participantNames) {
+            const updatedParticipantNames = {
+              ...conversationData.participantNames,
+              [userId]: profileData.displayName
+            };
 
-          batch.update(conversationRef, {
-            participantAvatars: updatedParticipantAvatars
-          });
-          updateCount++;
+            batch.update(conversationRef, {
+              participantNames: updatedParticipantNames
+            });
+            hasUpdates = true;
+          }
+
+          // Update participant avatars if photoURL changed
+          if (profileData.photoURL !== undefined && conversationData.participantAvatars) {
+            const updatedParticipantAvatars = {
+              ...conversationData.participantAvatars,
+              [userId]: profileData.photoURL || ''
+            };
+
+            batch.update(conversationRef, {
+              participantAvatars: updatedParticipantAvatars
+            });
+            hasUpdates = true;
+          }
+
+          if (hasUpdates) {
+            updateCount++;
+          }
+
+        } catch (docError) {
+          console.error(`Error processing conversation ${conversationDoc.id}:`, docError);
+          failedUpdates.push(conversationDoc.id);
         }
       });
 
       if (updateCount > 0) {
-        await batch.commit();
-        console.log(`✅ Updated ${updateCount} conversation records for user ${userId}`);
+        try {
+          await batch.commit();
+          console.log(`✅ Updated ${updateCount} conversation records for user ${userId}`);
+
+          if (failedUpdates.length > 0) {
+            console.warn(`⚠️ Failed to update ${failedUpdates.length} conversations: ${failedUpdates.join(', ')}`);
+          }
+        } catch (batchError) {
+          console.error(`❌ Batch commit failed for user ${userId}:`, batchError);
+
+          // If batch fails, try individual updates for critical data
+          if (profileData.displayName) {
+            console.log(`🔄 Attempting individual updates for user ${userId}...`);
+            await this.fallbackIndividualUpdates(userId, profileData, conversationsSnapshot.docs);
+          }
+        }
       } else {
         console.log(`No conversation updates needed for user ${userId}`);
       }
 
     } catch (error) {
       console.error(`Failed to sync profile for user ${userId}:`, error);
-      throw error;
+
+      // Don't throw the error - profile sync failure should not crash the app
+      // The error is already logged and the user can continue using the app
+      console.warn(`⚠️ Profile sync failed for user ${userId}, continuing without sync`);
     }
+  }
+
+  /**
+   * Fallback method to update conversations individually when batch fails
+   */
+  private async fallbackIndividualUpdates(
+    userId: string,
+    profileData: ProfileUpdateData,
+    conversationDocs: any[]
+  ): Promise<void> {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const conversationDoc of conversationDocs) {
+      try {
+        const conversationData = conversationDoc.data();
+        const conversationRef = doc(db, 'conversations', conversationDoc.id);
+
+        // Verify user is in participants
+        if (!conversationData.participants || !conversationData.participants.includes(userId)) {
+          continue;
+        }
+
+        const updates: any = {};
+
+        // Update participant names if displayName changed
+        if (profileData.displayName && conversationData.participantNames) {
+          updates.participantNames = {
+            ...conversationData.participantNames,
+            [userId]: profileData.displayName
+          };
+        }
+
+        // Update participant avatars if photoURL changed
+        if (profileData.photoURL !== undefined && conversationData.participantAvatars) {
+          updates.participantAvatars = {
+            ...conversationData.participantAvatars,
+            [userId]: profileData.photoURL || ''
+          };
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateDoc(conversationRef, updates);
+          successCount++;
+        }
+
+      } catch (error) {
+        console.error(`Individual update failed for conversation ${conversationDoc.id}:`, error);
+        failCount++;
+      }
+    }
+
+    console.log(`🔄 Individual updates completed: ${successCount} success, ${failCount} failed`);
   }
 
   /**

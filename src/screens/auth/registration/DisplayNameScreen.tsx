@@ -24,7 +24,7 @@ const DisplayNameScreen: React.FC = () => {
   const [displayName, setDisplayName] = useState(registrationData.displayName || '');
 
   React.useEffect(() => {
-    setCurrentStep(2);
+    setCurrentStep(3);
   }, [setCurrentStep]);
 
   const handleDisplayNameChange = (value: string) => {
@@ -33,7 +33,7 @@ const DisplayNameScreen: React.FC = () => {
   };
 
   const handleBack = () => {
-    setCurrentStep(1);
+    setCurrentStep(2);
   };
 
   const handleNext = async () => {
@@ -71,7 +71,7 @@ const DisplayNameScreen: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Move to next step
-      setCurrentStep(3);
+      setCurrentStep(4);
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {

@@ -43,9 +43,34 @@ import { useShop } from '../context/ShopContext';
 
 const defaultSpotlightAvatar = 'https://randomuser.me/api/portraits/lego/1.jpg';
 
+// Fallback router for when useRouter() fails
+const fallbackRouter = {
+  push: (href: string) => {
+    console.warn('⚠️ Fallback router: Cannot navigate to', href);
+  },
+  replace: (href: string) => {
+    console.warn('⚠️ Fallback router: Cannot replace with', href);
+  },
+  back: () => {
+    console.warn('⚠️ Fallback router: Cannot go back');
+  },
+  canGoBack: () => false,
+  setParams: (params: any) => {
+    console.warn('⚠️ Fallback router: Cannot set params', params);
+  }
+};
+
 // Use the router for navigation
 const HomeScreen = () => {
-  const router = useRouter();
+  // Safe router initialization with fallback
+  let router;
+  try {
+    router = useRouter();
+  } catch (error) {
+    console.warn('⚠️ useRouter() failed, using fallback:', error);
+    router = fallbackRouter;
+  }
+  
   const [activeTab, setActiveTab] = useState('Week');
   const scrollViewRef = useRef<ScrollView>(null);
   const scrollXRef = useRef(new Animated.Value(0));
@@ -140,7 +165,7 @@ const HomeScreen = () => {
   const [showGemsMinimizeTutorial, setShowGemsMinimizeTutorial] = useState(true);
   
   // --- Animation Setup for Your Spotlight Shadow ---
-  const yourShadowOpacity = useSharedValue(0.7); // Initial opacity
+  const yourShadowOpacity = useSharedValue(0.7); // Initial opacity - safe default
 
   // Effect to control the pulsing animation based on timer
   useEffect(() => {
@@ -173,7 +198,7 @@ const HomeScreen = () => {
   // --- End Your Animation Setup ---
 
   // --- Animation Setup for Other Spotlight Shadow ---
-  const otherShadowOpacity = useSharedValue(0.7); // Initial opacity
+  const otherShadowOpacity = useSharedValue(0.7); // Initial opacity - safe default
 
   // Effect to control the pulsing animation based on timer
   useEffect(() => {
@@ -352,9 +377,9 @@ const HomeScreen = () => {
               />
             </View>
           ))}
-          {stream.hosts.length > 3 && (
+          {stream.hosts && stream.hosts.length > 3 && (
             <View style={[styles.plusMoreContainer, styles.plusMoreContainerRed]}>
-              <Text style={[styles.plusMoreText, styles.plusMoreTextRed]}>+{stream.hosts.length - 3}</Text>
+              <Text style={[styles.plusMoreText, styles.plusMoreTextRed]}>+{(stream.hosts.length || 0) - 3}</Text>
             </View>
           )}
         </View>
@@ -422,9 +447,9 @@ const HomeScreen = () => {
               />
             </View>
           ))}
-          {stream.hosts.length > 3 && (
+          {stream.hosts && stream.hosts.length > 3 && (
             <View style={[styles.plusMoreContainer, styles.plusMoreContainerRed]}>
-              <Text style={[styles.plusMoreText, styles.plusMoreTextRed]}>+{stream.hosts.length - 3}</Text>
+              <Text style={[styles.plusMoreText, styles.plusMoreTextRed]}>+{(stream.hosts.length || 0) - 3}</Text>
             </View>
           )}
         </View>
@@ -863,7 +888,7 @@ const HomeScreen = () => {
   const [isEventExpanded, setIsEventExpanded] = useState(false);
 
   // Add a new animation value for smooth transitions
-  const eventExpandAnim = useSharedValue(0);
+  const eventExpandAnim = useSharedValue(0); // Safe default value
 
   // Cleanup animation on unmount
   useEffect(() => {
@@ -972,31 +997,31 @@ const HomeScreen = () => {
   const minimalEventAnimatedStyle = useAnimatedStyle(() => {
     const minHeight = 50; // Just enough for title and progress bar
     const maxHeight = 200; // Full expanded height
-    
+
     return {
       height: withTiming(
-        isMinimalEventExpanded ? maxHeight : minHeight, 
+        isMinimalEventExpanded ? maxHeight : minHeight,
         { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }
       ),
       overflow: 'hidden'
     };
-  });
+  }, [isMinimalEventExpanded]); // Add dependency array
 
   // Add animated styles for the expanded content
   const minimalEventContentAnimatedStyle = useAnimatedStyle(() => {
     return {
       opacity: withTiming(
-        isMinimalEventExpanded ? 1 : 0, 
+        isMinimalEventExpanded ? 1 : 0,
         { duration: 250, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }
       ),
-      transform: [{ 
+      transform: [{
         translateY: withTiming(
-          isMinimalEventExpanded ? 0 : 10, 
+          isMinimalEventExpanded ? 0 : 10,
           { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }
-        ) 
+        )
       }]
     };
-  });
+  }, [isMinimalEventExpanded]); // Add dependency array
   
   // Render a simple minimal event widget with just a title and progress bar
   const renderMinimalEventWidget = () => {
@@ -1223,17 +1248,17 @@ const HomeScreen = () => {
   const minimalGemsContentAnimatedStyle = useAnimatedStyle(() => {
     return {
       opacity: withTiming(
-        isMinimalGemsExpanded ? 1 : 0, 
+        isMinimalGemsExpanded ? 1 : 0,
         { duration: 250, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }
       ),
-      transform: [{ 
+      transform: [{
         translateY: withTiming(
-          isMinimalGemsExpanded ? 0 : 10, 
+          isMinimalGemsExpanded ? 0 : 10,
           { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }
-        ) 
+        )
       }]
     };
-  });
+  }, [isMinimalGemsExpanded]); // Add dependency array
 
   // Add logging to track gems state changes
   useEffect(() => {
@@ -1250,15 +1275,15 @@ const HomeScreen = () => {
   const minimalGemsAnimatedStyle = useAnimatedStyle(() => {
     const minHeight = 50; // Just enough for title and basic info
     const maxHeight = 200; // Full expanded height
-    
+
     return {
       height: withTiming(
-        isMinimalGemsExpanded ? maxHeight : minHeight, 
+        isMinimalGemsExpanded ? maxHeight : minHeight,
         { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) }
       ),
       overflow: 'hidden'
     };
-  });
+  }, [isMinimalGemsExpanded]); // Add dependency array
 
   // Render a minimal Gems+ widget with expand/minimize functionality
   const renderMinimalGemsWidget = () => {

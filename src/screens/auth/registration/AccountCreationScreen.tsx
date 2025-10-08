@@ -30,7 +30,7 @@ const AccountCreationScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
-    setCurrentStep(3);
+    setCurrentStep(4);
   }, [setCurrentStep]);
 
   // Debounced username availability check
@@ -82,7 +82,7 @@ const AccountCreationScreen: React.FC = () => {
   };
 
   const handleBack = () => {
-    setCurrentStep(2);
+    setCurrentStep(3);
   };
 
   const handleNext = async () => {
@@ -154,7 +154,7 @@ const AccountCreationScreen: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // Move to next step
-      setCurrentStep(4);
+      setCurrentStep(5);
     } catch (err) {
       setError('Something went wrong. Please try again.');
     } finally {

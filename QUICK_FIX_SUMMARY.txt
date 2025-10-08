@@ -1,0 +1,65 @@
+========================================
+🚨 FROZEN OBJECT ERROR - QUICK FIX
+========================================
+
+ERROR: "You attempted to set the key 'current' with the value 'undefined' on an object that is meant to be immutable and has been frozen."
+
+LOCATION: HomeScreen.tsx:48 (useRouter() call)
+
+ROOT CAUSE: React Native dev mode freezes objects, preventing expo-router from initializing refs.
+
+========================================
+FIXES (Do in order):
+========================================
+
+1. ADD TO TOP OF app/_layout.tsx (before line 1):
+
+if (__DEV__) {
+  const originalFreeze = Object.freeze;
+  Object.freeze = function(obj) {
+    if (obj && typeof obj === 'object' && ('current' in obj || obj.$$typeof || obj._reactInternals)) {
+      return obj;
+    }
+    return originalFreeze(obj);
+  };
+}
+
+2. UPDATE src/screens/HomeScreen.tsx line 48:
+
+Add import:
+import { router as fallbackRouter } from 'expo-router';
+
+Replace:
+const router = useRouter();
+
+With:
+let router;
+try {
+  router = useRouter();
+} catch (error) {
+  console.warn('⚠️ useRouter() failed:', error);
+  router = fallbackRouter;
+}
+
+3. UPDATE src/context/MiniPlayerContext.tsx line 48:
+(Same fix as step 2)
+
+4. RUN COMMANDS:
+
+cd "/Users/omid/Downloads/Vulu v2.1"
+rm -rf .expo node_modules/.cache
+watchman watch-del-all
+npx expo start --clear --ios
+
+========================================
+FULL DOCUMENTATION:
+========================================
+
+See these files for complete details:
+- AI_AGENT_FIX_INSTRUCTIONS.md (simple guide)
+- FROZEN_OBJECT_ERROR_FIX.md (detailed technical guide)
+
+========================================
+
+
+

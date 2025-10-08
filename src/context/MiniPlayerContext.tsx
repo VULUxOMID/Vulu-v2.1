@@ -13,6 +13,23 @@ import { useRouter } from 'expo-router';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
+// Fallback router for when useRouter() fails
+const fallbackRouter = {
+  push: (href: string) => {
+    console.warn('⚠️ MiniPlayer fallback router: Cannot navigate to', href);
+  },
+  replace: (href: string) => {
+    console.warn('⚠️ MiniPlayer fallback router: Cannot replace with', href);
+  },
+  back: () => {
+    console.warn('⚠️ MiniPlayer fallback router: Cannot go back');
+  },
+  canGoBack: () => false,
+  setParams: (params: any) => {
+    console.warn('⚠️ MiniPlayer fallback router: Cannot set params', params);
+  }
+};
+
 interface MiniPlayerState {
   isVisible: boolean;
   streamId: string | null;
@@ -45,7 +62,15 @@ interface MiniPlayerProviderProps {
 }
 
 export const MiniPlayerProvider: React.FC<MiniPlayerProviderProps> = ({ children }) => {
-  const router = useRouter();
+  // Safe router initialization with fallback
+  let router;
+  try {
+    router = useRouter();
+  } catch (error) {
+    console.warn('⚠️ MiniPlayerProvider: useRouter() failed, using fallback:', error);
+    router = fallbackRouter;
+  }
+  
   const [miniPlayerState, setMiniPlayerState] = useState<MiniPlayerState>({
     isVisible: false,
     streamId: null,

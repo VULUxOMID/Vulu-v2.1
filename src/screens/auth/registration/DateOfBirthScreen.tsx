@@ -32,7 +32,7 @@ const DateOfBirthScreen: React.FC = () => {
   const [hasSelectedDate, setHasSelectedDate] = useState(!!registrationData.dateOfBirth);
 
   React.useEffect(() => {
-    setCurrentStep(4);
+    setCurrentStep(5);
   }, [setCurrentStep]);
 
   const handleDateChange = (event: any, selectedDate?: Date) => {
@@ -45,7 +45,7 @@ const DateOfBirthScreen: React.FC = () => {
   };
 
   const handleBack = () => {
-    setCurrentStep(3);
+    setCurrentStep(4);
   };
 
   const handleCreateAccount = async () => {
@@ -68,7 +68,7 @@ const DateOfBirthScreen: React.FC = () => {
             text: 'Go Back',
             onPress: () => {
               setIsLoading(false);
-              setCurrentStep(3);
+              setCurrentStep(4);
             }
           }
         ]
@@ -126,8 +126,8 @@ const DateOfBirthScreen: React.FC = () => {
     <View style={styles.container}>
       <RegistrationHeader
         title="When's your birthday?"
-        currentStep={4}
-        totalSteps={4}
+        currentStep={5}
+        totalSteps={5}
         onBackPress={handleBack}
         showBackButton={true}
       />

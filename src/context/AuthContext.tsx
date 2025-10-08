@@ -278,12 +278,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               // Start profile synchronization for this user
               try {
                 profileSyncService.startProfileSync(firebaseUser.uid);
+                console.log(`✅ Profile sync started for user ${firebaseUser.uid}`);
               } catch (syncError) {
                 console.error('Failed to start profile sync:', {
                   userId: firebaseUser.uid,
-                  error: syncError
+                  error: syncError,
+                  errorCode: syncError?.code,
+                  errorMessage: syncError?.message
                 });
                 // Don't throw - profile sync failure is not critical for user experience
+                // The user can still use the app, just without automatic profile syncing
               }
               // Initialize encryption for existing user
               try {
@@ -602,6 +606,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // for immediate updates if needed
       if (updates.displayName || updates.photoURL) {
         try {
+          console.log(`🔄 Manually syncing profile changes for user ${user.uid}...`);
           await profileSyncService.syncProfileToConversations(user.uid, {
             displayName: updates.displayName,
             photoURL: updates.photoURL,
@@ -609,13 +614,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             bio: updates.bio,
             customStatus: updates.customStatus
           });
+          console.log(`✅ Profile changes synced successfully for user ${user.uid}`);
         } catch (syncError) {
           console.error('Failed to sync profile changes to conversations:', {
             userId: user.uid,
             updates,
-            error: syncError
+            error: syncError,
+            errorCode: syncError?.code,
+            errorMessage: syncError?.message
           });
           // Don't throw the error - profile update succeeded, sync failure is not critical
+          // The automatic sync listener will retry later
         }
       }
     } catch (error) {

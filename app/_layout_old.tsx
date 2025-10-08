@@ -4,7 +4,6 @@ if (__DEV__) {
   const originalFreeze = Object.freeze;
   const originalSeal = Object.seal;
   const originalPreventExtensions = Object.preventExtensions;
-  const originalDefineProperty = Object.defineProperty;
 
   // In development mode, completely disable freezing to prevent React errors
   // This is safe because it's only in development and prevents the frozen object errors
@@ -23,82 +22,92 @@ if (__DEV__) {
     return obj;
   };
 
-  // Override Object.defineProperty to prevent freezing of 'current' property
-  Object.defineProperty = function(obj: any, prop: string | symbol, descriptor: PropertyDescriptor) {
-    try {
-      // If trying to define 'current' property, make sure it's writable
-      if (prop === 'current' && descriptor) {
-        descriptor.writable = true;
-        descriptor.configurable = true;
-      }
-      return originalDefineProperty(obj, prop, descriptor);
-    } catch (error) {
-      // If defineProperty fails, just return the object
-      console.warn('defineProperty failed, continuing:', error);
-      return obj;
-    }
-  };
-
   // Add global error handling for module loading issues
   const originalRequire = global.require;
   if (originalRequire) {
     global.require = function(id: string) {
       try {
         return originalRequire(id);
-      } catch (error: any) {
-        if (error.message && error.message.includes('Requiring unknown module')) {
-          console.warn('Module loading error caught:', error.message);
-          return {};
+      } catch (error) {
+        // Only handle specific module loading errors, not all errors
+        if (error && typeof error === 'object' && 'message' in error) {
+          const errorMessage = (error as Error).message;
+          if (errorMessage.includes('Requiring unknown module') || errorMessage.includes('Unable to resolve module')) {
+            console.warn(`Failed to require module ${id}:`, error);
+            // Return empty object for failed modules to prevent crashes
+            return {};
+          }
         }
+        // Re-throw other errors
         throw error;
       }
     };
   }
 
   // Add global error handler for unhandled promise rejections
+  const handleUnhandledRejection = (event: any) => {
+    console.warn('Unhandled promise rejection:', event.reason);
+    event.preventDefault?.();
+  };
+
   if (typeof global !== 'undefined' && global.addEventListener) {
-    global.addEventListener('unhandledrejection', (event: any) => {
-      console.warn('Unhandled promise rejection caught:', event.reason);
-      event.preventDefault();
-    });
+    global.addEventListener('unhandledrejection', handleUnhandledRejection);
   }
 }
 
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import { View, Text, ActivityIndicator } from 'react-native';
 
-// Import all providers
+import * as SplashScreen from 'expo-splash-screen';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import { AuthProvider } from '../src/context/AuthContext';
+import { LiveStreamProvider } from '../src/context/LiveStreamContext';
 import { NotificationProvider } from '../src/context/NotificationContext';
 import { MusicProvider } from '../src/context/MusicContext';
 import { GamingProvider } from '../src/context/GamingContext';
 import { ShopProvider } from '../src/context/ShopContext';
-import { LiveStreamProvider } from '../src/context/LiveStreamContext';
-import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
-    if (loaded) {
+    async function prepare() {
+      try {
+        // Minimal initialization
+        console.log('🚀 App initializing...');
+
+        // Set app as ready immediately
+        setAppIsReady(true);
+      } catch (e) {
+        console.warn('Error during app initialization:', e);
+        setAppIsReady(true); // Continue anyway
+      }
+    }
+
+    prepare();
+  }, []);
+
+  useEffect(() => {
+    if (appIsReady) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [appIsReady]);
 
-  if (!loaded) {
-    return null;
+  if (!appIsReady) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 10 }}>Loading...</Text>
+      </View>
+    );
   }
 
   return (

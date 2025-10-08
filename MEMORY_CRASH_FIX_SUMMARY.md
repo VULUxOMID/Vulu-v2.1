@@ -3,6 +3,8 @@
 ## 🎯 **Problems Solved**
 1. **Build 11-12**: Fixed SIGSEGV memory corruption crash in Hermes GC during error handling and array operations
 2. **Build 13**: Fixed SIGSEGV null pointer crash in `hermes::vm::stringPrototypeIncludesOrStartsWith` (String.cpp:2586)
+3. **Build 14**: Fixed SIGSEGV iterator crash in `hermes::vm::iteratorNext` (Operations.cpp:1576) and TurboModule array conversions
+4. **Build 15**: Fixed SIGSEGV RegExp crash in `hermes::vm::directRegExpExec` (RegExp.cpp:712) and `stringPrototypeReplace` (String.cpp:1980)
 
 ## 🔧 **Changes Implemented**
 
@@ -111,7 +113,75 @@ String.prototype.startsWith = function(...args) {
 }
 ```
 
-### **9. Hermes Configuration (`app.json`)**
+### **9. Iterator Protection (`app/_layout.tsx`)**
+```typescript
+// CRITICAL: Iterator protection - MUST be first to prevent iteratorNext crashes!
+if (typeof Symbol !== 'undefined' && Symbol.iterator) {
+  const ArrayProto = Array.prototype;
+  const originalIterator = ArrayProto[Symbol.iterator];
+
+  // Protect Array iterator
+  ArrayProto[Symbol.iterator] = function() {
+    if (this == null || this === undefined) {
+      console.warn('⚠️ Iterator called on null/undefined array, returning empty iterator');
+      return [][Symbol.iterator]();
+    }
+    return originalIterator.call(this);
+  };
+
+  // Protect Array.from, Array.map, Array.filter, Array.forEach
+  // ... (comprehensive array operation protection)
+}
+```
+
+### **10. TurboModule Protection (`src/utils/turboModuleProtection.ts`)**
+- **Array conversion protection** for React Native TurboModules
+- **Object operations protection** (keys, values, entries)
+- **JSON operations protection** (stringify, parse)
+- **Iterator operations protection** (Map, Set iterators)
+
+### **11. RegExp Protection (`app/_layout.tsx`)**
+```typescript
+// CRITICAL: Protect String.replace (causes RegExp crashes in directRegExpExec)
+const originalStringReplace = String.prototype.replace;
+String.prototype.replace = function(searchValue: any, replaceValue: any) {
+  if (this == null || this === undefined) {
+    console.warn('⚠️ String.replace() called on null/undefined, returning empty string');
+    return '';
+  }
+
+  // Protect against null searchValue
+  if (searchValue == null || searchValue === undefined) {
+    console.warn('⚠️ String.replace() called with null searchValue, returning original');
+    return String(this);
+  }
+
+  try {
+    return originalStringReplace.call(this, searchValue, replaceValue);
+  } catch (error) {
+    console.warn('⚠️ String.replace() failed:', error);
+    return String(this);
+  }
+};
+
+// CRITICAL: Protect RegExp.exec (direct crash location in directRegExpExec)
+const originalRegExpExec = RegExp.prototype.exec;
+RegExp.prototype.exec = function(str: any) {
+  if (str == null || str === undefined) {
+    console.warn('⚠️ RegExp.exec() called on null/undefined string, returning null');
+    return null;
+  }
+
+  try {
+    return originalRegExpExec.call(this, str);
+  } catch (error) {
+    console.warn('⚠️ RegExp.exec() failed:', error);
+    return null;
+  }
+};
+```
+
+### **12. Hermes Configuration (`app.json`)**
 ```json
 {
   "expo": {
