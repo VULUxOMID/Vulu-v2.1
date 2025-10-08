@@ -28,7 +28,7 @@ interface UserProfileContextType {
   recordProfileView: (viewerData: any) => Promise<void>;
 }
 
-const initialProfileImage = 'https://randomuser.me/api/portraits/women/33.jpg';
+const initialProfileImage = null;
 
 const UserProfileContext = createContext<UserProfileContextType>({
   profileImage: initialProfileImage,
@@ -48,7 +48,7 @@ const UserProfileContext = createContext<UserProfileContextType>({
   hasGemPlus: false,
   setHasGemPlus: () => {},
   displayName: 'User',
-  username: '@user',
+  username: '',
 });
 
 export const useUserProfile = () => useContext(UserProfileContext);
@@ -74,7 +74,7 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
   }
   
   // Guest profile settings
-  const guestProfileImage = 'https://via.placeholder.com/150/6E69F4/FFFFFF?text=G';
+  const guestProfileImage = null;
   const guestDisplayName = 'Guest';
   const guestUsername = 'guest';
   
@@ -93,7 +93,7 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
   // Determine current profile data based on guest status
   const currentProfileImage = isGuest ? guestProfileImage : profileImage;
   const currentDisplayName = isGuest ? guestDisplayName : (userProfile?.displayName || 'User');
-  const currentUsername = isGuest ? guestUsername : (userProfile?.username || '@user');
+  const currentUsername = isGuest ? guestUsername : (userProfile?.username || '');
 
   // Guest-safe setProfileImage function
   const setProfileImageSafe = (image: string) => {

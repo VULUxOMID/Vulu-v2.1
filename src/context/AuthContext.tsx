@@ -271,7 +271,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Get user profile from Firestore
         try {
-          const profile = await firestoreService.getUser(firebaseUser.uid);
+          let profile = await firestoreService.getUser(firebaseUser.uid);
           if (mounted) {
             if (profile) {
               setUserProfile(profile);
@@ -286,8 +286,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   errorCode: syncError?.code,
                   errorMessage: syncError?.message
                 });
-                // Don't throw - profile sync failure is not critical for user experience
-                // The user can still use the app, just without automatic profile syncing
               }
               // Initialize encryption for existing user
               try {
@@ -296,68 +294,93 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 console.warn('Encryption initialization failed:', encryptionError);
               }
             } else {
-              // Create new user profile with messaging fields
-              const displayName = firebaseUser.displayName || 'User';
-              const username = `user_${firebaseUser.uid.substring(0, 8)}`;
-              const newProfile = {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email || '',
-                displayName,
-                username,
-                photoURL: firebaseUser.photoURL || undefined,
-                gold: 1000,
-                gems: 50,
-                level: 1,
-
-                // Presence and status
-                status: 'online' as const,
-                isOnline: true,
-                lastActivity: new Date(),
-
-                // Privacy settings
-                allowFriendRequests: true,
-                allowMessagesFromStrangers: false,
-                showOnlineStatus: true,
-
-                // Friend system
-                friends: [],
-                blockedUsers: [],
-
-                // Profile customization
-                bio: '',
-                customStatus: '',
-
-                // Search fields (lowercase for case-insensitive search)
-                displayNameLower: displayName.toLowerCase(),
-                usernameLower: username.toLowerCase(),
-                emailLower: (firebaseUser.email || '').toLowerCase(),
-              };
-              try {
-                await firestoreService.createUser(newProfile);
-                if (mounted) {
-                  setUserProfile(newProfile);
-                  // Start profile synchronization for new user
-                  try {
-                    profileSyncService.startProfileSync(firebaseUser.uid);
-                  } catch (syncError) {
-                    console.error('Failed to start profile sync for new user:', {
-                      userId: firebaseUser.uid,
-                      error: syncError
-                    });
-                    // Don't throw - profile sync failure is not critical for user experience
-                  }
+              // Wait for profile sync to complete, then retry
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const updatedProfile = await firestoreService.getUser(firebaseUser.uid);
+              if (updatedProfile) {
+                setUserProfile(updatedProfile);
+                // Start profile synchronization for this user
+                try {
+                  profileSyncService.startProfileSync(firebaseUser.uid);
+                  console.log(`✅ Profile sync started for user ${firebaseUser.uid}`);
+                } catch (syncError) {
+                  console.error('Failed to start profile sync:', {
+                    userId: firebaseUser.uid,
+                    error: syncError,
+                    errorCode: syncError?.code,
+                    errorMessage: syncError?.message
+                  });
                 }
-                // Initialize encryption for the new user
+                // Initialize encryption for existing user
                 try {
                   await encryptionService.initialize(firebaseUser.uid);
                 } catch (encryptionError) {
-                  console.warn('Encryption initialization failed for new user:', encryptionError);
+                  console.warn('Encryption initialization failed:', encryptionError);
                 }
-              } catch (createError) {
-                console.error('Error creating user profile:', createError);
-                // Set a default profile even if creation fails
-                if (mounted) {
-                  setUserProfile(newProfile);
+              } else {
+                // Create new user profile with messaging fields
+                const displayName = firebaseUser.displayName || 'User';
+                const username = `user_${firebaseUser.uid.substring(0, 8)}`;
+                const newProfile = {
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email || '',
+                  displayName,
+                  username,
+                  photoURL: firebaseUser.photoURL || undefined,
+                  gold: 0,
+                  gems: 50,
+                  level: 1,
+
+                  // Presence and status
+                  status: 'online' as const,
+                  isOnline: true,
+                  lastActivity: new Date(),
+
+                  // Privacy settings
+                  allowFriendRequests: true,
+                  allowMessagesFromStrangers: false,
+                  showOnlineStatus: true,
+
+                  // Friend system
+                  friends: [],
+                  blockedUsers: [],
+
+                  // Profile customization
+                  bio: '',
+                  customStatus: '',
+
+                  // Search fields (lowercase for case-insensitive search)
+                  displayNameLower: displayName.toLowerCase(),
+                  usernameLower: username.toLowerCase(),
+                  emailLower: (firebaseUser.email || '').toLowerCase(),
+                };
+                try {
+                  await firestoreService.createUser(newProfile);
+                  if (mounted) {
+                    setUserProfile(newProfile);
+                    // Start profile synchronization for new user
+                    try {
+                      profileSyncService.startProfileSync(firebaseUser.uid);
+                    } catch (syncError) {
+                      console.error('Failed to start profile sync for new user:', {
+                        userId: firebaseUser.uid,
+                        error: syncError
+                      });
+                      // Don't throw - profile sync failure is not critical for user experience
+                    }
+                  }
+                  // Initialize encryption for the new user
+                  try {
+                    await encryptionService.initialize(firebaseUser.uid);
+                  } catch (encryptionError) {
+                    console.warn('Encryption initialization failed for new user:', encryptionError);
+                  }
+                } catch (createError) {
+                  console.error('Error creating user profile:', createError);
+                  // Set a default profile even if creation fails
+                  if (mounted) {
+                    setUserProfile(newProfile);
+                  }
                 }
               }
             }
@@ -371,7 +394,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               email: firebaseUser.email,
               displayName: firebaseUser.displayName || 'User',
               photoURL: firebaseUser.photoURL,
-              gold: 1000,
+              gold: 0,
               gems: 50,
               level: 1,
             };
@@ -494,7 +517,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: null,
         displayName: 'Guest',
         username: 'guest',
-        photoURL: 'https://via.placeholder.com/150/6E69F4/FFFFFF?text=G', // Purple default avatar
+        photoURL: null, // No default avatar
         gold: 500, // Limited gold for guests
         gems: 10,  // Limited gems for guests
         level: 1,

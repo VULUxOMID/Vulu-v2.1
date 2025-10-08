@@ -49,6 +49,9 @@ const Layout = () => {
               shadowRadius: 8,
               elevation: 10,
               paddingBottom: 20,
+              // Fix visual issues:
+              borderTopColor: 'transparent',
+              marginHorizontal: 0,
             },
             tabBarHideOnKeyboard: true,
             tabBarShowLabel: true,

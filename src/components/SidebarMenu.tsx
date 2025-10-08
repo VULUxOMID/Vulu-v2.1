@@ -45,7 +45,7 @@ const MenuPositionContext = createContext<MenuPositionContextType | null>(null);
 export const MenuPositionProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   // Use in-memory state only - no AsyncStorage
   const [position, setPosition] = useState<{x: number, y: number}>(DEFAULT_POSITION);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   // Simple provider with direct state updates
   return (
@@ -72,7 +72,19 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ onMenuStateChange }) => {
   
   // Get both position and expanded state from context
   const menuPositionContext = useContext(MenuPositionContext);
-  
+
+  // Add debugging for menu context
+  useEffect(() => {
+    if (menuPositionContext) {
+      console.log('Menu context initialized:', {
+        isExpanded: menuPositionContext.isExpanded,
+        position: menuPositionContext.position
+      });
+    } else {
+      console.warn('Menu context not available!');
+    }
+  }, [menuPositionContext]);
+
   // Use simple refs instead of state
   const isExpandedRef = useRef(menuPositionContext?.isExpanded || false);
   
@@ -349,15 +361,24 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ onMenuStateChange }) => {
         
         // Start animation
         requestAnimationFrame(animateToTarget);
+      },
+
+      onPanResponderTerminate: (evt, gestureState) => {
+        isDraggingRef.current = false;
       }
     })
   ).current;
 
   // Toggle expand/collapse
   const toggleExpand = () => {
-    if (isDraggingRef.current || !menuPositionContext) return;
-    
+    console.log('toggleExpand called');
+    if (!menuPositionContext) {
+      console.warn('Menu context not available in toggleExpand');
+      return;
+    }
+
     const newIsExpanded = !isExpandedRef.current;
+    console.log('Toggling menu from', isExpandedRef.current, 'to', newIsExpanded);
     isExpandedRef.current = newIsExpanded;
     
     // Update context
@@ -477,7 +498,13 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ onMenuStateChange }) => {
           {...panResponder.panHandlers}
         >
           <TouchableOpacity
-            onPress={!isDraggingRef.current ? toggleExpand : undefined}
+            onPress={() => {
+              console.log('Menu button pressed, isDragging:', isDraggingRef.current);
+              console.log('Menu context available:', !!menuPositionContext);
+              if (!isDraggingRef.current && menuPositionContext) {
+                toggleExpand();
+              }
+            }}
             activeOpacity={0.7}
             style={styles.floatingButtonTouchable}
           >

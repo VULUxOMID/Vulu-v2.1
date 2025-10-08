@@ -21,6 +21,15 @@ export interface ProfileUpdateData {
   customStatus?: string;
 }
 
+export interface RegistrationData {
+  displayName?: string;
+  username?: string;
+  contactMethod?: 'email' | 'phone';
+  contactValue?: string;
+  dateOfBirth?: Date;
+  phoneVerified?: boolean;
+}
+
 /**
  * Service to synchronize user profile changes across all conversations
  * where the user is a participant
@@ -45,27 +54,41 @@ class ProfileSyncService {
     const userRef = doc(db, 'users', userId);
     
     const unsubscribe = onSnapshot(userRef, async (userDoc) => {
-      if (!userDoc.exists()) return;
+      if (!userDoc.exists()) {
+        console.warn('User document does not exist for profile sync');
+        return;
+      }
 
       const userData = userDoc.data() as AppUser;
-      
+
       // Reset retry count and clear timer on successful listener start
       this.cleanupUserRetryData(userId);
-      
-      // Sync profile changes to all conversations where this user is a participant
-      await this.syncProfileToConversations(userId, {
-        displayName: userData.displayName,
-        photoURL: userData.photoURL,
-        username: userData.username,
-        bio: userData.bio,
-        customStatus: userData.customStatus
-      });
+
+      try {
+        // Sync profile changes to all conversations where this user is a participant
+        await this.syncProfileToConversations(userId, {
+          displayName: userData.displayName,
+          photoURL: userData.photoURL,
+          username: userData.username,
+          bio: userData.bio,
+          customStatus: userData.customStatus
+        });
+        console.log('✅ Profile sync successful for user:', userId);
+      } catch (syncError) {
+        console.error('❌ Profile sync failed:', syncError);
+        // Don't throw - profile sync failure should not break the app
+      }
     }, (error) => {
-      console.error(`Error monitoring profile changes for user ${userId}:`, error);
-      
+      console.error(`❌ Error monitoring profile changes for user ${userId}:`, error);
+
+      // Handle permission errors specifically
+      if (error.code === 'permission-denied') {
+        console.warn('🔒 Profile sync permission denied - this may affect menu functionality');
+      }
+
       // Clean up the failed listener
       this.profileListeners.delete(userId);
-      
+
       // Handle retry with exponential backoff
       this.handleRetry(userId);
     });
@@ -335,6 +358,51 @@ class ProfileSyncService {
     } catch (error) {
       console.error('Batch profile sync failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Sync registration data to user profile
+   */
+  async syncRegistrationToProfile(userId: string, registrationData: RegistrationData): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      const updateData: any = {};
+
+      if (registrationData.displayName) {
+        updateData.displayName = registrationData.displayName;
+        updateData.displayNameLower = registrationData.displayName.toLowerCase();
+      }
+
+      if (registrationData.username) {
+        updateData.username = registrationData.username;
+        updateData.usernameLower = registrationData.username.toLowerCase();
+      }
+
+      if (registrationData.dateOfBirth) {
+        updateData.dateOfBirth = registrationData.dateOfBirth;
+      }
+
+      if (registrationData.phoneVerified !== undefined) {
+        updateData.phoneVerified = registrationData.phoneVerified;
+      }
+
+      if (registrationData.contactMethod && registrationData.contactValue) {
+        if (registrationData.contactMethod === 'email') {
+          updateData.email = registrationData.contactValue;
+          updateData.emailLower = registrationData.contactValue.toLowerCase();
+        } else if (registrationData.contactMethod === 'phone') {
+          updateData.phoneNumber = registrationData.contactValue;
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await updateDoc(userRef, updateData);
+        console.log('✅ Registration data synced to user profile:', updateData);
+      }
+    } catch (error: any) {
+      console.error('Failed to sync registration data to profile:', error);
+      throw new Error(`Failed to sync registration data: ${error.message}`);
     }
   }
 

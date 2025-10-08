@@ -55,7 +55,8 @@ const convertFirebaseCountsToLocal = (firebaseCounts: FirebaseNotificationCounts
   };
 };
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user, isGuest } = useAuth();
+  const authContext = useAuth();
+  const { user, isGuest } = authContext || { user: null, isGuest: false };
   const [counts, setCounts] = useState<NotificationCounts>(initialState);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [isLoading, setIsLoading] = useState(false);

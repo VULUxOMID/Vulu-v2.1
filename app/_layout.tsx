@@ -81,6 +81,7 @@ import { GamingProvider } from '../src/context/GamingContext';
 import { ShopProvider } from '../src/context/ShopContext';
 import { LiveStreamProvider } from '../src/context/LiveStreamContext';
 import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
+import { MenuPositionProvider } from '../src/components/SidebarMenu';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -105,27 +106,29 @@ export default function RootLayout() {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <MusicProvider>
-                <GamingProvider>
-                  <ShopProvider>
-                    <LiveStreamProvider>
-                      <MiniPlayerProvider>
-                        <StatusBar style="light" />
-                        <Stack
-                          screenOptions={{
-                            headerShown: false,
-                            contentStyle: { backgroundColor: '#000000' },
-                          }}
-                        />
-                      </MiniPlayerProvider>
-                    </LiveStreamProvider>
-                  </ShopProvider>
-                </GamingProvider>
-              </MusicProvider>
-            </NotificationProvider>
-          </AuthProvider>
+          <MenuPositionProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <MusicProvider>
+                  <GamingProvider>
+                    <ShopProvider>
+                      <LiveStreamProvider>
+                        <MiniPlayerProvider>
+                          <StatusBar style="light" />
+                          <Stack
+                            screenOptions={{
+                              headerShown: false,
+                              contentStyle: { backgroundColor: '#000000' },
+                            }}
+                          />
+                        </MiniPlayerProvider>
+                      </LiveStreamProvider>
+                    </ShopProvider>
+                  </GamingProvider>
+                </MusicProvider>
+              </NotificationProvider>
+            </AuthProvider>
+          </MenuPositionProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>

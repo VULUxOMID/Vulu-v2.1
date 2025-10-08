@@ -10,6 +10,8 @@ import {
 import { AuthColors } from '../../../components/auth/AuthDesignSystem';
 import { useRegistration } from '../../../context/RegistrationContext';
 import { useAuth } from '../../../context/AuthContext';
+import { profileSyncService } from '../../../services/profileSyncService';
+import { auth } from '../../../services/firebase';
 
 const DateOfBirthScreen: React.FC = () => {
   const router = useRouter();
@@ -95,6 +97,25 @@ const DateOfBirthScreen: React.FC = () => {
         registrationData.displayName!,
         registrationData.username!
       );
+
+      // Sync additional registration data to profile
+      try {
+        // Get the current user ID (should be available after signup)
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          await profileSyncService.syncRegistrationToProfile(currentUser.uid, {
+            displayName: registrationData.displayName,
+            username: registrationData.username,
+            contactMethod: registrationData.contactMethod,
+            contactValue: registrationData.contactValue,
+            dateOfBirth,
+            phoneVerified: registrationData.phoneVerified
+          });
+        }
+      } catch (syncError) {
+        console.warn('Failed to sync registration data to profile:', syncError);
+        // Don't fail the registration process for sync errors
+      }
 
       // Navigate to main app or onboarding
       router.replace('/(main)');

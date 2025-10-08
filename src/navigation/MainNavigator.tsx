@@ -128,35 +128,37 @@ const MainNavigator = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Main content container */}
-      <View style={styles.contentContainer}>
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Main" component={MainTabNavigator} />
-          <Stack.Screen name="DirectMessages" component={DirectMessagesScreen} />
-          <Stack.Screen name="Music" component={MusicScreen} />
-          <Stack.Screen name="Mining" component={MiningScreen} />
-          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-          <Stack.Screen name="Shop" component={ShopScreen} />
-          <Stack.Screen name="Account" component={AccountScreen} />
-          <Stack.Screen 
-            name="Chat" 
-            component={ChatScreen}
-          />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="SpotlightDurationDemo" component={SpotlightDurationDemoScreen} />
-          <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-          <Stack.Screen name="add-friends" component={AddFriendsScreen} />
-        </Stack.Navigator>
+    <MenuPositionProvider>
+      <View style={styles.container}>
+        {/* Main content container */}
+        <View style={styles.contentContainer}>
+          <Stack.Navigator
+            screenOptions={{
+              headerShown: false,
+            }}
+          >
+            <Stack.Screen name="Main" component={MainTabNavigator} />
+            <Stack.Screen name="DirectMessages" component={DirectMessagesScreen} />
+            <Stack.Screen name="Music" component={MusicScreen} />
+            <Stack.Screen name="Mining" component={MiningScreen} />
+            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+            <Stack.Screen name="Shop" component={ShopScreen} />
+            <Stack.Screen name="Account" component={AccountScreen} />
+            <Stack.Screen
+              name="Chat"
+              component={ChatScreen}
+            />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="SpotlightDurationDemo" component={SpotlightDurationDemoScreen} />
+            <Stack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
+            <Stack.Screen name="add-friends" component={AddFriendsScreen} />
+          </Stack.Navigator>
+        </View>
+
+        {/* Sidebar menu overlay */}
+        <SidebarMenu onMenuStateChange={handleSidebarStateChange} />
       </View>
-      
-      {/* Sidebar menu overlay */}
-      <SidebarMenu onMenuStateChange={handleSidebarStateChange} />
-    </View>
+    </MenuPositionProvider>
   );
 };
 

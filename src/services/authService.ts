@@ -136,7 +136,7 @@ class AuthService {
         uid: guestId,
         email: null,
         displayName: 'Guest',
-        photoURL: 'https://via.placeholder.com/150/6E69F4/FFFFFF?text=G', // Default guest avatar
+        photoURL: null, // No default avatar
         isGuest: true,
         guestId: guestId
       };
@@ -224,7 +224,7 @@ class AuthService {
         displayName: displayName || user.displayName || 'User',
         username: username || `user_${user.uid.substring(0, 8)}`, // Generate username if not provided
         photoURL: user.photoURL,
-        gold: 1000, // Starting gold
+        gold: 0, // Starting gold
         gems: 50,   // Starting gems
         level: 1,
 
