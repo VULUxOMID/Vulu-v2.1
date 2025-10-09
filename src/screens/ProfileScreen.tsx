@@ -1696,7 +1696,22 @@ const ProfileScreen = () => {
                   </View>
                   
                   <View style={styles.friendActions}>
-                    <TouchableOpacity style={styles.friendActionButton}>
+                    <TouchableOpacity 
+                      style={styles.friendActionButton}
+                      onPress={() => {
+                        // Close the friends modal
+                        setShowFriendsModal(false);
+                        // Navigate to the chat screen with this friend
+                        router.push({
+                          pathname: '/(main)/chat',
+                          params: {
+                            userId: friend.id,
+                            name: friend.name,
+                            avatar: friend.avatar
+                          }
+                        } as any);
+                      }}
+                    >
                       <Feather name="message-circle" size={22} color="#6E69F4" />
                     </TouchableOpacity>
                   </View>
