@@ -71,9 +71,23 @@ const ProfileScreen = () => {
     setProfileImage,
     hasGemPlus,
     setHasGemPlus,
-    displayName,
-    username
   } = useUserProfile();
+  
+  // Get display name and username directly from userProfile for accuracy
+  const displayName = userProfile?.displayName || 'User';
+  const username = userProfile?.username || '';
+  
+  // Debug logging to track profile data
+  useEffect(() => {
+    console.log('📱 ProfileScreen - Current profile data:', {
+      displayName,
+      username,
+      userProfileDisplayName: userProfile?.displayName,
+      userProfileUsername: userProfile?.username,
+      isGuest,
+      hasUserProfile: !!userProfile
+    });
+  }, [displayName, username, userProfile, isGuest]);
   
   // Use UserStatusContext instead of local state
   const { 
@@ -862,10 +876,7 @@ const ProfileScreen = () => {
                   </View>
                 )}
               </View>
-              <Text style={styles.profileUsername}>@{username}</Text>
-              {!isGuest && userProfile?.email && (
-                <Text style={styles.profileEmail}>{userProfile.email}</Text>
-              )}
+              {username && <Text style={styles.profileUsername}>@{username}</Text>}
             </View>
           </Animated.View>
         </View>

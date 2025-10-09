@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 import gamingService, { 
   MiningSession, 
   MiningStats, 
@@ -64,7 +64,8 @@ interface GamingProviderProps {
 }
 
 export const GamingProvider: React.FC<GamingProviderProps> = ({ children }) => {
-  const { user, isGuest, userProfile } = useAuth();
+  const authContext = useAuthSafe();
+  const { user, isGuest, userProfile } = authContext || { user: null, isGuest: false, userProfile: null };
   
   // Mining State
   const [activeMiningSession, setActiveMiningSession] = useState<MiningSession | null>(null);

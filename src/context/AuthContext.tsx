@@ -231,6 +231,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
+
+
   useEffect(() => {
     let mounted = true;
     let loadingTimeout: ReturnType<typeof setTimeout>;
@@ -273,7 +275,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           let profile = await firestoreService.getUser(firebaseUser.uid);
           if (mounted) {
-            if (profile) {
+            if (profile && profile.username && profile.displayName) {
+              // Real profile exists with proper data - use it
+              console.log(`✅ Loaded existing profile for user ${firebaseUser.uid}:`, {
+                displayName: profile.displayName,
+                username: profile.username,
+                email: profile.email
+              });
               setUserProfile(profile);
               // Start profile synchronization for this user
               try {
@@ -287,6 +295,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   errorMessage: syncError?.message
                 });
               }
+
               // Initialize encryption for existing user
               try {
                 await encryptionService.initialize(firebaseUser.uid);
@@ -294,10 +303,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 console.warn('Encryption initialization failed:', encryptionError);
               }
             } else {
-              // Wait for profile sync to complete, then retry
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              // Profile missing or incomplete - wait for signup process to complete
+              console.log(`⏳ Profile incomplete for user ${firebaseUser.uid}, waiting for signup sync...`);
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer for signup
               const updatedProfile = await firestoreService.getUser(firebaseUser.uid);
-              if (updatedProfile) {
+              if (updatedProfile && updatedProfile.username && updatedProfile.displayName) {
+                console.log(`✅ Profile sync completed for user ${firebaseUser.uid}:`, {
+                  displayName: updatedProfile.displayName,
+                  username: updatedProfile.username,
+                  email: updatedProfile.email
+                });
                 setUserProfile(updatedProfile);
                 // Start profile synchronization for this user
                 try {
@@ -311,6 +326,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     errorMessage: syncError?.message
                   });
                 }
+
                 // Initialize encryption for existing user
                 try {
                   await encryptionService.initialize(firebaseUser.uid);
@@ -318,87 +334,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   console.warn('Encryption initialization failed:', encryptionError);
                 }
               } else {
-                // Create new user profile with messaging fields
-                const displayName = firebaseUser.displayName || 'User';
-                const username = `user_${firebaseUser.uid.substring(0, 8)}`;
-                const newProfile = {
+                // Only create fallback if this is truly a new user (not from signup flow)
+                console.warn(`⚠️ No profile found after waiting - creating minimal fallback for ${firebaseUser.uid}`);
+                const minimalProfile = {
                   uid: firebaseUser.uid,
                   email: firebaseUser.email || '',
-                  displayName,
-                  username,
+                  displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+                  username: firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0, 8)}`,
                   photoURL: firebaseUser.photoURL || undefined,
                   gold: 0,
                   gems: 50,
                   level: 1,
-
-                  // Presence and status
                   status: 'online' as const,
                   isOnline: true,
                   lastActivity: new Date(),
-
-                  // Privacy settings
                   allowFriendRequests: true,
                   allowMessagesFromStrangers: false,
                   showOnlineStatus: true,
-
-                  // Friend system
                   friends: [],
                   blockedUsers: [],
-
-                  // Profile customization
                   bio: '',
                   customStatus: '',
-
-                  // Search fields (lowercase for case-insensitive search)
-                  displayNameLower: displayName.toLowerCase(),
-                  usernameLower: username.toLowerCase(),
-                  emailLower: (firebaseUser.email || '').toLowerCase(),
                 };
-                try {
-                  await firestoreService.createUser(newProfile);
-                  if (mounted) {
-                    setUserProfile(newProfile);
-                    // Start profile synchronization for new user
-                    try {
-                      profileSyncService.startProfileSync(firebaseUser.uid);
-                    } catch (syncError) {
-                      console.error('Failed to start profile sync for new user:', {
-                        userId: firebaseUser.uid,
-                        error: syncError
-                      });
-                      // Don't throw - profile sync failure is not critical for user experience
-                    }
-                  }
-                  // Initialize encryption for the new user
-                  try {
-                    await encryptionService.initialize(firebaseUser.uid);
-                  } catch (encryptionError) {
-                    console.warn('Encryption initialization failed for new user:', encryptionError);
-                  }
-                } catch (createError) {
-                  console.error('Error creating user profile:', createError);
-                  // Set a default profile even if creation fails
-                  if (mounted) {
-                    setUserProfile(newProfile);
-                  }
-                }
+                setUserProfile(minimalProfile);
+                // Don't create in Firestore - let signup process handle it
               }
             }
           }
         } catch (error) {
           console.error('Error loading user profile:', error);
-          // Set a default profile even if loading fails
+          // Only set minimal fallback on error
           if (mounted && firebaseUser) {
-            const defaultProfile = {
+            const errorFallbackProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
-              displayName: firebaseUser.displayName || 'User',
+              displayName: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              username: firebaseUser.email?.split('@')[0] || 'user',
               photoURL: firebaseUser.photoURL,
               gold: 0,
               gems: 50,
               level: 1,
             };
-            setUserProfile(defaultProfile);
+            setUserProfile(errorFallbackProfile);
           }
         }
       } else {
@@ -537,6 +514,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         profileSyncService.stopProfileSync(user.uid);
       }
 
+
+
       // Clear guest user state immediately
       setUser(null);
       setUserProfile(null);
@@ -621,8 +600,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     try {
+      console.log(`🔄 Updating user profile for ${user.uid}:`, updates);
       await firestoreService.updateUser(user.uid, updates);
-      setUserProfile(prev => ({ ...prev, ...updates }));
+      console.log(`✅ Firestore update successful, updating local state...`);
+      setUserProfile(prev => {
+        const newProfile = { ...prev, ...updates };
+        console.log(`🔄 Profile state updated:`, {
+          before: { displayName: prev?.displayName, username: prev?.username },
+          after: { displayName: newProfile.displayName, username: newProfile.username }
+        });
+        return newProfile;
+      });
 
       // Sync profile changes to conversations automatically
       // The profileSyncService listener will handle this, but we can also trigger it manually

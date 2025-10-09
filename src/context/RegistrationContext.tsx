@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { RegistrationData } from '../navigation/RegistrationNavigator';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 
 // Registration context interface
 interface RegistrationContextType {
@@ -61,7 +61,8 @@ export const RegistrationProvider: React.FC<RegistrationProviderProps> = ({
   children,
   isGuestUpgrade = false
 }) => {
-  const { userProfile } = useAuth();
+  const authContext = useAuthSafe();
+  const { userProfile } = authContext || { userProfile: null };
   const [registrationData, setRegistrationData] = useState<Partial<RegistrationData>>(defaultRegistrationData);
   const [currentStep, setCurrentStepInternal] = useState(1);
   const [isLoading, setIsLoading] = useState(false);

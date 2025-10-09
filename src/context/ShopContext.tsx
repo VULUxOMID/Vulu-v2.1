@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 import shopService, { 
   Product, 
   Purchase, 
@@ -54,7 +54,8 @@ interface ShopProviderProps {
 }
 
 export const ShopProvider: React.FC<ShopProviderProps> = ({ children }) => {
-  const { user, isGuest, userProfile } = useAuth();
+  const authContext = useAuthSafe();
+  const { user, isGuest, userProfile } = authContext || { user: null, isGuest: false, userProfile: null };
   
   // Product State
   const [products, setProducts] = useState<Product[]>([]);

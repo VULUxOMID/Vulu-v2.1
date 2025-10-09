@@ -260,6 +260,27 @@ class FirestoreService {
     }
   }
 
+  onUserProfileChange(uid: string, callback: (user: AppUser | null) => void): () => void {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const unsubscribe = onSnapshot(userRef, (doc) => {
+        if (doc.exists()) {
+          callback(doc.data() as AppUser);
+        } else {
+          callback(null);
+        }
+      }, (error) => {
+        console.error('Error listening to user profile changes:', error);
+        callback(null);
+      });
+
+      return unsubscribe;
+    } catch (error: any) {
+      console.error('Failed to set up user profile listener:', error);
+      return () => {}; // Return empty function if setup fails
+    }
+  }
+
   async updateUser(uid: string, updates: Partial<AppUser>): Promise<void> {
     try {
       const userRef = doc(db, 'users', uid);

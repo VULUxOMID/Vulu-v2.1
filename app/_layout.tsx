@@ -109,8 +109,8 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <MenuPositionProvider>
             <AuthProvider>
-              <UserStatusProvider>
-                <NotificationProvider>
+              <NotificationProvider>
+                <UserStatusProvider>
                   <MusicProvider>
                     <GamingProvider>
                       <ShopProvider>
@@ -128,8 +128,8 @@ export default function RootLayout() {
                       </ShopProvider>
                     </GamingProvider>
                   </MusicProvider>
-                </NotificationProvider>
-              </UserStatusProvider>
+                </UserStatusProvider>
+              </NotificationProvider>
             </AuthProvider>
           </MenuPositionProvider>
         </SafeAreaProvider>

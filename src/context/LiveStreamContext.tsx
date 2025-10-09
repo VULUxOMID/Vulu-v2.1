@@ -7,7 +7,7 @@ import { StreamValidator } from '../services/streamValidator';
 import { PlatformUtils } from '../utils/platformUtils';
 import { ActiveStreamTracker } from '../services/activeStreamTracker';
 import { FirestoreErrorRecovery } from '../utils/firestoreErrorRecovery';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 
 // Define the structure of a stream
 export interface StreamHost {
@@ -93,7 +93,8 @@ export const LiveStreamProvider: React.FC<{ children: ReactNode }> = ({ children
   const [lastOperationTime, setLastOperationTime] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
-  const { user, loading: authLoading } = useAuth();
+  const authContext = useAuthSafe();
+  const { user, loading: authLoading } = authContext || { user: null, loading: false };
 
   // Debounce delay for stream operations (500ms)
   const OPERATION_DEBOUNCE_DELAY = 500;

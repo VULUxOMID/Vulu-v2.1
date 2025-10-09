@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 import profileAnalyticsService, { ProfileViewer, ProfileAnalytics } from '../services/profileAnalyticsService';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
 
@@ -59,19 +59,9 @@ interface UserProfileProviderProps {
 
 export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ children }) => {
   // Safely get auth context - handle case where AuthProvider isn't ready yet
-  let isGuest = false;
-  let userProfile = null;
-
-  try {
-    const authContext = useAuth();
-    isGuest = authContext.isGuest;
-    userProfile = authContext.userProfile;
-  } catch (error) {
-    // AuthProvider not ready yet - use default values
-    console.warn('AuthProvider not ready in UserProfileProvider, using defaults');
-    isGuest = false;
-    userProfile = null;
-  }
+  const authContext = useAuthSafe();
+  const isGuest = authContext?.isGuest || false;
+  const userProfile = authContext?.userProfile || null;
   
   // Guest profile settings
   const guestProfileImage = null;
@@ -91,9 +81,21 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   // Determine current profile data based on guest status
-  const currentProfileImage = isGuest ? guestProfileImage : profileImage;
+  const currentProfileImage = isGuest ? guestProfileImage : (userProfile?.photoURL || profileImage);
   const currentDisplayName = isGuest ? guestDisplayName : (userProfile?.displayName || 'User');
   const currentUsername = isGuest ? guestUsername : (userProfile?.username || '');
+
+  // Debug logging for profile changes
+  React.useEffect(() => {
+    if (!isGuest && userProfile) {
+      console.log(`🔍 UserProfileContext received profile update:`, {
+        displayName: userProfile.displayName,
+        username: userProfile.username,
+        currentDisplayName,
+        currentUsername
+      });
+    }
+  }, [userProfile?.displayName, userProfile?.username, currentDisplayName, currentUsername, isGuest]);
 
   // Guest-safe setProfileImage function
   const setProfileImageSafe = (image: string) => {

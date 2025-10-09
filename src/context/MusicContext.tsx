@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 import musicService, { Track, UserMusicActivity, MusicPreferences, MusicPlatform } from '../services/musicService';
 
 interface MusicContextType {
@@ -48,7 +48,8 @@ interface MusicProviderProps {
 }
 
 export const MusicProvider: React.FC<MusicProviderProps> = ({ children }) => {
-  const { user, isGuest, userProfile } = useAuth();
+  const authContext = useAuthSafe();
+  const { user, isGuest, userProfile } = authContext || { user: null, isGuest: false, userProfile: null };
   
   // Playback state
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);

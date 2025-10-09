@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuthSafe } from './AuthContext';
 import notificationService, { NotificationCounts as FirebaseNotificationCounts, NotificationData } from '../services/notificationService';
 
 // Define interfaces for notification counts
@@ -55,7 +55,7 @@ const convertFirebaseCountsToLocal = (firebaseCounts: FirebaseNotificationCounts
   };
 };
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const authContext = useAuth();
+  const authContext = useAuthSafe();
   const { user, isGuest } = authContext || { user: null, isGuest: false };
   const [counts, setCounts] = useState<NotificationCounts>(initialState);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
