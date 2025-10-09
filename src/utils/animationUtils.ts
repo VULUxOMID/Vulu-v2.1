@@ -132,9 +132,16 @@ export const createIsolatedScrollEvent = (
  */
 export const stopIsolatedAnimation = (animatedValue: Animated.Value): void => {
   try {
-    animatedValue.stopAnimation();
+    // Check if the animation is already stopped or moved to native
+    if (animatedValue && typeof animatedValue.stopAnimation === 'function') {
+      animatedValue.stopAnimation();
+    }
   } catch (error) {
     // Silently handle any stop animation errors
+    // This can happen when animations are moved to native driver
+    if (__DEV__) {
+      console.warn('Animation stop warning (safe to ignore):', error);
+    }
   }
 };
 

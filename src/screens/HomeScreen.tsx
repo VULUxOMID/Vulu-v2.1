@@ -231,7 +231,7 @@ const HomeScreen = () => {
   // --- End Other Animation Setup ---
   
   // Random user spotlight candidate
-  const [otherSpotlightCandidate, setOtherSpotlightCandidate] = useState<{ name: string; avatar: string }>({ name: 'Alex', avatar: 'https://randomuser.me/api/portraits/men/45.jpg' });
+  const [otherSpotlightCandidate, setOtherSpotlightCandidate] = useState<{ name: string; avatar: string }>({ name: 'Alex', avatar: 'https://ui-avatars.com/api/?name=Alex&background=6E69F4&color=FFFFFF&size=150' });
   
   // Pick a random friend from watching streams
   useEffect(() => {

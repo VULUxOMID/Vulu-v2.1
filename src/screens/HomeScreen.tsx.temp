@@ -22,7 +22,7 @@ import {
   Easing 
 } from 'react-native-reanimated';
 
-const defaultSpotlightAvatar = 'https://randomuser.me/api/portraits/lego/1.jpg';
+const defaultSpotlightAvatar = 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150';
 
 // Use the router for navigation
 const HomeScreen = () => {
@@ -133,7 +133,7 @@ const HomeScreen = () => {
   // --- End Other Animation Setup ---
   
   // Random user spotlight candidate
-  const [otherSpotlightCandidate, setOtherSpotlightCandidate] = useState<{ name: string; avatar: string }>({ name: 'Alex', avatar: 'https://randomuser.me/api/portraits/men/45.jpg' });
+  const [otherSpotlightCandidate, setOtherSpotlightCandidate] = useState<{ name: string; avatar: string }>({ name: 'Alex', avatar: 'https://ui-avatars.com/api/?name=Alex&background=6E69F4&color=FFFFFF&size=150' });
   
   // Pick a random friend from watching streams
   useEffect(() => {
@@ -431,14 +431,14 @@ const HomeScreen = () => {
       streamId: '401', // Add streamId
       title: 'Special Event Live',
       hostName: 'David',
-      hostAvatar: 'https://randomuser.me/api/portraits/men/34.jpg',
+      hostAvatar: 'https://ui-avatars.com/api/?name=David&background=6E69F4&color=FFFFFF&size=150',
       viewerCount: 875,
       friendName: 'Emma',
-      friendAvatar: 'https://randomuser.me/api/portraits/women/35.jpg',
+      friendAvatar: 'https://ui-avatars.com/api/?name=Emma&background=6E69F4&color=FFFFFF&size=150',
       avatars: [
-        'https://randomuser.me/api/portraits/men/34.jpg',
-        'https://randomuser.me/api/portraits/women/35.jpg',
-        'https://randomuser.me/api/portraits/men/36.jpg',
+        'https://ui-avatars.com/api/?name=David&background=6E69F4&color=FFFFFF&size=150',
+        'https://ui-avatars.com/api/?name=Emma&background=6E69F4&color=FFFFFF&size=150',
+        'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150',
       ],
     };
     
@@ -451,20 +451,20 @@ const HomeScreen = () => {
       >
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/men/34.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=David&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.gridAvatar}
             />
           </View>
           <View style={styles.avatarWrapperRed}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/women/35.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=Emma&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.gridAvatar}
             />
           </View>
           <View style={styles.avatarWrapperRed}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/men/36.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.gridAvatar}
             />
           </View>
@@ -497,20 +497,20 @@ const HomeScreen = () => {
       <TouchableOpacity key="random2" style={styles.liveStreamContainer}>
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/women/52.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=User1&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.gridAvatar}
             />
           </View>
           <View style={styles.avatarWrapperRed}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/men/53.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=User2&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.gridAvatar}
             />
           </View>
           <View style={styles.avatarWrapperRed}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/women/54.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=User3&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.gridAvatar}
             />
           </View>
@@ -842,8 +842,8 @@ const HomeScreen = () => {
         
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterAvatarContainer}>
-            <Image 
-              source={{ uri: 'https://randomuser.me/api/portraits/women/99.jpg' }} 
+            <Image
+              source={{ uri: 'https://ui-avatars.com/api/?name=Fitness&background=6E69F4&color=FFFFFF&size=150' }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>

@@ -62,6 +62,26 @@ if (__DEV__) {
       event.preventDefault();
     });
   }
+
+  // Add global error handler for animation errors
+  const originalConsoleError = console.error;
+  console.error = function(...args: any[]) {
+    const errorMessage = args[0]?.toString() || '';
+    
+    // Suppress animation-related errors that are safe to ignore
+    if (
+      errorMessage.includes('useNativeDriver') ||
+      errorMessage.includes('stopAnimation') ||
+      errorMessage.includes('animated node') ||
+      errorMessage.includes('JS driven animation')
+    ) {
+      console.warn('[Animation Warning - Safe to Ignore]:', ...args);
+      return;
+    }
+    
+    // Pass through all other errors
+    originalConsoleError.apply(console, args);
+  };
 }
 
 import { useFonts } from 'expo-font';

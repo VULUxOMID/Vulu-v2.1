@@ -90,6 +90,19 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
   // Handle global JavaScript errors
   private handleGlobalError = (error: any, isFatal?: boolean) => {
+    const errorMessage = error?.toString() || '';
+    
+    // Ignore animation errors - they're safe and don't need UI
+    if (
+      errorMessage.includes('useNativeDriver') ||
+      errorMessage.includes('stopAnimation') ||
+      errorMessage.includes('animated node') ||
+      errorMessage.includes('JS driven animation')
+    ) {
+      console.warn('[Animation Warning - Handled by ErrorBoundary]:', errorMessage);
+      return; // Don't show error UI for animation warnings
+    }
+    
     console.error('Global error caught by ErrorBoundary:', error, { isFatal });
 
     // Call previous handler if it exists

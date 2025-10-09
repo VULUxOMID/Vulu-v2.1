@@ -61,10 +61,7 @@ const Message = ({
   
   // Use provided values or fall back to defaults
   const displayName = userName || (isCurrentUser ? 'You' : 'User');
-  const avatarUri = userAvatar || (isCurrentUser ? 
-    'https://randomuser.me/api/portraits/lego/1.jpg' : 
-    'https://randomuser.me/api/portraits/women/2.jpg'
-  );
+  const avatarUri = userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6E69F4&color=FFFFFF&size=150`;
   
   return (
     <View style={styles.container}>

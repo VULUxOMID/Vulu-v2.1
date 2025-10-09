@@ -18,57 +18,7 @@ import { firestoreService } from '../services/firestoreService';
 import { useAuth } from '../context/AuthContext';
 
 // Mock data removed - now using real Firebase data
-const DUMMY_FRIENDS: Friend[] = [
-  {
-    id: '1',
-    name: 'Alex Johnson',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg',
-    status: 'online',
-    isCloseFriend: true,
-  },
-  {
-    id: '2',
-    name: 'Sophia Williams',
-    avatar: 'https://randomuser.me/api/portraits/women/44.jpg',
-    status: 'offline',
-    isCloseFriend: true,
-  },
-  {
-    id: '3',
-    name: 'Michael Thompson',
-    avatar: 'https://randomuser.me/api/portraits/men/41.jpg',
-    status: 'busy',
-    isCloseFriend: true,
-  },
-  {
-    id: '4',
-    name: 'Emma Davis',
-    avatar: 'https://randomuser.me/api/portraits/women/33.jpg',
-    status: 'online',
-    isCloseFriend: false,
-  },
-  {
-    id: '5',
-    name: 'William Martinez',
-    avatar: 'https://randomuser.me/api/portraits/men/64.jpg',
-    status: 'offline',
-    isCloseFriend: false,
-  },
-  {
-    id: '6',
-    name: 'Olivia Rodriguez',
-    avatar: 'https://randomuser.me/api/portraits/women/17.jpg',
-    status: 'busy',
-    isCloseFriend: false,
-  },
-  {
-    id: '7',
-    name: 'James Wilson',
-    avatar: 'https://randomuser.me/api/portraits/men/55.jpg',
-    status: 'online',
-    isCloseFriend: false,
-  },
-];
+const DUMMY_FRIENDS: Friend[] = [];
 
 interface Friend {
   id: string;

@@ -156,10 +156,10 @@ const MessageForwarding = ({
     
     // Default avatar based on conversation type
     if (conversation.type === 'group') {
-      return 'https://randomuser.me/api/portraits/lego/1.jpg';
+      return 'https://ui-avatars.com/api/?name=Group&background=6E69F4&color=FFFFFF&size=150';
     }
-    
-    return 'https://randomuser.me/api/portraits/lego/2.jpg';
+
+    return 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150';
   };
 
   const renderMessagePreview = () => {

@@ -102,13 +102,11 @@ const ProfileScreen = () => {
   const [statusCategory, setStatusCategory] = useState(STATUS_CATEGORIES.DEFAULT);
   const [showProfilePreview, setShowProfilePreview] = useState(false);
   const [previewCurrentPage, setPreviewCurrentPage] = useState(0);
-  const [previewTotalPages, setPreviewTotalPages] = useState(3); // 2 images + 1 bio page
+  const [previewTotalPages, setPreviewTotalPages] = useState(2); // 1 profile image + 1 bio page
   
   // Photo management state
   const [photos, setPhotos] = useState<Photo[]>([
     { id: 'profile', uri: profileImage, isProfile: true },
-    { id: 'photo1', uri: 'https://randomuser.me/api/portraits/women/34.jpg', isProfile: false },
-    { id: 'photo2', uri: 'https://randomuser.me/api/portraits/women/32.jpg', isProfile: false },
   ]);
   // Enhanced drag and drop state
   const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
@@ -544,23 +542,13 @@ const ProfileScreen = () => {
 
   const handleTakePhoto = () => {
     hidePhotoOptions();
-    
-    // Change profile image for demo
-    const newPhotoId = Math.floor(Math.random() * 50) + 20;
-    const newProfileImage = `https://randomuser.me/api/portraits/women/${newPhotoId}.jpg`;
-    setProfileImage(newProfileImage);
-    
+
     Alert.alert('Camera', 'Camera would open here to take a new photo.');
   };
 
   const handleUploadPhoto = () => {
     hidePhotoOptions();
-    
-    // Change profile image for demo
-    const newPhotoId = Math.floor(Math.random() * 50) + 20;
-    const newProfileImage = `https://randomuser.me/api/portraits/women/${newPhotoId}.jpg`;
-    setProfileImage(newProfileImage);
-    
+
     Alert.alert('Photo Library', 'Photo Library would open here to select a photo.');
   };
 
@@ -1534,11 +1522,8 @@ const ProfileScreen = () => {
                   onPress={() => navigatePreview('next')}
                 />
                 
-                <Image 
-                  source={{ uri: previewCurrentPage === 0 
-                    ? profileImage 
-                    : `https://randomuser.me/api/portraits/women/${30 + previewCurrentPage}.jpg` 
-                  }}
+                <Image
+                  source={{ uri: profileImage }}
                   style={styles.previewImage}
                   resizeMode="cover"
                 />
