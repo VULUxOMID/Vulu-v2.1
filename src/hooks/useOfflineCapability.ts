@@ -119,7 +119,8 @@ export function useOfflineCapability(options: UseOfflineCapabilityOptions = {}) 
 
   // Handle connection state changes
   const handleConnectionChange = useCallback((netInfo: NetInfoState) => {
-    const isOnline = netInfo.isConnected === true && netInfo.isInternetReachable !== false;
+    // Use simpler connection check - just check if connected
+    const isOnline = netInfo.isConnected === true;
     const wasOffline = !state.isOnline;
 
     setState(prev => ({
@@ -140,8 +141,8 @@ export function useOfflineCapability(options: UseOfflineCapabilityOptions = {}) 
       handleReconnection();
     }
 
-    // Show offline alert
-    if (!isOnline && showOfflineAlert) {
+    // Show offline alert only for actual network disconnection
+    if (!isOnline && showOfflineAlert && netInfo.isConnected === false) {
       showOfflineNotification();
     }
 

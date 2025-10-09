@@ -1,4 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { presenceService } from '../services/presenceService';
 
 // Define status types
 export const STATUS_TYPES = {
@@ -173,6 +175,85 @@ export const UserStatusProvider: React.FC<{children: React.ReactNode}> = ({ chil
     glowColor: 'rgba(122, 218, 114, 0.3)',
     icon: null
   });
+
+  // Load saved status on mount
+  useEffect(() => {
+    const loadSavedStatus = async () => {
+      try {
+        const savedStatus = await AsyncStorage.getItem('userStatus');
+        const savedClosefriendsOnly = await AsyncStorage.getItem('closefriendsOnly');
+
+        if (savedStatus && Object.values(STATUS_TYPES).includes(savedStatus)) {
+          setUserStatus(savedStatus as StatusType);
+        }
+
+        if (savedClosefriendsOnly) {
+          setClosefriendsOnly(JSON.parse(savedClosefriendsOnly));
+        }
+      } catch (error) {
+        console.error('Failed to load saved status:', error);
+      }
+    };
+
+    loadSavedStatus();
+  }, []);
+
+  // Enhanced setUserStatus that persists and syncs with presence service
+  const setUserStatusWithSync = async (status: StatusType) => {
+    try {
+      // Update local state
+      setUserStatus(status);
+
+      // Save to AsyncStorage
+      await AsyncStorage.setItem('userStatus', status);
+
+      // Map status to presence service status
+      let presenceStatus: 'online' | 'busy' | 'away' | 'offline' = 'online';
+
+      switch (status) {
+        case STATUS_TYPES.ONLINE:
+        case STATUS_TYPES.HAPPY:
+        case STATUS_TYPES.EXCITED:
+        case STATUS_TYPES.LOVE:
+          presenceStatus = 'online';
+          break;
+        case STATUS_TYPES.BUSY:
+        case STATUS_TYPES.SAD:
+        case STATUS_TYPES.ANGRY:
+        case STATUS_TYPES.HUNGRY:
+          presenceStatus = 'busy';
+          break;
+        case STATUS_TYPES.AWAY:
+        case STATUS_TYPES.SLEEPY:
+        case STATUS_TYPES.BORED:
+          presenceStatus = 'away';
+          break;
+        case STATUS_TYPES.OFFLINE:
+        case STATUS_TYPES.INVISIBLE:
+          presenceStatus = 'offline';
+          break;
+        default:
+          presenceStatus = 'online';
+      }
+
+      // Update presence service
+      await presenceService.updateUserPresence(presenceStatus);
+
+      console.log(`✅ User status updated: ${status} -> ${presenceStatus}`);
+    } catch (error) {
+      console.error('Failed to update user status:', error);
+    }
+  };
+
+  // Enhanced setClosefriendsOnly that persists
+  const setClosefriendsOnlyWithSync = async (value: boolean) => {
+    try {
+      setClosefriendsOnly(value);
+      await AsyncStorage.setItem('closefriendsOnly', JSON.stringify(value));
+    } catch (error) {
+      console.error('Failed to save closefriendsOnly setting:', error);
+    }
+  };
   
   // Function to sync status data from the current user status
   const syncStatusData = () => {
@@ -300,9 +381,9 @@ export const UserStatusProvider: React.FC<{children: React.ReactNode}> = ({ chil
   return (
     <UserStatusContext.Provider value={{
       userStatus,
-      setUserStatus,
+      setUserStatus: setUserStatusWithSync,
       closefriendsOnly,
-      setClosefriendsOnly,
+      setClosefriendsOnly: setClosefriendsOnlyWithSync,
       contextStatusData,
       syncStatusData
     }}>

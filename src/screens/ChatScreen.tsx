@@ -1320,7 +1320,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1D1E26" />
+      <StatusBar barStyle="light-content" backgroundColor="#131318" />
 
       {/* Background for swipe gesture */}
       <Animated.View
@@ -1602,7 +1602,7 @@ const styles = StyleSheet.create({
   },
   navigationBackground: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#1D1E26',
+    backgroundColor: '#131318',
     justifyContent: 'center',
     paddingLeft: 20,
   },
@@ -1645,7 +1645,7 @@ const styles = StyleSheet.create({
   liveChatContainer: {
     margin: 16,
     marginTop: 8,
-    backgroundColor: '#1D1E26',
+    backgroundColor: '#131318',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
@@ -1690,7 +1690,7 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#1D1E26',
+    borderColor: '#131318',
   },
   viewerCountContainer: {
     height: 32,

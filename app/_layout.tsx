@@ -82,6 +82,7 @@ import { ShopProvider } from '../src/context/ShopContext';
 import { LiveStreamProvider } from '../src/context/LiveStreamContext';
 import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import { MenuPositionProvider } from '../src/components/SidebarMenu';
+import { UserStatusProvider } from '../src/context/UserStatusContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -108,25 +109,27 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <MenuPositionProvider>
             <AuthProvider>
-              <NotificationProvider>
-                <MusicProvider>
-                  <GamingProvider>
-                    <ShopProvider>
-                      <LiveStreamProvider>
-                        <MiniPlayerProvider>
-                          <StatusBar style="light" />
-                          <Stack
-                            screenOptions={{
-                              headerShown: false,
-                              contentStyle: { backgroundColor: '#000000' },
-                            }}
-                          />
-                        </MiniPlayerProvider>
-                      </LiveStreamProvider>
-                    </ShopProvider>
-                  </GamingProvider>
-                </MusicProvider>
-              </NotificationProvider>
+              <UserStatusProvider>
+                <NotificationProvider>
+                  <MusicProvider>
+                    <GamingProvider>
+                      <ShopProvider>
+                        <LiveStreamProvider>
+                          <MiniPlayerProvider>
+                            <StatusBar style="light" />
+                            <Stack
+                              screenOptions={{
+                                headerShown: false,
+                                contentStyle: { backgroundColor: '#131318' },
+                              }}
+                            />
+                          </MiniPlayerProvider>
+                        </LiveStreamProvider>
+                      </ShopProvider>
+                    </GamingProvider>
+                  </MusicProvider>
+                </NotificationProvider>
+              </UserStatusProvider>
             </AuthProvider>
           </MenuPositionProvider>
         </SafeAreaProvider>

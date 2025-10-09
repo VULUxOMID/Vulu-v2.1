@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, createContext, useContext, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Animated, PanResponder, Easing, Text } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Pressable, Dimensions, Animated, PanResponder, Easing, Text } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 import { IconButton } from 'react-native-paper';
@@ -451,31 +451,36 @@ const SidebarMenu: React.FC<SidebarMenuProps> = ({ onMenuStateChange }) => {
                 const isActive = activeIndex === index;
                 
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={item.id}
-                    style={[
+                    style={({ pressed }) => [
                       styles.sidebarIcon,
-                      isActive && styles.sidebarIconActive
+                      isActive && styles.sidebarIconActive,
+                      pressed && styles.sidebarIconPressed
                     ]}
                     onPress={() => {
                       router.push(`/(main)/${item.route}` as any);
                     }}
-                    activeOpacity={0.7}
                   >
-                    <View style={[
-                      styles.iconContainer,
-                      isActive && styles.iconContainerActive
-                    ]}>
-                      {item.icon(
-                        isActive ? "#FFFFFF" : "rgba(255, 255, 255, 0.5)",
-                        isActive
-                      )}
-                      {/* Removed hardcoded badges - use real notification data if needed */}
-                    </View>
-                    {isActive && (
-                      <View style={styles.sidebarItemIndicator} />
+                    {({ pressed }) => (
+                      <>
+                        <View style={[
+                          styles.iconContainer,
+                          isActive && styles.iconContainerActive,
+                          pressed && styles.iconContainerPressed
+                        ]}>
+                          {item.icon(
+                            isActive ? "#FFFFFF" : "rgba(255, 255, 255, 0.5)",
+                            isActive
+                          )}
+                          {/* Removed hardcoded badges - use real notification data if needed */}
+                        </View>
+                        {isActive && (
+                          <View style={styles.sidebarItemIndicator} />
+                        )}
+                      </>
                     )}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -712,6 +717,13 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
     paddingHorizontal: 4,
+  },
+  sidebarIconPressed: {
+    opacity: 0.8,
+  },
+  iconContainerPressed: {
+    backgroundColor: 'rgba(110, 105, 244, 0.8)',
+    transform: [{ scale: 0.95 }],
   },
 });
 

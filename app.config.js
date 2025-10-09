@@ -8,7 +8,7 @@ export default ({ config }) => ({
   splash: {
     image: "./assets/icon.png",
     resizeMode: "contain",
-    backgroundColor: "#1C1D23"
+    backgroundColor: "#131318"
   },
   assetBundlePatterns: [
     "**/*"
@@ -25,7 +25,7 @@ export default ({ config }) => ({
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#1C1D23"
+      backgroundColor: "#131318"
     },
     package: "com.vulu.app",
     permissions: [
