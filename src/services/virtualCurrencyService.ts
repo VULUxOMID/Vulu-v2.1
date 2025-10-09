@@ -18,6 +18,11 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
+import { 
+  sanitizeCurrencyAmount, 
+  calculateNewBalance, 
+  hasEnoughBalance 
+} from '../utils/currencyUtils';
 
 // Currency types
 export type CurrencyType = 'gold' | 'gems' | 'tokens';
@@ -110,9 +115,9 @@ class VirtualCurrencyService {
         if (!userDoc.exists()) {
           // Create initial balance for new user
           const initialBalance: CurrencyBalance = {
-            gold: 1000, // Starting gold
-            gems: 50,   // Starting gems
-            tokens: 0,  // Starting tokens
+            gold: 0, // New users start with 0 gold
+            gems: 0,   // New users start with 0 gems
+            tokens: 0,  // New users start with 0 tokens
             lastUpdated: new Date()
           };
 
@@ -128,18 +133,38 @@ class VirtualCurrencyService {
 
         const userData = userDoc.data();
         const balances = userData.currencyBalances || {
-          gold: 1000,
-          gems: 50,
+          gold: 0,
+          gems: 0,
           tokens: 0,
           lastUpdated: serverTimestamp()
         };
 
-        return {
-          gold: balances.gold || 0,
-          gems: balances.gems || 0,
-          tokens: balances.tokens || 0,
+        // CRITICAL: Sanitize all balances to ensure they're never negative
+        const sanitizedBalances = {
+          gold: sanitizeCurrencyAmount(balances.gold),
+          gems: sanitizeCurrencyAmount(balances.gems),
+          tokens: sanitizeCurrencyAmount(balances.tokens),
           lastUpdated: this.safeToDate(balances.lastUpdated)
         };
+
+        // If any balance was negative or invalid, fix it in Firestore
+        if (balances.gold < 0 || balances.gems < 0 || balances.tokens < 0 || 
+            isNaN(balances.gold) || isNaN(balances.gems) || isNaN(balances.tokens)) {
+          console.warn('🔧 Detected invalid currency balance, fixing...', {
+            userId,
+            old: balances,
+            new: sanitizedBalances
+          });
+          
+          transaction.update(userRef, {
+            'currencyBalances.gold': sanitizedBalances.gold,
+            'currencyBalances.gems': sanitizedBalances.gems,
+            'currencyBalances.tokens': sanitizedBalances.tokens,
+            'currencyBalances.lastUpdated': serverTimestamp()
+          });
+        }
+
+        return sanitizedBalances;
       });
     } catch (error: any) {
       FirebaseErrorHandler.logError('getCurrencyBalances', error);
@@ -270,19 +295,21 @@ class VirtualCurrencyService {
         throw new Error('Amount must be positive');
       }
 
-      // Get current balance
+      // Get current balance (already sanitized by getCurrencyBalances)
       const currentBalances = await this.getCurrencyBalances(userId);
       
-      if (currentBalances[currencyType] < amount) {
+      // Use safe balance check
+      if (!hasEnoughBalance(currentBalances[currencyType], amount)) {
         throw new Error(`Insufficient ${currencyType} balance. Required: ${amount}, Available: ${currentBalances[currencyType]}`);
       }
 
       const userRef = doc(db, 'users', userId);
-      const newBalance = currentBalances[currencyType] - amount;
+      // Calculate new balance safely (will never be negative)
+      const newBalance = calculateNewBalance(currentBalances[currencyType], amount);
 
-      // Update user balance
+      // Update user balance - set to exact value to prevent any negative scenarios
       await updateDoc(userRef, {
-        [`currencyBalances.${currencyType}`]: increment(-amount),
+        [`currencyBalances.${currencyType}`]: newBalance,
         'currencyBalances.lastUpdated': serverTimestamp()
       });
 

@@ -40,6 +40,7 @@ import virtualCurrencyService, { CurrencyBalance } from '../services/virtualCurr
 import { useMusic } from '../context/MusicContext';
 import { useGaming } from '../context/GamingContext';
 import { useShop } from '../context/ShopContext';
+import { formatCurrencyCompact } from '../utils/currencyUtils';
 
 const defaultSpotlightAvatar = 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150';
 
@@ -2430,7 +2431,7 @@ const HomeScreen = () => {
           onPress={showGoldConversionPopup}
         >
           <MaterialCommunityIcons name="gold" size={18} color="#FFD700" />
-          <Text style={styles.goldBalanceText}>{goldBalance}</Text>
+          <Text style={styles.goldBalanceText}>{formatCurrencyCompact(goldBalance)}</Text>
         </TouchableOpacity>
       </View>
       
@@ -2481,7 +2482,7 @@ const HomeScreen = () => {
                   
                   <View style={styles.balanceCard}>
                     <Text style={styles.balanceLabel}>Gold</Text>
-                    <Text style={styles.balanceValue}>{goldBalance}</Text>
+                    <Text style={styles.balanceValue}>{formatCurrencyCompact(goldBalance)}</Text>
                   </View>
                 </LinearGradient>
                 
@@ -2696,7 +2697,7 @@ const HomeScreen = () => {
               onPress={showGoldConversionPopup}
             >
               <MaterialCommunityIcons name="gold" size={18} color="#FFD700" />
-              <Text style={styles.goldBalanceText}>{goldBalance}</Text>
+              <Text style={styles.goldBalanceText}>{formatCurrencyCompact(goldBalance)}</Text>
             </TouchableOpacity>
             <Text style={styles.spotlightModalSubtitle}>Select Duration</Text>
             <TouchableOpacity style={styles.spotlightOption} onPress={() => purchaseSpotlight(2, 5)}>
