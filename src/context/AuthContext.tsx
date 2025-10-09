@@ -355,6 +355,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   blockedUsers: [],
                   bio: '',
                   customStatus: '',
+                  // Subscription info (default to inactive plan)
+                  subscriptionPlan: 'free' as const,
+                  subscriptionStatus: 'expired' as const,
                 };
                 setUserProfile(minimalProfile);
                 // Don't create in Firestore - let signup process handle it

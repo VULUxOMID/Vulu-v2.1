@@ -40,6 +40,7 @@ import virtualCurrencyService, { CurrencyBalance } from '../services/virtualCurr
 import { useMusic } from '../context/MusicContext';
 import { useGaming } from '../context/GamingContext';
 import { useShop } from '../context/ShopContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { formatCurrencyCompact } from '../utils/currencyUtils';
 
 const defaultSpotlightAvatar = 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150';
@@ -107,6 +108,18 @@ const HomeScreen = () => {
     isLoadingProducts,
     isLoadingPromotions
   } = useShop();
+
+  // Get subscription data from context
+  const {
+    subscription,
+    isLoading,
+    currentPlan,
+    subscriptionStatus,
+    daysUntilRenewal,
+    dailyGems,
+    getSubscriptionBadge,
+    isSubscriptionActive
+  } = useSubscription();
   
   // Activity Modal states
   const [activityModalVisible, setActivityModalVisible] = useState(false);
@@ -1288,9 +1301,7 @@ const HomeScreen = () => {
 
   // Render a minimal Gems+ widget with expand/minimize functionality
   const renderMinimalGemsWidget = () => {
-    // Use the shared state variable instead of hardcoded values
-    const dailyGems = 200; // For demo, could be a state variable
-    const daysUntilRenewal = 3; // For demo, could be a state variable
+    // Use real subscription data instead of hardcoded values
     
     const toggleExpanded = () => {
       setIsMinimalGemsExpanded(!isMinimalGemsExpanded);
@@ -1348,19 +1359,21 @@ const HomeScreen = () => {
                   fontSize: 16,
                   fontWeight: 'bold',
                   marginRight: 8
-                }}>Gem+</Text>
-                <View style={{
-                  backgroundColor: '#B768FB',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 10
-                }}>
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontSize: 10,
-                    fontWeight: 'bold'
-                  }}>ACTIVE</Text>
-                </View>
+                }}>{subscription?.plan === 'free' ? 'Inactive' : subscription?.plan === 'gem_plus' ? 'Gem+' : subscription?.plan === 'premium' ? 'Premium' : subscription?.plan === 'vip' ? 'VIP' : 'Inactive'}</Text>
+                {isSubscriptionActive() && getSubscriptionBadge() && (
+                  <View style={{
+                    backgroundColor: getSubscriptionBadge()?.color || '#B768FB',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: 'bold'
+                    }}>{getSubscriptionBadge()?.name || 'ACTIVE'}</Text>
+                  </View>
+                )}
               </View>
               
               {/* Right side - Balance info */}
@@ -1380,10 +1393,10 @@ const HomeScreen = () => {
                     />
                   </View>
                   <Text style={{
-                    color: 'rgba(255, 255, 255, 0.5)', 
+                    color: 'rgba(255, 255, 255, 0.5)',
                     fontSize: 10
                   }}>
-                    {dailyGems}/day
+                    {dailyGems > 0 ? `${dailyGems}/day` : 'Upgrade for gems'}
                   </Text>
                 </View>
                 <View style={{
@@ -1393,11 +1406,11 @@ const HomeScreen = () => {
                   borderRadius: 6
                 }}>
                   <Text style={{
-                    color: '#B768FB', 
-                    fontSize: 10, 
+                    color: '#B768FB',
+                    fontSize: 10,
                     fontWeight: '500'
                   }}>
-                    {daysUntilRenewal}d
+                    {isSubscriptionActive() ? `${daysUntilRenewal}d` : 'Upgrade'}
                   </Text>
                 </View>
               </View>
@@ -1424,19 +1437,21 @@ const HomeScreen = () => {
                   fontSize: 16,
                   fontWeight: 'bold',
                   marginRight: 8
-                }}>Gem+</Text>
-                <View style={{
-                  backgroundColor: '#B768FB',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 10
-                }}>
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontSize: 10,
-                    fontWeight: 'bold'
-                  }}>ACTIVE</Text>
-                </View>
+                }}>{subscription?.plan === 'free' ? 'Inactive' : subscription?.plan === 'gem_plus' ? 'Gem+' : subscription?.plan === 'premium' ? 'Premium' : subscription?.plan === 'vip' ? 'VIP' : 'Inactive'}</Text>
+                {isSubscriptionActive() && getSubscriptionBadge() && (
+                  <View style={{
+                    backgroundColor: getSubscriptionBadge()?.color || '#B768FB',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: 'bold'
+                    }}>{getSubscriptionBadge()?.name || 'ACTIVE'}</Text>
+                  </View>
+                )}
               </View>
               
               {/* Daily gems section */}
@@ -1456,17 +1471,27 @@ const HomeScreen = () => {
                     marginBottom: 4
                   }}>Daily Gems</Text>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={{
-                      color: 'rgba(255, 255, 255, 0.9)', 
-                      fontWeight: 'bold', 
-                      fontSize: 16
-                    }}>{dailyGems}</Text>
-                    <MaterialCommunityIcons 
-                      name="diamond-stone" 
-                      size={14} 
-                      color="rgba(183, 104, 251, 0.7)" 
-                      style={{marginLeft: 4}}
-                    />
+                    {dailyGems > 0 ? (
+                      <>
+                        <Text style={{
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          fontWeight: 'bold',
+                          fontSize: 16
+                        }}>{dailyGems}</Text>
+                        <MaterialCommunityIcons
+                          name="diamond-stone"
+                          size={14}
+                          color="rgba(183, 104, 251, 0.7)"
+                          style={{marginLeft: 4}}
+                        />
+                      </>
+                    ) : (
+                      <Text style={{
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        fontSize: 14,
+                        fontStyle: 'italic'
+                      }}>Upgrade to get daily gems</Text>
+                    )}
                   </View>
                 </View>
                 
@@ -1477,11 +1502,11 @@ const HomeScreen = () => {
                   borderRadius: 10
                 }}>
                   <Text style={{
-                    color: '#B768FB', 
-                    fontSize: 11, 
+                    color: '#B768FB',
+                    fontSize: 11,
                     fontWeight: '500'
                   }}>
-                    Renews in {daysUntilRenewal} days
+                    {isSubscriptionActive() ? `Renews in ${daysUntilRenewal} days` : 'Weekly: 200 gems • Monthly: 500 gems'}
                   </Text>
                 </View>
               </View>

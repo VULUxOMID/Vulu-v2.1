@@ -140,6 +140,10 @@ class SocialAuthService {
         bio: '',
         customStatus: '',
 
+        // Subscription info (default to inactive plan)
+        subscriptionPlan: 'free' as const,
+        subscriptionStatus: 'expired' as const,
+
         // Search fields (lowercase for case-insensitive search)
         displayNameLower: displayName.toLowerCase(),
         usernameLower: username.toLowerCase(),
@@ -249,6 +253,10 @@ class SocialAuthService {
         // Profile customization
         bio: '',
         customStatus: '',
+
+        // Subscription info (default to inactive plan)
+        subscriptionPlan: 'free' as const,
+        subscriptionStatus: 'expired' as const,
 
         // Search fields (lowercase for case-insensitive search)
         displayNameLower: displayName.toLowerCase(),

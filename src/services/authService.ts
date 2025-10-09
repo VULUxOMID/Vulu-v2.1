@@ -246,6 +246,10 @@ class AuthService {
         bio: '',
         customStatus: '',
 
+        // Subscription info (default to inactive plan)
+        subscriptionPlan: 'free' as const,
+        subscriptionStatus: 'expired' as const,
+
         // Search fields (lowercase for case-insensitive search)
         displayNameLower: (displayName || user.displayName || 'User').toLowerCase(),
         usernameLower: (username || `user_${user.uid.substring(0, 8)}`).toLowerCase(),

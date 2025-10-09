@@ -5,7 +5,7 @@
  */
 
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../services/firebase';
 
 export type CurrencyType = 'gold' | 'gems' | 'tokens';
 

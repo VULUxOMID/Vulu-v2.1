@@ -95,6 +95,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 // Import all providers
 import { AuthProvider } from '../src/context/AuthContext';
+import { SubscriptionProvider } from '../src/context/SubscriptionContext';
 import { NotificationProvider } from '../src/context/NotificationContext';
 import { MusicProvider } from '../src/context/MusicContext';
 import { GamingProvider } from '../src/context/GamingContext';
@@ -104,6 +105,14 @@ import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import { MenuPositionProvider } from '../src/components/SidebarMenu';
 import { UserStatusProvider } from '../src/context/UserStatusContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
+
+// Import test utilities for debugging (temporarily disabled)
+// import '../src/utils/testSubscription';
+// import '../src/utils/quickSubscriptionTest';
+// import '../src/utils/debugSubscription';
+// import '../src/utils/fixSubscription';
+// import '../src/utils/testSubscriptionImport';
+// import '../src/utils/testSubscriptionContextImport'; // Temporarily disabled for debugging
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -129,27 +138,29 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <MenuPositionProvider>
             <AuthProvider>
-              <NotificationProvider>
-                <UserStatusProvider>
-                  <MusicProvider>
-                    <GamingProvider>
-                      <ShopProvider>
-                        <LiveStreamProvider>
-                          <MiniPlayerProvider>
-                            <StatusBar style="light" />
-                            <Stack
-                              screenOptions={{
-                                headerShown: false,
-                                contentStyle: { backgroundColor: '#131318' },
-                              }}
-                            />
-                          </MiniPlayerProvider>
-                        </LiveStreamProvider>
-                      </ShopProvider>
-                    </GamingProvider>
-                  </MusicProvider>
-                </UserStatusProvider>
-              </NotificationProvider>
+              <SubscriptionProvider>
+                <NotificationProvider>
+                  <UserStatusProvider>
+                    <MusicProvider>
+                      <GamingProvider>
+                        <ShopProvider>
+                          <LiveStreamProvider>
+                            <MiniPlayerProvider>
+                              <StatusBar style="light" />
+                              <Stack
+                                screenOptions={{
+                                  headerShown: false,
+                                  contentStyle: { backgroundColor: '#131318' },
+                                }}
+                              />
+                            </MiniPlayerProvider>
+                          </LiveStreamProvider>
+                        </ShopProvider>
+                      </GamingProvider>
+                    </MusicProvider>
+                  </UserStatusProvider>
+                </NotificationProvider>
+              </SubscriptionProvider>
             </AuthProvider>
           </MenuPositionProvider>
         </SafeAreaProvider>

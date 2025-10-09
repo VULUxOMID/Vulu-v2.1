@@ -56,6 +56,22 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // SUBSCRIPTION COLLECTIONS
+    match /userSubscriptions/{userId} {
+      allow read, write: if isOwner(userId);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /subscriptionHistory/{historyId} {
+      allow read, write: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /gemPurchases/{purchaseId} {
+      allow read, write: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
     // GAMING COLLECTIONS
     match /miningSessions/{sessionId} {
       allow read, write: if isAuthenticated() && resource.data.userId == request.auth.uid;
@@ -347,8 +363,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() &&
         request.auth.uid in resource.data.participants;
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() &&
-        request.auth.uid in resource.data.participants;
+      allow update: if isAuthenticated() && (
+        // Allow participants to update conversations
+        request.auth.uid in resource.data.participants ||
+        // Allow profile sync updates (updating participant profile info)
+        (request.resource.data.keys().hasOnly(['participants']) &&
+         request.auth.uid in request.resource.data.participants)
+      );
       allow delete: if isAuthenticated() &&
         request.auth.uid in resource.data.participants;
     }
@@ -356,6 +377,7 @@ service cloud.firestore {
     // Allow querying conversations collection for authenticated users
     match /conversations/{document=**} {
       allow list: if isAuthenticated();
+      allow read: if isAuthenticated();
     }
 
     // Conversation messages - participant-only with strict sender/recipient permissions

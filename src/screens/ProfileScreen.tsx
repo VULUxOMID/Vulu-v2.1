@@ -44,6 +44,7 @@ import ScrollableContentContainer from '../components/ScrollableContentContainer
 import { useUserProfile } from '../context/UserProfileContext';
 import { useUserStatus, STATUS_TYPES, StatusType } from '../context/UserStatusContext';
 import { useAuth } from '../context/AuthContext';
+import { useSubscription } from '../context/SubscriptionContext';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import firestoreService from '../services/firestoreService';
 
@@ -72,6 +73,16 @@ const ProfileScreen = () => {
     hasGemPlus,
     setHasGemPlus,
   } = useUserProfile();
+  const {
+    subscription,
+    isLoading,
+    currentPlan,
+    subscriptionStatus,
+    daysUntilRenewal,
+    dailyGems,
+    getSubscriptionBadge,
+    isSubscriptionActive
+  } = useSubscription();
   
   // Get display name and username directly from userProfile for accuracy
   const displayName = userProfile?.displayName || 'User';
@@ -1043,10 +1054,10 @@ const ProfileScreen = () => {
             }}>
               {/* Left side - Title and badge */}
               <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <MaterialCommunityIcons 
-                  name="diamond-stone" 
-                  size={20} 
-                  color="#B768FB" 
+                <MaterialCommunityIcons
+                  name="diamond-stone"
+                  size={20}
+                  color="#B768FB"
                   style={{marginRight: 8}}
                 />
                 <Text style={{
@@ -1054,19 +1065,21 @@ const ProfileScreen = () => {
                   fontSize: 16,
                   fontWeight: 'bold',
                   marginRight: 8
-                }}>Gem+</Text>
-                <View style={{
-                  backgroundColor: '#B768FB',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 10
-                }}>
-                  <Text style={{
-                    color: '#FFFFFF',
-                    fontSize: 10,
-                    fontWeight: 'bold'
-                  }}>ACTIVE</Text>
-                </View>
+                }}>{subscription?.plan === 'free' ? 'Inactive' : subscription?.plan === 'gem_plus' ? 'Gem+' : subscription?.plan === 'premium' ? 'Premium' : subscription?.plan === 'vip' ? 'VIP' : 'Inactive'}</Text>
+                {isSubscriptionActive() && getSubscriptionBadge() && (
+                  <View style={{
+                    backgroundColor: getSubscriptionBadge()?.color || '#B768FB',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 10
+                  }}>
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontSize: 10,
+                      fontWeight: 'bold'
+                    }}>{getSubscriptionBadge()?.name || 'ACTIVE'}</Text>
+                  </View>
+                )}
               </View>
               
               {/* Right side - Balance info */}
@@ -1074,22 +1087,22 @@ const ProfileScreen = () => {
                 <View style={{alignItems: 'flex-end', marginRight: 10}}>
                   <View style={{flexDirection: 'row', alignItems: 'center'}}>
                     <Text style={{
-                      color: '#FFFFFF', 
-                      fontWeight: 'bold', 
+                      color: '#FFFFFF',
+                      fontWeight: 'bold',
                       fontSize: 18
-                    }}>50</Text>
-                    <MaterialCommunityIcons 
-                      name="diamond-stone" 
-                      size={14} 
-                      color="rgba(183, 104, 251, 0.7)" 
+                    }}>{userProfile?.gems || 0}</Text>
+                    <MaterialCommunityIcons
+                      name="diamond-stone"
+                      size={14}
+                      color="rgba(183, 104, 251, 0.7)"
                       style={{marginLeft: 4}}
                     />
                   </View>
                   <Text style={{
-                    color: 'rgba(255, 255, 255, 0.5)', 
+                    color: 'rgba(255, 255, 255, 0.5)',
                     fontSize: 10
                   }}>
-                    200/day
+                    {dailyGems > 0 ? `${dailyGems}/day` : 'Upgrade for gems'}
                   </Text>
                 </View>
                 <View style={{
@@ -1099,11 +1112,11 @@ const ProfileScreen = () => {
                   borderRadius: 6
                 }}>
                   <Text style={{
-                    color: '#B768FB', 
-                    fontSize: 10, 
+                    color: '#B768FB',
+                    fontSize: 10,
                     fontWeight: '500'
                   }}>
-                    3d
+                    {isSubscriptionActive() ? `${daysUntilRenewal}d` : 'Upgrade'}
                   </Text>
                 </View>
               </View>

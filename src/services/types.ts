@@ -284,6 +284,64 @@ export interface Friendship {
   blockedAt?: Timestamp;
 }
 
+// Subscription types
+export type SubscriptionPlan = 'free' | 'gem_plus' | 'premium' | 'vip';
+export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending' | 'trial';
+export type BillingCycle = 'monthly' | 'yearly' | 'lifetime';
+
+export interface SubscriptionFeatures {
+  dailyGems: number;
+  maxStreams: number;
+  prioritySupport: boolean;
+  customEmojis: boolean;
+  profileBadge: boolean;
+  ghostMode: boolean;
+  profileViews: boolean;
+  advancedAnalytics: boolean;
+  exclusiveContent: boolean;
+  adFree: boolean;
+}
+
+export interface UserSubscription {
+  id: string;
+  userId: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  billingCycle: BillingCycle;
+  startDate: Timestamp;
+  endDate: Timestamp;
+  renewalDate?: Timestamp;
+  cancelledAt?: Timestamp;
+  trialEndDate?: Timestamp;
+  features: SubscriptionFeatures;
+  priceUsd: number;
+  currency: string;
+  paymentMethodId?: string;
+  transactionId?: string;
+  autoRenew: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface SubscriptionPlanConfig {
+  id: SubscriptionPlan;
+  name: string;
+  description: string;
+  features: SubscriptionFeatures;
+  pricing: {
+    monthly: number;
+    yearly: number;
+    lifetime?: number;
+  };
+  badge?: {
+    name: string;
+    color: string;
+    icon: string;
+  };
+  isPopular?: boolean;
+  trialDays?: number;
+}
+
 // Enhanced User interface (unified)
 export interface AppUser {
   uid: string;
@@ -297,6 +355,11 @@ export interface AppUser {
   createdAt: Timestamp;
   lastSeen: Timestamp;
   isGuest?: boolean;
+
+  // Subscription info
+  subscription?: UserSubscription;
+  subscriptionPlan: SubscriptionPlan;
+  subscriptionStatus: SubscriptionStatus;
 
   // Presence and status
   status: UserStatus;
