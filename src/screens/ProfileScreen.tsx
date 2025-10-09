@@ -64,7 +64,7 @@ interface Photo {
 
 const ProfileScreen = () => {
   const router = useRouter();
-  const { user, isGuest } = useAuth();
+  const { user, isGuest, userProfile } = useAuth();
   const { canManagePhotos, canEditProfile, canChangeStatus } = useGuestRestrictions();
   const {
     profileImage,
@@ -863,6 +863,9 @@ const ProfileScreen = () => {
                 )}
               </View>
               <Text style={styles.profileUsername}>@{username}</Text>
+              {!isGuest && userProfile?.email && (
+                <Text style={styles.profileEmail}>{userProfile.email}</Text>
+              )}
             </View>
           </Animated.View>
         </View>
@@ -1885,6 +1888,12 @@ const styles = StyleSheet.create({
     color: '#E0E0E0',
     fontSize: 16,
     fontWeight: '400',
+  },
+  profileEmail: {
+    color: '#9BA1A6',
+    fontSize: 14,
+    fontWeight: '400',
+    marginTop: 4,
   },
   nameRow: {
     flexDirection: 'row',
