@@ -21,7 +21,20 @@ import { useUserProfile } from '../../src/context/UserProfileContext';
  * and can only be accessed via the sidebar menu or buttons on the home screen.
  */
 const Layout = () => {
-  const { profileImage, userStatus, statusColor } = useUserProfile();
+  // Safely get user profile data with fallbacks
+  let profileImage = '';
+  let userStatus = 'offline';
+  let statusColor = '#8F8F8F';
+  
+  try {
+    const userProfile = useUserProfile();
+    profileImage = userProfile.profileImage || '';
+    userStatus = userProfile.userStatus || 'offline';
+    statusColor = userProfile.statusColor || '#8F8F8F';
+  } catch (error) {
+    // AuthProvider not ready yet, use defaults
+    console.warn('UserProfile not available yet, using defaults:', error);
+  }
 
   return (
     <SafeAreaProvider>

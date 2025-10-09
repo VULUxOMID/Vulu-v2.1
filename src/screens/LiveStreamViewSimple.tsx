@@ -250,7 +250,7 @@ const LiveStreamViewSimple = () => {
         id: Date.now().toString(),
         user: {
           name: user.displayName || 'Anonymous',
-          avatar: user.photoURL || 'https://randomuser.me/api/portraits/men/32.jpg',
+          avatar: user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || 'User') + '&background=6E69F4&color=FFFFFF&size=150',
         },
         message: newMessage.trim(),
         timestamp: Date.now(),

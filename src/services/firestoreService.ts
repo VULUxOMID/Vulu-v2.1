@@ -1494,7 +1494,7 @@ class FirestoreService {
           allFriends.push({
             id: friendId,
             name: friendData.displayName,
-            avatar: friendData.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
+            avatar: friendData.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(friendData.displayName || friendData.username || 'User') + '&background=6E69F4&color=FFFFFF&size=150',
             status: this.getUserStatus(friendData.lastSeen),
             isCloseFriend: isCloseFriend
           });

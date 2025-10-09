@@ -41,7 +41,7 @@ import { useMusic } from '../context/MusicContext';
 import { useGaming } from '../context/GamingContext';
 import { useShop } from '../context/ShopContext';
 
-const defaultSpotlightAvatar = 'https://randomuser.me/api/portraits/lego/1.jpg';
+const defaultSpotlightAvatar = 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150';
 
 // Fallback router for when useRouter() fails
 const fallbackRouter = {

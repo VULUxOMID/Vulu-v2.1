@@ -81,7 +81,7 @@ const getOtherParticipantInfo = (conversation: Conversation, currentUserId: stri
   return {
     id: otherParticipantId,
     name: conversation.participantNames?.[otherParticipantId] || 'Unknown',
-    avatar: conversation.participantAvatars?.[otherParticipantId] || 'https://randomuser.me/api/portraits/lego/1.jpg',
+    avatar: conversation.participantAvatars?.[otherParticipantId] || 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150',
   };
 };
 
@@ -261,7 +261,7 @@ const DirectMessagesScreen = () => {
           const activeFriendsData = onlineFriendsData.map(friend => ({
             id: friend.uid,
             name: friend.displayName || friend.username || 'Unknown',
-            avatar: friend.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
+            avatar: friend.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(friend.displayName || friend.username || 'User') + '&background=6E69F4&color=FFFFFF&size=150',
             lastMessage: 'Active now',
             timestamp: 'now',
             status: 'online' as const,
@@ -285,7 +285,7 @@ const DirectMessagesScreen = () => {
               const updatedActiveFriends = updatedOnlineFriends.map(friend => ({
                 id: friend.uid,
                 name: friend.displayName || friend.username || 'Unknown',
-                avatar: friend.photoURL || 'https://randomuser.me/api/portraits/lego/1.jpg',
+                avatar: friend.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(friend.displayName || friend.username || 'User') + '&background=6E69F4&color=FFFFFF&size=150',
                 lastMessage: 'Active now',
                 timestamp: 'now',
                 status: 'online' as const,
@@ -437,7 +437,7 @@ const DirectMessagesScreen = () => {
     const navParams = {
       userId: item.id,
       name: item.name,
-      avatar: item.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg',
+      avatar: item.avatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.name || 'User') + '&background=6E69F4&color=FFFFFF&size=150',
       source: 'direct-messages'
     };
 

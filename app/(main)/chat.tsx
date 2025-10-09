@@ -11,7 +11,7 @@ export default function Chat() {
   // Extract and validate parameters with proper defaults
   const userId = typeof params.userId === 'string' ? params.userId : '';
   const name = typeof params.name === 'string' ? params.name : '';
-  const avatar = typeof params.avatar === 'string' ? params.avatar : 'https://randomuser.me/api/portraits/lego/1.jpg';
+  const avatar = typeof params.avatar === 'string' ? params.avatar : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(name || 'User') + '&background=6E69F4&color=FFFFFF&size=150';
   const source = typeof params.source === 'string' ? params.source : 'direct-messages';
 
   // Validate required parameters immediately

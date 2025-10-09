@@ -10,13 +10,8 @@ interface Friend {
   isCloseFriend: boolean;
 }
 
-// Simple mockup of friends data
-const MOCK_FRIENDS: Friend[] = [
-  { id: '1', name: 'Alex Johnson', isCloseFriend: true },
-  { id: '2', name: 'Sophia Williams', isCloseFriend: true },
-  { id: '3', name: 'Michael Thompson', isCloseFriend: false },
-  { id: '4', name: 'Emma Davis', isCloseFriend: false },
-];
+// Friends data loaded from Firebase - no mock data
+const MOCK_FRIENDS: Friend[] = [];
 
 export default function CloseFriends() {
   const router = useRouter();
