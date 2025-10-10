@@ -33,13 +33,13 @@ const AccountCreationScreen: React.FC = () => {
     setCurrentStep(4);
   }, [setCurrentStep]);
 
-  // Debounced username availability check
+  // REAL username availability check with Firebase
   useEffect(() => {
     if (username.length >= 3) {
       const timeoutId = setTimeout(async () => {
         setCheckingUsername(true);
         setUsernameError(null);
-        
+
         // Validate username format first
         if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
           setUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
@@ -47,21 +47,26 @@ const AccountCreationScreen: React.FC = () => {
           return;
         }
 
-        // Simulate API call for username availability
+        // REAL Firebase username availability check
         try {
-          await new Promise(resolve => setTimeout(resolve, 800));
-          
-          // Mock unavailable usernames
-          const unavailableUsernames = ['admin', 'user', 'test', 'vulu', 'vulugoadmin'];
-          if (unavailableUsernames.includes(username.toLowerCase())) {
+          console.log('🔄 Checking username availability:', username);
+          const { firestoreService } = await import('../../../services/firestoreService');
+          const isUsernameTaken = await firestoreService.isUsernameTaken(username);
+
+          if (isUsernameTaken) {
+            console.log('❌ Username is taken:', username);
             setUsernameError('This username is already taken');
+          } else {
+            console.log('✅ Username is available:', username);
+            setUsernameError(null);
           }
-        } catch (err) {
-          setUsernameError('Unable to check username availability');
+        } catch (err: any) {
+          console.error('❌ Username check failed:', err);
+          setUsernameError('Unable to check username availability. Please try again.');
         }
-        
+
         setCheckingUsername(false);
-      }, 800);
+      }, 500); // Reduced delay for better UX
 
       return () => clearTimeout(timeoutId);
     } else {

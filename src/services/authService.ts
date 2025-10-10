@@ -14,7 +14,8 @@ import {
   confirmPasswordReset,
   verifyPasswordResetCode,
   sendEmailVerification,
-  applyActionCode
+  applyActionCode,
+  fetchSignInMethodsForEmail
 } from 'firebase/auth';
 import { auth, getFirebaseServices, isFirebaseInitialized } from './firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -217,11 +218,13 @@ class AuthService {
           if (usernameError.code === 'auth/username-already-in-use') {
             throw usernameError;
           }
-          // If username check fails due to permissions, log it but continue
-          // The server-side validation will catch duplicates
-          if (!FirebaseErrorHandler.shouldSuppressErrorLogging(usernameError, 'username-check')) {
-            console.warn('Username availability check failed, proceeding with registration:', usernameError.message);
-          }
+
+          // For any other username check errors, re-throw them to prevent registration
+          // This ensures users get proper error messages instead of crashes
+          console.error('Username availability check failed:', usernameError.message);
+          const error = new Error('Unable to verify username availability. Please try again.');
+          (error as any).code = 'auth/username-check-failed';
+          throw error;
         }
       }
 
@@ -417,6 +420,39 @@ class AuthService {
     }
 
     return true; // Default to maintaining session
+  }
+
+  // Check if email is already registered
+  async isEmailRegistered(email: string): Promise<boolean> {
+    try {
+      this.ensureFirebaseReady();
+
+      if (!auth) {
+        throw new Error('Firebase Auth not available');
+      }
+
+      console.log('🔄 Checking if email is registered:', email);
+
+      // Use Firebase's fetchSignInMethodsForEmail to check if email exists
+      const signInMethods = await fetchSignInMethodsForEmail(auth, email.trim());
+      const isRegistered = signInMethods.length > 0;
+
+      console.log('✅ Email registration check result:', { email, isRegistered, methods: signInMethods });
+      return isRegistered;
+    } catch (error: any) {
+      console.error('❌ Email registration check failed:', error);
+
+      // If it's a network error or permission error, assume email is available
+      if (error.code === 'auth/network-request-failed' ||
+          error.code === 'auth/too-many-requests' ||
+          FirebaseErrorHandler.isPermissionError(error)) {
+        console.warn('Network/permission error during email check, assuming email is available');
+        return false;
+      }
+
+      // For other errors, assume email is available to avoid blocking registration
+      return false;
+    }
   }
 
   // Update user password

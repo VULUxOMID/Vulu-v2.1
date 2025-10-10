@@ -216,13 +216,14 @@ class FirestoreService {
 
       // Handle permission errors specifically
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        // For permission errors during registration, we'll allow the username check to pass
-        // The actual duplicate check will happen server-side during account creation
-        return false;
+        // For permission errors during registration, throw an error instead of returning false
+        // This will force proper error handling in the UI
+        console.warn('Permission error during username check - cannot verify availability');
+        throw new Error('Unable to verify username availability due to permissions. Please try again.');
       }
 
       // For other errors, assume username is taken to be safe
-      return true;
+      throw new Error('Unable to check username availability. Please try again.');
     }
   }
 

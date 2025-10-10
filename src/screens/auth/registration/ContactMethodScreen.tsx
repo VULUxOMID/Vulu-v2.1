@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Alert, TextInput } from 'react-native';
 import {
   RegistrationHeader,
@@ -35,10 +35,55 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
   const [contactValue, setContactValue] = useState(registrationData.contactValue || '');
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [phoneValidationError, setPhoneValidationError] = useState<string | null>(null);
+  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
+  const [checkingEmailAvailability, setCheckingEmailAvailability] = useState(false);
 
   React.useEffect(() => {
     setCurrentStep(1);
   }, [setCurrentStep]);
+
+  // Real-time email availability check
+  useEffect(() => {
+    if (contactMethod === 'email' && contactValue.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      // Only check if email format is valid
+      if (emailRegex.test(contactValue.trim())) {
+        const timeoutId = setTimeout(async () => {
+          setCheckingEmailAvailability(true);
+          setEmailValidationError(null);
+
+          try {
+            console.log('🔄 Checking email availability:', contactValue.trim());
+            const { default: authService } = await import('../../../services/authService');
+            const isEmailRegistered = await authService.isEmailRegistered(contactValue.trim());
+
+            if (isEmailRegistered) {
+              console.log('❌ Email is already registered:', contactValue.trim());
+              setEmailValidationError('This email is already registered. Please sign in instead.');
+            } else {
+              console.log('✅ Email is available:', contactValue.trim());
+              setEmailValidationError(null);
+            }
+          } catch (err: any) {
+            console.warn('❌ Email availability check failed:', err);
+            // Don't show error for network issues during validation
+            setEmailValidationError(null);
+          }
+
+          setCheckingEmailAvailability(false);
+        }, 800);
+
+        return () => clearTimeout(timeoutId);
+      } else {
+        setEmailValidationError(null);
+        setCheckingEmailAvailability(false);
+      }
+    } else {
+      setEmailValidationError(null);
+      setCheckingEmailAvailability(false);
+    }
+  }, [contactValue, contactMethod]);
 
   const handleContactMethodChange = (method: 'phone' | 'email') => {
     setContactMethod(method);
@@ -51,6 +96,7 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
     setContactValue(value);
     setError(null);
     setPhoneValidationError(null);
+    setEmailValidationError(null);
   };
 
   const handleCountryChange = (country: Country) => {
@@ -78,11 +124,25 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
       return;
     }
 
-    // Validate email format
+    // Validate email format and availability
     if (contactMethod === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(trimmedValue)) {
         setError('Please enter a valid email address');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if email is already registered
+      if (emailValidationError) {
+        setError(emailValidationError);
+        setIsLoading(false);
+        return;
+      }
+
+      // Wait for email availability check to complete
+      if (checkingEmailAvailability) {
+        setError('Checking email availability...');
         setIsLoading(false);
         return;
       }
@@ -228,7 +288,11 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
               <Text style={styles.inputLabel}>EMAIL ADDRESS *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.textInput}
+                  style={[
+                    styles.textInput,
+                    emailValidationError && styles.textInputError,
+                    checkingEmailAvailability && styles.textInputChecking
+                  ]}
                   value={contactValue}
                   onChangeText={handleContactValueChange}
                   placeholder={getInputPlaceholder()}
@@ -236,9 +300,13 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
                   keyboardType={getInputKeyboardType()}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!isLoading}
+                  editable={!isLoading && !checkingEmailAvailability}
                 />
+                {checkingEmailAvailability && (
+                  <Text style={styles.checkingText}>Checking availability...</Text>
+                )}
               </View>
+              {emailValidationError && <Text style={styles.errorText}>{emailValidationError}</Text>}
               {error && <Text style={styles.errorText}>{error}</Text>}
             </>
           ) : (
@@ -332,6 +400,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     paddingVertical: 12,
+  },
+  textInputError: {
+    borderColor: '#FF6B6B',
+  },
+  textInputChecking: {
+    borderColor: '#FFA500',
+  },
+  checkingText: {
+    fontSize: 12,
+    color: '#FFA500',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   errorText: {
     fontSize: 14,

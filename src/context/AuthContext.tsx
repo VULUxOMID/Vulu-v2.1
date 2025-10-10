@@ -530,7 +530,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Start new session
       await sessionService.startSession();
-    } catch (error) {
+    } catch (error: any) {
+      // Enhanced error handling with proper Firebase error codes
+      console.error('❌ SignUp error in AuthContext:', error);
+
+      // Re-throw with proper error information for UI handling
+      if (error.code === 'auth/email-already-in-use') {
+        const enhancedError = new Error('This email is already registered. Please sign in instead or use a different email.');
+        (enhancedError as any).code = 'auth/email-already-in-use';
+        throw enhancedError;
+      } else if (error.code === 'auth/username-already-in-use') {
+        const enhancedError = new Error('This username is already taken. Please choose a different username.');
+        (enhancedError as any).code = 'auth/username-already-in-use';
+        throw enhancedError;
+      } else if (error.code === 'auth/weak-password') {
+        const enhancedError = new Error('Password is too weak. Please choose a stronger password with at least 6 characters.');
+        (enhancedError as any).code = 'auth/weak-password';
+        throw enhancedError;
+      } else if (error.code === 'auth/invalid-email') {
+        const enhancedError = new Error('Please enter a valid email address.');
+        (enhancedError as any).code = 'auth/invalid-email';
+        throw enhancedError;
+      } else if (error.code === 'auth/username-check-failed') {
+        const enhancedError = new Error('Unable to verify username availability. Please check your connection and try again.');
+        (enhancedError as any).code = 'auth/username-check-failed';
+        throw enhancedError;
+      }
+
+      // For other errors, re-throw as-is
       throw error;
     }
   };
