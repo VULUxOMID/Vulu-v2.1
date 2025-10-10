@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { 
-  RegistrationHeader, 
-  RegistrationCard, 
-  RegistrationFooter 
+import {
+  RegistrationHeader,
+  RegistrationCard,
+  RegistrationFooter
 } from '../../../components/auth/RegistrationComponents';
 
 import { AuthColors } from '../../../components/auth/AuthDesignSystem';
 import { useRegistration } from '../../../context/RegistrationContext';
+import { createSafeStateSetter } from '../../../utils/safePropertySet';
 
 const AccountCreationScreen: React.FC = () => {
   const { 
@@ -29,61 +30,127 @@ const AccountCreationScreen: React.FC = () => {
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Create safe setters to prevent Hermes crashes
+  const safeSetError = (value: string | null) => {
+    try {
+      setError(value);
+    } catch (error) {
+      console.error('Safe setError failed:', error);
+    }
+  };
+
+  const safeSetUsernameError = (value: string | null) => {
+    try {
+      setUsernameError(value);
+    } catch (error) {
+      console.error('Safe setUsernameError failed:', error);
+    }
+  };
+
+  const safeSetPasswordError = (value: string | null) => {
+    try {
+      setPasswordError(value);
+    } catch (error) {
+      console.error('Safe setPasswordError failed:', error);
+    }
+  };
+
+  const safeSetCheckingUsername = (value: boolean) => {
+    try {
+      setCheckingUsername(value);
+    } catch (error) {
+      console.error('Safe setCheckingUsername failed:', error);
+    }
+  };
+
+  const safeSetUsername = (value: string) => {
+    try {
+      setUsername(value);
+    } catch (error) {
+      console.error('Safe setUsername failed:', error);
+    }
+  };
+
+  const safeSetPassword = (value: string) => {
+    try {
+      setPassword(value);
+    } catch (error) {
+      console.error('Safe setPassword failed:', error);
+    }
+  };
+
   useEffect(() => {
     setCurrentStep(4);
   }, [setCurrentStep]);
 
-  // REAL username availability check with Firebase
+  // COMPREHENSIVE real-time username validation with debug logging
   useEffect(() => {
+    console.log('🔍 Username validation useEffect triggered:', { username, length: username.length });
+
     if (username.length >= 3) {
       const timeoutId = setTimeout(async () => {
-        setCheckingUsername(true);
-        setUsernameError(null);
+        console.log('🔄 Starting username availability check for:', username);
+        safeSetCheckingUsername(true);
+        safeSetUsernameError(null);
 
         // Validate username format first
         if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
-          setUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
-          setCheckingUsername(false);
+          console.log('❌ Invalid username format:', username);
+          safeSetUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
+          safeSetCheckingUsername(false);
           return;
         }
 
-        // REAL Firebase username availability check
         try {
-          console.log('🔄 Checking username availability:', username);
+          console.log('🔍 Importing firestoreService...');
           const { firestoreService } = await import('../../../services/firestoreService');
+          console.log('🔍 Calling isUsernameTaken for:', username);
           const isUsernameTaken = await firestoreService.isUsernameTaken(username);
+          console.log('👤 Username availability check result:', { username, isTaken: isUsernameTaken });
 
           if (isUsernameTaken) {
-            console.log('❌ Username is taken:', username);
-            setUsernameError('This username is already taken');
+            console.log('❌ Username is already taken, setting error:', username);
+            safeSetUsernameError('This username is already taken');
           } else {
-            console.log('✅ Username is available:', username);
-            setUsernameError(null);
+            console.log('✅ Username is available, clearing error:', username);
+            safeSetUsernameError(null);
           }
         } catch (err: any) {
           console.error('❌ Username check failed:', err);
-          setUsernameError('Unable to check username availability. Please try again.');
+          safeSetUsernameError('Unable to check username availability');
         }
 
-        setCheckingUsername(false);
-      }, 500); // Reduced delay for better UX
+        console.log('🔄 Username check completed, setting checkingUsername to false');
+        safeSetCheckingUsername(false);
+      }, 800);
 
       return () => clearTimeout(timeoutId);
     } else {
-      setUsernameError(null);
+      console.log('🔄 Username too short, clearing error');
+      safeSetUsernameError(null);
     }
   }, [username]);
+
+  // Debug logging for username validation state
+  useEffect(() => {
+    console.log('🔍 Username validation state update:', {
+      username,
+      usernameError,
+      checkingUsername,
+      buttonDisabled: !username.trim() || !password || username.length < 3 || password.length < 8 || checkingUsername || !!usernameError || isLoading
+    });
+  }, [username, usernameError, checkingUsername, password, isLoading]);
 
   const handleUsernameChange = (value: string) => {
     // Convert to lowercase and remove invalid characters
     const cleanValue = value.toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    setUsername(cleanValue);
-    setUsernameError(null);
+    safeSetUsername(cleanValue);
+    safeSetUsernameError(null);
   };
 
   const handlePasswordChange = (value: string) => {
-    setPassword(value);
-    setPasswordError(null);
+    safeSetPassword(value);
+    safeSetPasswordError(null);
   };
 
   const handleBack = () => {
@@ -92,59 +159,66 @@ const AccountCreationScreen: React.FC = () => {
 
   const handleNext = async () => {
     setIsLoading(true);
-    setError(null);
-    setUsernameError(null);
-    setPasswordError(null);
+    safeSetError(null);
+    safeSetUsernameError(null);
+    safeSetPasswordError(null);
 
-    // Validate current input directly (not from context)
+    // Validate current input directly
     const trimmedUsername = username.trim();
 
     // Username validation
     if (!trimmedUsername) {
-      setUsernameError('Please enter a username');
+      safeSetUsernameError('Please enter a username');
       setIsLoading(false);
       return;
     }
 
     if (trimmedUsername.length < 3) {
-      setUsernameError('Username must be at least 3 characters long');
+      safeSetUsernameError('Username must be at least 3 characters long');
       setIsLoading(false);
       return;
     }
 
     if (trimmedUsername.length > 20) {
-      setUsernameError('Username must be 20 characters or less');
+      safeSetUsernameError('Username must be 20 characters or less');
       setIsLoading(false);
       return;
     }
 
-    if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
-      setUsernameError('Username can only contain letters, numbers, and underscores');
+    if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
+      safeSetUsernameError('Username can only contain letters, numbers, underscores, and hyphens');
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if username validation is still in progress
+    if (checkingUsername) {
+      safeSetUsernameError('Please wait while we verify your username...');
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if username has validation errors
+    if (usernameError) {
       setIsLoading(false);
       return;
     }
 
     // Password validation
     if (!password) {
-      setPasswordError('Please enter a password');
+      safeSetPasswordError('Please enter a password');
       setIsLoading(false);
       return;
     }
 
     if (password.length < 8) {
-      setPasswordError('Password must be at least 8 characters long');
+      safeSetPasswordError('Password must be at least 8 characters long');
       setIsLoading(false);
       return;
     }
 
     if (!/(?=.*[a-zA-Z])(?=.*\d)/.test(password)) {
-      setPasswordError('Password must contain both letters and numbers');
-      setIsLoading(false);
-      return;
-    }
-
-    // Check if username is available (from real-time checking)
-    if (usernameError) {
+      safeSetPasswordError('Password must contain both letters and numbers');
       setIsLoading(false);
       return;
     }
@@ -306,18 +380,18 @@ const AccountCreationScreen: React.FC = () => {
       </View>
 
       <RegistrationFooter
-        primaryButtonText="Next"
+        primaryButtonText={checkingUsername ? "Checking..." : "Next"}
         onPrimaryPress={handleNext}
         primaryButtonDisabled={
-          !username.trim() || 
-          !password || 
-          username.length < 3 || 
+          !username.trim() ||
+          !password ||
+          username.length < 3 ||
           password.length < 8 ||
           checkingUsername ||
           !!usernameError ||
           isLoading
         }
-        primaryButtonLoading={isLoading}
+        primaryButtonLoading={isLoading || checkingUsername}
       />
     </View>
   );

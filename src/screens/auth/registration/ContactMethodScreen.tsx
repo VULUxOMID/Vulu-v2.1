@@ -11,6 +11,7 @@ import { PhoneNumberInput } from '../../../components/auth/PhoneNumberInput';
 import { useRegistration } from '../../../context/RegistrationContext';
 import { Country } from '../../../data/countries';
 import { smsVerificationService } from '../../../services/smsVerificationService';
+import { createSafeStateSetter } from '../../../utils/safePropertySet';
 
 interface ContactMethodScreenProps {
   onBackToLanding?: () => void;
@@ -35,55 +36,117 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
   const [contactValue, setContactValue] = useState(registrationData.contactValue || '');
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [phoneValidationError, setPhoneValidationError] = useState<string | null>(null);
-  const [emailValidationError, setEmailValidationError] = useState<string | null>(null);
-  const [checkingEmailAvailability, setCheckingEmailAvailability] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+
+  // Create safe setters to prevent Hermes crashes
+  const safeSetError = (value: string | null) => {
+    try {
+      setError(value);
+    } catch (error) {
+      console.error('Safe setError failed:', error);
+    }
+  };
+
+  const safeSetEmailError = (value: string | null) => {
+    try {
+      setEmailError(value);
+    } catch (error) {
+      console.error('Safe setEmailError failed:', error);
+    }
+  };
+
+  const safeSetCheckingEmail = (value: boolean) => {
+    try {
+      setCheckingEmail(value);
+    } catch (error) {
+      console.error('Safe setCheckingEmail failed:', error);
+    }
+  };
+
+  const safeSetContactValue = (value: string) => {
+    try {
+      setContactValue(value);
+    } catch (error) {
+      console.error('Safe setContactValue failed:', error);
+    }
+  };
+
+  const safeSetPhoneValidationError = (value: string | null) => {
+    try {
+      setPhoneValidationError(value);
+    } catch (error) {
+      console.error('Safe setPhoneValidationError failed:', error);
+    }
+  };
 
   React.useEffect(() => {
     setCurrentStep(1);
   }, [setCurrentStep]);
 
-  // Real-time email availability check
+  // COMPREHENSIVE real-time email validation with debug logging
   useEffect(() => {
-    if (contactMethod === 'email' && contactValue.trim()) {
+    console.log('🔍 Email validation useEffect triggered:', { contactValue, contactMethod });
+
+    if (contactValue && contactMethod === 'email') {
+      // Validate email format first
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-      // Only check if email format is valid
-      if (emailRegex.test(contactValue.trim())) {
-        const timeoutId = setTimeout(async () => {
-          setCheckingEmailAvailability(true);
-          setEmailValidationError(null);
-
-          try {
-            console.log('🔄 Checking email availability:', contactValue.trim());
-            const { default: authService } = await import('../../../services/authService');
-            const isEmailRegistered = await authService.isEmailRegistered(contactValue.trim());
-
-            if (isEmailRegistered) {
-              console.log('❌ Email is already registered:', contactValue.trim());
-              setEmailValidationError('This email is already registered. Please sign in instead.');
-            } else {
-              console.log('✅ Email is available:', contactValue.trim());
-              setEmailValidationError(null);
-            }
-          } catch (err: any) {
-            console.warn('❌ Email availability check failed:', err);
-            // Don't show error for network issues during validation
-            setEmailValidationError(null);
-          }
-
-          setCheckingEmailAvailability(false);
-        }, 800);
-
-        return () => clearTimeout(timeoutId);
-      } else {
-        setEmailValidationError(null);
-        setCheckingEmailAvailability(false);
+      if (!emailRegex.test(contactValue)) {
+        console.log('❌ Invalid email format:', contactValue);
+        safeSetEmailError('Please enter a valid email address');
+        safeSetError(null);
+        return;
       }
+
+      // Debounce email checking
+      const timeoutId = setTimeout(async () => {
+        console.log('🔄 Starting email availability check for:', contactValue);
+        safeSetCheckingEmail(true);
+        safeSetEmailError(null);
+
+        try {
+          console.log('🔍 Importing authService...');
+          const { default: authService } = await import('../../../services/authService');
+          console.log('🔍 Calling isEmailRegistered for:', contactValue);
+          const isEmailRegistered = await authService.isEmailRegistered(contactValue);
+          console.log('📧 Email registration check result:', { email: contactValue, isRegistered: isEmailRegistered });
+
+          if (isEmailRegistered) {
+            console.log('❌ Email is already registered, setting error:', contactValue);
+            safeSetEmailError('This email is already registered. Please sign in instead.');
+            safeSetError('This email is already registered. Please sign in instead.');
+          } else {
+            console.log('✅ Email is available, clearing errors:', contactValue);
+            safeSetEmailError(null);
+            safeSetError(null);
+          }
+        } catch (err: any) {
+          console.error('❌ Email validation failed:', err);
+          safeSetEmailError('Unable to verify email. Please try again.');
+          safeSetError('Unable to verify email. Please try again.');
+        } finally {
+          console.log('🔄 Email check completed, setting checkingEmail to false');
+          safeSetCheckingEmail(false);
+        }
+      }, 1000); // 1 second debounce
+
+      return () => clearTimeout(timeoutId);
     } else {
-      setEmailValidationError(null);
-      setCheckingEmailAvailability(false);
+      console.log('🔄 Clearing email error (no contact value or not email method)');
+      safeSetEmailError(null);
     }
   }, [contactValue, contactMethod]);
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('🔍 Email validation state update:', {
+      contactValue,
+      contactMethod,
+      emailError,
+      checkingEmail,
+      buttonDisabled: !contactValue.trim() || checkingEmail || !!emailError || isLoading
+    });
+  }, [contactValue, contactMethod, emailError, checkingEmail, isLoading]);
 
   const handleContactMethodChange = (method: 'phone' | 'email') => {
     setContactMethod(method);
@@ -93,10 +156,10 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
   };
 
   const handleContactValueChange = (value: string) => {
-    setContactValue(value);
-    setError(null);
-    setPhoneValidationError(null);
-    setEmailValidationError(null);
+    safeSetContactValue(value);
+    safeSetError(null);
+    safeSetPhoneValidationError(null);
+    safeSetEmailError(null);
   };
 
   const handleCountryChange = (country: Country) => {
@@ -112,121 +175,71 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
   };
 
   const handleNext = async () => {
-    setIsLoading(true);
-    setError(null);
+    console.log('🔄 handleNext called with state:', {
+      contactValue: contactValue.trim(),
+      contactMethod,
+      emailError,
+      checkingEmail,
+      isLoading
+    });
 
-    // Validate current input directly (not from context)
+    setIsLoading(true);
+    safeSetError(null);
+
+    // Validate current input
     const trimmedValue = contactValue.trim();
 
     if (!trimmedValue) {
-      setError('Please enter your contact information');
+      console.log('❌ No contact value provided');
+      safeSetError('Please enter your email address');
       setIsLoading(false);
       return;
     }
 
-    // Validate email format and availability
-    if (contactMethod === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmedValue)) {
-        setError('Please enter a valid email address');
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if email is already registered
-      if (emailValidationError) {
-        setError(emailValidationError);
-        setIsLoading(false);
-        return;
-      }
-
-      // Wait for email availability check to complete
-      if (checkingEmailAvailability) {
-        setError('Checking email availability...');
-        setIsLoading(false);
-        return;
-      }
+    // Check if email validation is still in progress
+    if (checkingEmail) {
+      console.log('❌ Email validation still in progress');
+      safeSetError('Please wait while we verify your email...');
+      setIsLoading(false);
+      return;
     }
 
-    // Validate phone format
-    if (contactMethod === 'phone') {
-      // Check if there's a phone validation error
-      if (phoneValidationError) {
-        setError(phoneValidationError);
-        setIsLoading(false);
-        return;
-      }
-
-      // Basic phone validation as fallback
-      const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/;
-      if (!phoneRegex.test(trimmedValue)) {
-        setError('Please enter a valid phone number');
-        setIsLoading(false);
-        return;
-      }
+    // Check if email has validation errors
+    if (emailError) {
+      console.log('❌ Email has validation error:', emailError);
+      safeSetError(emailError);
+      setIsLoading(false);
+      return;
     }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (contactMethod === 'email' && !emailRegex.test(trimmedValue)) {
+      console.log('❌ Invalid email format:', trimmedValue);
+      safeSetError('Please enter a valid email address');
+      setIsLoading(false);
+      return;
+    }
+
+    console.log('✅ All validations passed, proceeding to next step');
 
     // Update registration data
-    const updateData: any = {
+    updateRegistrationData({
       contactMethod,
       contactValue: trimmedValue,
-    };
-
-    // Include country information for phone numbers
-    if (contactMethod === 'phone' && selectedCountry) {
-      updateData.countryCode = selectedCountry.dialCode;
-      updateData.countryISO = selectedCountry.iso2;
-      updateData.countryName = selectedCountry.name;
-    }
-
-    updateRegistrationData(updateData);
+    });
 
     try {
-      if (contactMethod === 'phone') {
-        // Send SMS verification code with consistent formatting
-        const cleanDialCode = selectedCountry?.dialCode?.replace(/\s/g, '') || '';
-        const cleanContactValue = trimmedValue.replace(/\s/g, '');
-        const phoneNumber = `${cleanDialCode}${cleanContactValue}`;
+      // For email registration - proceed to next step
+      console.log('📧 Email registration validated - proceeding to next step');
 
-        if (process.env.NODE_ENV === 'development') {
-          console.log('📱 Sending SMS verification');
-          console.log('  Country:', selectedCountry?.name);
-          console.log('  Phone length:', cleanContactValue.length);
-        }
+      // Simulate brief processing delay
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-        const result = await smsVerificationService.sendVerificationCode(phoneNumber);
-
-        if (result.success) {
-          // Store verification ID if available
-          if (result.verificationId) {
-            updateRegistrationData({ verificationId: result.verificationId });
-          }
-
-          // Move to phone verification step
-          setCurrentStep(2);
-        } else {
-          setError(result.error || 'Failed to send verification code. Please try again.');
-        }
-      } else {
-        // For email registration - implement Option B (skip immediate verification)
-        console.log('📧 Email registration selected - skipping immediate verification');
-
-        // Simulate email validation API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Mark email as the contact method and skip phone verification
-        updateRegistrationData({
-          emailVerificationRequired: false, // Will verify later in settings
-          skipPhoneVerification: true
-        });
-
-        console.log('✅ Email registration setup complete, moving to DisplayName screen');
-
-        // Skip phone verification step for email users
-        setCurrentStep(3);
-      }
+      // Move to next step (display name)
+      setCurrentStep(2);
     } catch (err: any) {
-      setError(err.message || 'Unable to verify contact information. Please try again.');
+      safeSetError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -290,8 +303,8 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
                 <TextInput
                   style={[
                     styles.textInput,
-                    emailValidationError && styles.textInputError,
-                    checkingEmailAvailability && styles.textInputChecking
+                    emailError && styles.textInputError,
+                    checkingEmail && styles.textInputChecking
                   ]}
                   value={contactValue}
                   onChangeText={handleContactValueChange}
@@ -300,13 +313,13 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
                   keyboardType={getInputKeyboardType()}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  editable={!isLoading && !checkingEmailAvailability}
+                  editable={!isLoading && !checkingEmail}
                 />
-                {checkingEmailAvailability && (
+                {checkingEmail && (
                   <Text style={styles.checkingText}>Checking availability...</Text>
                 )}
               </View>
-              {emailValidationError && <Text style={styles.errorText}>{emailValidationError}</Text>}
+              {emailError && <Text style={styles.errorText}>{emailError}</Text>}
               {error && <Text style={styles.errorText}>{error}</Text>}
             </>
           ) : (
@@ -340,10 +353,15 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
       </View>
 
       <RegistrationFooter
-        primaryButtonText="Next"
+        primaryButtonText={checkingEmail ? "Verifying..." : "Next"}
         onPrimaryPress={handleNext}
-        primaryButtonDisabled={!contactValue.trim() || isLoading}
-        primaryButtonLoading={isLoading}
+        primaryButtonDisabled={
+          !contactValue.trim() ||
+          checkingEmail ||
+          !!emailError ||
+          isLoading
+        }
+        primaryButtonLoading={isLoading || checkingEmail}
       />
     </View>
   );

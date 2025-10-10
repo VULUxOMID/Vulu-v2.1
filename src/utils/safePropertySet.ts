@@ -193,3 +193,55 @@ export function safeMerge<T extends object>(target: T, ...sources: Partial<T>[])
     return target;
   }
 }
+
+/**
+ * Create a safe state setter that prevents Hermes crashes
+ * @param setter The React state setter function
+ * @param context Context for error logging
+ * @returns A safe version of the setter
+ */
+export function createSafeStateSetter<T>(
+  setter: (value: T | ((prev: T) => T)) => void,
+  context?: string
+) {
+  return (value: T | ((prev: T) => T), fallbackValue?: T): boolean => {
+    try {
+      setter(value);
+      return true;
+    } catch (error) {
+      console.error(`Safe state setter failed${context ? ` in ${context}` : ''}:`, error);
+
+      // Try fallback value if provided
+      if (fallbackValue !== undefined) {
+        try {
+          setter(fallbackValue);
+          return true;
+        } catch (fallbackError) {
+          console.error(`Safe state setter fallback also failed${context ? ` in ${context}` : ''}:`, fallbackError);
+        }
+      }
+
+      return false;
+    }
+  };
+}
+
+/**
+ * Safe async operation wrapper
+ * @param operation The async operation to execute
+ * @param fallbackValue Value to return if operation fails
+ * @param context Context for error logging
+ * @returns Promise that resolves to result or fallback
+ */
+export async function safeAsync<T>(
+  operation: () => Promise<T>,
+  fallbackValue: T,
+  context?: string
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    console.error(`Safe async operation failed${context ? ` in ${context}` : ''}:`, error);
+    return fallbackValue;
+  }
+}
