@@ -249,7 +249,7 @@ const FriendRequestsScreen = () => {
         <ErrorState
           title="Feature Unavailable"
           message="Guest users cannot manage friend requests. Please create an account to use this feature."
-          onRetry={() => router.push('/auth')}
+          onRetry={() => router.push('/auth/selection')}
           retryText="Sign Up"
         />
       </SafeAreaView>

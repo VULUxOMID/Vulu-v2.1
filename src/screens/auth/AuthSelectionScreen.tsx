@@ -26,74 +26,6 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
 }) => {
   const router = useRouter();
   const { signIn } = useAuth();
-  const [isDevLoginLoading, setIsDevLoginLoading] = useState(false);
-  const [isDevLogin2Loading, setIsDevLogin2Loading] = useState(false);
-
-  // TEMPORARY DEV LOGIN - Remove before production release
-  const handleDevLogin = async () => {
-    if (!__DEV__) return; // Extra safety check
-
-    console.log('🔧 DEV LOGIN: Development login button pressed');
-    setIsDevLoginLoading(true);
-    try {
-      console.log('🔧 DEV LOGIN: Attempting automatic login with test credentials');
-      console.log('📧 Email: Amin@live.no');
-      console.log('🔑 Password: [HIDDEN]');
-
-      await signIn('Amin@live.no', 'Maxi123rio');
-
-      console.log('✅ DEV LOGIN: Authentication successful!');
-      console.log('🚀 DEV LOGIN: Navigating to main app...');
-      router.replace('/(main)');
-    } catch (error: any) {
-      console.error('❌ DEV LOGIN: Authentication failed', {
-        errorCode: error.code,
-        errorMessage: error.message,
-        timestamp: new Date().toISOString()
-      });
-
-      Alert.alert(
-        'Dev Login Failed',
-        `Could not login with test credentials:\n\nError: ${error.message}\n\nCheck console for details.`,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsDevLoginLoading(false);
-    }
-  };
-
-  // TEMPORARY DEV LOGIN 2 - Remove before production release
-  const handleDevLogin2 = async () => {
-    if (!__DEV__) return; // Extra safety check
-
-    console.log('🔧 DEV LOGIN 2: Development login button pressed');
-    setIsDevLogin2Loading(true);
-    try {
-      console.log('🔧 DEV LOGIN 2: Attempting automatic login with test credentials');
-      console.log('📧 Email: amin88@live.no');
-      console.log('🔑 Password: [HIDDEN]');
-
-      await signIn('amin88@live.no', 'Maxi123rio');
-
-      console.log('✅ DEV LOGIN 2: Authentication successful!');
-      console.log('🚀 DEV LOGIN 2: Navigating to main app...');
-      router.replace('/(main)');
-    } catch (error: any) {
-      console.error('❌ DEV LOGIN 2: Authentication failed', {
-        errorCode: error.code,
-        errorMessage: error.message,
-        timestamp: new Date().toISOString()
-      });
-
-      Alert.alert(
-        'Dev Login 2 Failed',
-        `Could not login with test credentials:\n\nError: ${error.message}\n\nCheck console for details.`,
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsDevLogin2Loading(false);
-    }
-  };
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -193,60 +125,6 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
                 <Ionicons name="chevron-forward" size={20} color={AuthColors.secondaryText} />
               </View>
             </TouchableOpacity>
-
-            {/* TEMPORARY: Development Login Button - REMOVE BEFORE PRODUCTION */}
-            {__DEV__ && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.devAction]}
-                onPress={handleDevLogin}
-                activeOpacity={0.8}
-                disabled={isDevLoginLoading}
-              >
-                <View style={styles.actionButtonContent}>
-                  <Ionicons
-                    name={isDevLoginLoading ? "hourglass" : "code-working"}
-                    size={20}
-                    color="#FF6B35"
-                  />
-                  <View style={styles.actionTextContainer}>
-                    <Text style={[styles.actionTitle, styles.devActionTitle]}>
-                      {isDevLoginLoading ? 'Logging in...' : 'DEV LOGIN'}
-                    </Text>
-                    <Text style={[styles.actionSubtitle, styles.devActionSubtitle]}>
-                      Test user: Amin@live.no
-                    </Text>
-                  </View>
-                  <Ionicons name="bug" size={20} color="#FF6B35" />
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* TEMPORARY: Development Login Button 2 - REMOVE BEFORE PRODUCTION */}
-            {__DEV__ && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.devAction2]}
-                onPress={handleDevLogin2}
-                activeOpacity={0.8}
-                disabled={isDevLogin2Loading}
-              >
-                <View style={styles.actionButtonContent}>
-                  <Ionicons
-                    name={isDevLogin2Loading ? "hourglass" : "code-working"}
-                    size={20}
-                    color="#35A7FF"
-                  />
-                  <View style={styles.actionTextContainer}>
-                    <Text style={[styles.actionTitle, styles.devAction2Title]}>
-                      {isDevLogin2Loading ? 'Logging in...' : 'DEV LOGIN 2'}
-                    </Text>
-                    <Text style={[styles.actionSubtitle, styles.devAction2Subtitle]}>
-                      Test user: amin88@live.no
-                    </Text>
-                  </View>
-                  <Ionicons name="bug" size={20} color="#35A7FF" />
-                </View>
-              </TouchableOpacity>
-            )}
           </View>
 
           {/* Footer */}
@@ -359,19 +237,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AuthColors.border,
   },
-  // TEMPORARY: Development button styles - REMOVE BEFORE PRODUCTION
-  devAction: {
-    backgroundColor: 'rgba(255, 107, 53, 0.1)', // Orange tint background
-    borderWidth: 2,
-    borderColor: '#FF6B35', // Orange border
-    borderStyle: 'dashed', // Dashed border to indicate temporary/dev nature
-  },
-  devAction2: {
-    backgroundColor: 'rgba(53, 167, 255, 0.1)', // Blue tint background
-    borderWidth: 2,
-    borderColor: '#35A7FF', // Blue border
-    borderStyle: 'dashed', // Dashed border to indicate temporary/dev nature
-  },
   actionButtonGradient: {
     height: 64,
     justifyContent: 'center',
@@ -398,15 +263,6 @@ const styles = StyleSheet.create({
   guestActionTitle: {
     color: AuthColors.secondaryText,
   },
-  // TEMPORARY: Development button text styles - REMOVE BEFORE PRODUCTION
-  devActionTitle: {
-    color: '#FF6B35', // Orange text
-    fontWeight: '700', // Bold to stand out
-  },
-  devAction2Title: {
-    color: '#35A7FF', // Blue text
-    fontWeight: '700', // Bold to stand out
-  },
   actionSubtitle: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.8)',
@@ -416,15 +272,6 @@ const styles = StyleSheet.create({
   },
   guestActionSubtitle: {
     color: AuthColors.mutedText,
-  },
-  // TEMPORARY: Development button subtitle styles - REMOVE BEFORE PRODUCTION
-  devActionSubtitle: {
-    color: 'rgba(255, 107, 53, 0.8)', // Muted orange
-    fontStyle: 'italic', // Italic to indicate temporary nature
-  },
-  devAction2Subtitle: {
-    color: 'rgba(53, 167, 255, 0.8)', // Muted blue
-    fontStyle: 'italic', // Italic to indicate temporary nature
   },
   footer: {
     alignItems: 'center',

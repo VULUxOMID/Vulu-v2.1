@@ -326,7 +326,7 @@ const LiveStreamGrid = () => {
         'You need to sign in to join live streams.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => router.push('/auth') }
+          { text: 'Sign In', onPress: () => router.push('/auth/selection') }
         ]
       );
       return;
@@ -385,7 +385,7 @@ const LiveStreamGrid = () => {
               text: 'Sign In',
               onPress: () => {
                 console.log('🔄 Redirecting to authentication screen');
-                router.push('/auth');
+                router.push('/auth/selection');
               }
             }
           ]
@@ -393,23 +393,10 @@ const LiveStreamGrid = () => {
         return;
       }
 
-      // 2. FIXED: Guest user upgrade flow - offer account upgrade instead of blocking
+      // 2. FIXED: Guest user upgrade flow - navigate directly to auth selection
       if (isGuest) {
-        console.log('🎭 Guest user wants to go live - offering account upgrade');
-        Alert.alert(
-          'Account Required',
-          'Guest users can view live streams but need a full account to create them. Choose how you\'d like to continue.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Choose Account Option',
-              onPress: () => {
-                console.log('🔄 Guest user choosing account option');
-                router.push('/auth/selection');
-              }
-            }
-          ]
-        );
+        console.log('🎭 Guest user wants to go live - redirecting to auth selection');
+        router.push('/auth/selection');
         return;
       }
 

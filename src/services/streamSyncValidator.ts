@@ -1,5 +1,5 @@
 import { doc, onSnapshot, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { ActiveStreamTracker } from './activeStreamTracker';
 import { PlatformUtils } from '../utils/platformUtils';
 
@@ -10,16 +10,30 @@ export class StreamSyncValidator {
   private static activeListeners = new Map<string, () => void>();
   private static syncCheckInterval: NodeJS.Timeout | null = null;
   private static isValidationActive = false;
-  
+
   // Sync validation settings (reduced frequency)
   private static readonly SYNC_CHECK_INTERVAL = 120 * 1000; // 2 minutes (reduced from 30 seconds)
   private static readonly MAX_SYNC_RETRIES = 3;
   private static readonly SYNC_RETRY_DELAY = 2000; // 2 seconds
+
+  /**
+   * Check if user is a guest user (not authenticated with Firebase)
+   */
+  private static isGuestUser(userId: string): boolean {
+    // Guest users have IDs that start with 'guest_'
+    return userId.startsWith('guest_') || !auth.currentUser;
+  }
   
   /**
    * Start real-time sync validation for a user with improved listener management
    */
   static startSyncValidation(userId: string, localStreamId: string | null): void {
+    // Handle guest users - they don't need Firebase sync validation
+    if (this.isGuestUser(userId)) {
+      console.log(`🎭 Guest user ${userId} - skipping sync validation (expected behavior)`);
+      return;
+    }
+
     // Always stop existing listener first to prevent duplicates
     this.stopSyncValidation(userId);
 
@@ -126,9 +140,15 @@ export class StreamSyncValidator {
     localStreamId: string | null,
     serverStreamId: string | null
   ): Promise<void> {
+    // Handle guest users - they don't have server state to resolve
+    if (this.isGuestUser(userId)) {
+      console.log(`🎭 Guest user ${userId} - no server state mismatch to resolve`);
+      return;
+    }
+
     try {
       console.log(`🔧 Resolving stream state mismatch for user ${userId}`);
-      
+
       // Validate server stream exists and is active
       let serverStreamValid = false;
       if (serverStreamId) {
@@ -307,13 +327,19 @@ export class StreamSyncValidator {
    * Validate sync before critical operations
    */
   static async validateSyncBeforeOperation(
-    userId: string, 
+    userId: string,
     localStreamId: string | null,
     operationType: 'join' | 'create' | 'leave'
   ): Promise<{ valid: boolean; correctedStreamId?: string | null }> {
+    // Handle guest users - they don't need sync validation
+    if (this.isGuestUser(userId)) {
+      console.log(`🎭 Guest user ${userId} - sync validation always valid for ${operationType}`);
+      return { valid: true };
+    }
+
     try {
       console.log(`🔍 Validating sync before ${operationType} operation for user ${userId}`);
-      
+
       const serverActiveStream = await ActiveStreamTracker.getActiveStream(userId);
       const serverStreamId = serverActiveStream?.streamId || null;
       

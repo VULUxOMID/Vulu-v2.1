@@ -1544,7 +1544,7 @@ const ProfileScreen = () => {
             {/* Improved swipe indicator line */}
             <View style={styles.swipeIndicatorContainer}>
               <View style={styles.swipeIndicator} />
-              <Text style={styles.swipeHintText}>@Sophia93</Text>
+              <Text style={styles.swipeHintText}>{username ? `@${username}` : (isGuest ? 'Guest' : 'User')}</Text>
             </View>
             
             {/* Pagination dots */}
@@ -1585,8 +1585,7 @@ const ProfileScreen = () => {
                 
                 <Text style={styles.previewBioTitle}>About Me</Text>
                 <Text style={styles.previewBioText}>
-                  Hey there! I'm Sophia. I love photography, music, and exploring new places.
-                  Feel free to message me anytime! 💫
+                  {userProfile?.bio || (isGuest ? 'Guest user - no bio available' : 'No bio set yet')}
                 </Text>
               </View>
             ) : (

@@ -257,7 +257,7 @@ const UserSearchScreen = () => {
         </View>
         <ErrorState
           error="Guest users cannot add friends. Please create an account to use this feature."
-          onRetry={() => router.push('/auth')}
+          onRetry={() => router.push('/auth/selection')}
         />
       </SafeAreaView>
     );

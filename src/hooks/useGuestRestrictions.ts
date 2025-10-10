@@ -14,18 +14,9 @@ export const useGuestRestrictions = () => {
   };
 
   const handleGuestRestriction = (feature: string) => {
-    Alert.alert(
-      'Account Required',
-      `Guest users can browse but need a full account to access ${feature}. Choose how you'd like to continue.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Choose Account Option',
-          style: 'default',
-          onPress: navigateToAuthSelection
-        }
-      ]
-    );
+    // Navigate directly to auth selection page (which has login option) instead of showing popup
+    console.log(`🎭 Guest user trying to access ${feature}, redirecting to auth selection`);
+    router.push('/auth/selection');
   };
 
   const canSendMessages = () => {

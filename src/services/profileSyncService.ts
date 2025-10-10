@@ -1,15 +1,15 @@
-import { 
-  doc, 
-  updateDoc, 
-  query, 
-  where, 
-  getDocs, 
+import {
+  doc,
+  updateDoc,
+  query,
+  where,
+  getDocs,
   collection,
   writeBatch,
   onSnapshot,
   Unsubscribe
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { firestoreService } from './firestoreService';
 import { AppUser } from './types';
 
@@ -38,16 +38,31 @@ class ProfileSyncService {
   private profileListeners: Map<string, Unsubscribe> = new Map();
   private profileRetryCounts: Map<string, number> = new Map();
   private profileRetryTimers: Map<string, NodeJS.Timeout> = new Map();
-  
+
   // Exponential backoff configuration
   private readonly maxRetries = 5;
   private readonly baseDelay = 1000; // 1 second
   private readonly maxDelay = 30000; // 30 seconds
 
   /**
+   * Check if user is a guest user (not authenticated with Firebase)
+   */
+  private isGuestUser(userId: string): boolean {
+    // Guest users have IDs that start with 'guest_'
+    return userId.startsWith('guest_') || !auth.currentUser;
+  }
+
+  /**
    * Start monitoring a user's profile for changes and sync to conversations
    */
   startProfileSync(userId: string): Unsubscribe {
+    // Handle guest users - they don't have Firebase profiles to sync
+    if (this.isGuestUser(userId)) {
+      console.log(`🎭 Guest user ${userId} - skipping profile sync (expected behavior)`);
+      // Return a no-op unsubscribe function
+      return () => {};
+    }
+
     // Clean up existing listener if any
     this.stopProfileSync(userId);
 
@@ -160,6 +175,12 @@ class ProfileSyncService {
    * Manually sync a user's profile to all their conversations
    */
   async syncProfileToConversations(userId: string, profileData: ProfileUpdateData): Promise<void> {
+    // Handle guest users - they don't have conversations to sync
+    if (this.isGuestUser(userId)) {
+      console.log(`🎭 Guest user ${userId} - skipping conversation sync (expected behavior)`);
+      return;
+    }
+
     try {
       console.log(`🔄 Syncing profile for user ${userId} to conversations...`);
 

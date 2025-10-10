@@ -61,7 +61,7 @@ const LiveScreen: React.FC = () => {
         'You need to sign in to join live streams.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => router.push('/auth') }
+          { text: 'Sign In', onPress: () => router.push('/auth/selection') }
         ]
       );
       return;

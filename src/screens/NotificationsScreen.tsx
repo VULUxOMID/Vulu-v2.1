@@ -367,7 +367,7 @@ const NotificationsScreen = () => {
           <Text style={styles.guestText}>Create an account or sign in to receive notifications from friends and the community</Text>
           <TouchableOpacity 
             style={styles.signInButton}
-            onPress={() => router.push('/auth')}
+            onPress={() => router.push('/auth/selection')}
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>

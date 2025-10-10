@@ -654,7 +654,7 @@ const DirectMessagesScreen = () => {
             actionText="Sign In"
             onAction={() => {
               // Navigate to auth screen
-              router.push('/auth');
+              router.push('/auth/selection');
             }}
           />
         ) : isLoading ? (
