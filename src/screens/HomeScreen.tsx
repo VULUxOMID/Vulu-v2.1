@@ -146,6 +146,11 @@ const HomeScreen = () => {
 
   const [spotlightModalVisible, setSpotlightModalVisible] = useState(false);
   const [spotlightQueuePosition, setSpotlightQueuePosition] = useState<number>(0);
+  
+  // Animation for spotlight modal overlay
+  const spotlightOverlayAnim = useRef(new Animated.Value(0)).current;
+  // Animation for global chat modal overlay
+  const globalChatOpacity = useRef(new Animated.Value(0)).current;
   // State for Virtual Currency (moved up to be available early)
   const [currencyBalances, setCurrencyBalances] = useState<CurrencyBalance>({
     gold: 0,
@@ -942,8 +947,24 @@ const HomeScreen = () => {
   }, [isEventExpanded]); // Add dependency array
 
   /* First declaration of renderMinimalEventWidget removed */
-  const openSpotlightModal = () => setSpotlightModalVisible(true);
-  const closeSpotlightModal = () => setSpotlightModalVisible(false);
+  const openSpotlightModal = () => {
+    setSpotlightModalVisible(true);
+    Animated.timing(spotlightOverlayAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  
+  const closeSpotlightModal = () => {
+    Animated.timing(spotlightOverlayAnim, {
+      toValue: 0,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setSpotlightModalVisible(false);
+    });
+  };
   const purchaseSpotlight = async (minutes: number, cost: number) => {
     if (goldBalance < cost) {
       // Handle insufficient balance
@@ -1456,55 +1477,62 @@ const HomeScreen = () => {
               
               {/* Daily gems section */}
               <View style={{
-                flexDirection: 'row', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
                 paddingVertical: 12,
                 borderBottomWidth: 1,
                 borderBottomColor: 'rgba(255, 255, 255, 0.1)',
                 marginBottom: 16
               }}>
-                <View>
-                  <Text style={{
-                    color: 'rgba(255, 255, 255, 0.6)', 
-                    fontSize: 12,
-                    marginBottom: 4
-                  }}>Daily Gems</Text>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    {dailyGems > 0 ? (
-                      <>
+                <View style={{
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: 8
+                }}>
+                  <View>
+                    <Text style={{
+                      color: 'rgba(255, 255, 255, 0.6)', 
+                      fontSize: 12,
+                      marginBottom: 4
+                    }}>Daily Gems</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                      {dailyGems > 0 ? (
+                        <>
+                          <Text style={{
+                            color: 'rgba(255, 255, 255, 0.9)',
+                            fontWeight: 'bold',
+                            fontSize: 16
+                          }}>{dailyGems}</Text>
+                          <MaterialCommunityIcons
+                            name="diamond-stone"
+                            size={14}
+                            color="rgba(183, 104, 251, 0.7)"
+                            style={{marginLeft: 4}}
+                          />
+                        </>
+                      ) : (
                         <Text style={{
-                          color: 'rgba(255, 255, 255, 0.9)',
-                          fontWeight: 'bold',
-                          fontSize: 16
-                        }}>{dailyGems}</Text>
-                        <MaterialCommunityIcons
-                          name="diamond-stone"
-                          size={14}
-                          color="rgba(183, 104, 251, 0.7)"
-                          style={{marginLeft: 4}}
-                        />
-                      </>
-                    ) : (
-                      <Text style={{
-                        color: 'rgba(255, 255, 255, 0.6)',
-                        fontSize: 14,
-                        fontStyle: 'italic'
-                      }}>Upgrade to get daily gems</Text>
-                    )}
+                          color: 'rgba(255, 255, 255, 0.6)',
+                          fontSize: 14,
+                          fontStyle: 'italic'
+                        }}>Upgrade to get daily gems</Text>
+                      )}
+                    </View>
                   </View>
                 </View>
                 
                 <View style={{
                   backgroundColor: 'rgba(183, 104, 251, 0.15)',
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  borderRadius: 10
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 10,
+                  width: '100%'
                 }}>
                   <Text style={{
                     color: '#B768FB',
-                    fontSize: 11,
-                    fontWeight: '500'
+                    fontSize: 10,
+                    fontWeight: '500',
+                    textAlign: 'center',
+                    lineHeight: 14
                   }}>
                     {isSubscriptionActive() ? `Renews in ${daysUntilRenewal} days` : 'Weekly: 200 gems • Monthly: 500 gems'}
                   </Text>
@@ -2270,7 +2298,14 @@ const HomeScreen = () => {
     return (
       <View style={{position: 'relative', marginBottom: 16}}>
         <TouchableOpacity 
-          onPress={() => setShowGlobalChatModal(true)}
+          onPress={() => {
+            setShowGlobalChatModal(true);
+            Animated.timing(globalChatOpacity, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }).start();
+          }}
           activeOpacity={0.7}
           style={[styles.minimalEventContainer, {
             backgroundColor: '#1C1D23',
@@ -2319,11 +2354,36 @@ const HomeScreen = () => {
       <Modal
         visible={showGlobalChatModal}
         transparent
-        animationType="slide"
-        onRequestClose={() => setShowGlobalChatModal(false)}
+        animationType="none"
+        onRequestClose={() => {
+          Animated.timing(globalChatOpacity, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          }).start(() => {
+            setShowGlobalChatModal(false);
+          });
+        }}
       >
-        <View style={styles.modalOverlay}>
-          {/* No touchable overlay to prevent dismissing when tapping outside */}
+        <Animated.View 
+          style={[
+            styles.modalOverlay,
+            { opacity: globalChatOpacity }
+          ]}
+        >
+          <TouchableOpacity 
+            style={styles.modalOverlayTouchable}
+            activeOpacity={1}
+            onPress={() => {
+              Animated.timing(globalChatOpacity, {
+                toValue: 0,
+                duration: 250,
+                useNativeDriver: true,
+              }).start(() => {
+                setShowGlobalChatModal(false);
+              });
+            }}
+          />
           <View style={styles.globalChatContainer}>
             {/* Swipeable area that includes both handle and header */}
             <View {...chatPanResponder.panHandlers} style={styles.swipeableArea}>
@@ -2333,7 +2393,15 @@ const HomeScreen = () => {
               {/* Chat Header */}
               <View style={styles.globalChatHeader}>
                 <Text style={styles.globalChatTitle}>Global Chat</Text>
-                <TouchableOpacity onPress={() => setShowGlobalChatModal(false)}>
+                <TouchableOpacity onPress={() => {
+                  Animated.timing(globalChatOpacity, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: true,
+                  }).start(() => {
+                    setShowGlobalChatModal(false);
+                  });
+                }}>
                   <MaterialCommunityIcons name="close" size={24} color="#FFF" />
                 </TouchableOpacity>
               </View>
@@ -2424,7 +2492,7 @@ const HomeScreen = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </Animated.View>
       </Modal>
     );
   };
@@ -2467,7 +2535,12 @@ const HomeScreen = () => {
         animationType="none"
         onRequestClose={hideGoldConversionPopup}
       >
-        <View style={styles.modalOverlay}>
+        <Animated.View 
+          style={[
+            styles.modalOverlay,
+            { opacity: goldPopupOpacity }
+          ]}
+        >
           <TouchableOpacity 
             style={styles.modalOverlayTouchable}
             activeOpacity={1}
@@ -2578,7 +2651,7 @@ const HomeScreen = () => {
               </View>
             </LinearGradient>
           </Animated.View>
-        </View>
+        </Animated.View>
       </Modal>
 
       <ScrollableContentContainer
@@ -2713,9 +2786,23 @@ const HomeScreen = () => {
       </ScrollableContentContainer>
       
       {/* Spotlight management modal */}
-      <Modal visible={spotlightModalVisible} transparent animationType="slide">
-        <View style={styles.spotlightModalOverlay}>
-          <View style={styles.spotlightModalContent}>
+      <Modal visible={spotlightModalVisible} transparent animationType="none">
+        <Animated.View 
+          style={[
+            styles.spotlightModalOverlay,
+            { opacity: spotlightOverlayAnim }
+          ]}
+        >
+          <TouchableOpacity 
+            style={styles.spotlightModalBackground}
+            activeOpacity={1}
+            onPress={closeSpotlightModal}
+          />
+          <TouchableOpacity 
+            style={styles.spotlightModalContent}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
             <Text style={styles.spotlightModalTitle}>Manage Your Spotlight</Text>
             <TouchableOpacity 
               style={styles.goldBalanceContainer}
@@ -2755,8 +2842,8 @@ const HomeScreen = () => {
             <TouchableOpacity style={styles.spotlightCloseButton} onPress={closeSpotlightModal}>
               <Text style={styles.spotlightCloseText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </Animated.View>
       </Modal>
 
       {/* Activity Modal */}
@@ -2790,6 +2877,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#131318',
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   header: {
     position: 'relative',
@@ -2845,6 +2937,11 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
   },
   
   // Horizontal Widgets Container
@@ -3591,9 +3688,23 @@ const styles = StyleSheet.create({
   },
   spotlightModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  spotlightModalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    // Add subtle blur effect simulation
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   spotlightModalContent: {
     width: '80%',
@@ -3601,6 +3712,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   spotlightModalTitle: {
     fontSize: 18,
@@ -3762,9 +3880,9 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   modalOverlayTouchable: {
     position: 'absolute',
@@ -3772,6 +3890,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   goldPopupContainer: {
     position: 'absolute',

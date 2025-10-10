@@ -108,7 +108,7 @@ const MessageDeleteModal: React.FC<MessageDeleteModalProps> = ({
 
   if (!canDeleteForEveryone && !canDeleteForMe && deleteReason) {
     return (
-      <Modal visible={visible} transparent animationType="fade">
+      <Modal visible={visible} transparent animationType="none">
         <View style={styles.modalOverlay}>
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={48} color="#FF6B6B" />

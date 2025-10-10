@@ -1163,7 +1163,12 @@ const ProfileScreen = () => {
         animationType="none"
         onRequestClose={hideStatusMenu}
       >
-        <View style={styles.modalOverlay}>
+        <Animated.View 
+          style={[
+            styles.modalOverlay,
+            { opacity: statusSelectorOpacity }
+          ]}
+        >
           <TouchableOpacity 
             style={styles.modalOverlayTouchable}
             activeOpacity={1}
@@ -1430,7 +1435,7 @@ const ProfileScreen = () => {
               </View>
             )}
           </Animated.View>
-        </View>
+        </Animated.View>
       </Modal>
       
       {/* Profile Preview Modal */}
@@ -2168,9 +2173,9 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   modalOverlayTouchable: {
     position: 'absolute',
@@ -2178,6 +2183,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   statusSelectorContainer: {
     position: 'absolute',
@@ -2376,9 +2387,9 @@ const styles = StyleSheet.create({
   // Styles for currency and gem+ section removed
   previewOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   previewOverlayTouchable: {
     position: 'absolute',
@@ -2386,6 +2397,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   previewCard: {
     width: '90%',

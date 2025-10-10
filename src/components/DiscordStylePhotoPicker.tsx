@@ -247,7 +247,7 @@ const DiscordStylePhotoPicker: React.FC<DiscordStylePhotoPickerProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="none">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           {/* Header */}

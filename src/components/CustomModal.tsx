@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { 
   Modal, 
   View, 
@@ -8,7 +8,8 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
   Platform,
-  GestureResponderEvent
+  GestureResponderEvent,
+  Animated
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -47,6 +48,23 @@ const CustomModal: React.FC<CustomModalProps> = ({
   icon,
   gemInfo
 }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible, fadeAnim]);
   // If there's no explicit confirm button but there's a destructive one, treat it as confirm
   const primaryButton = buttons.find(b => b.type === 'confirm') || 
                        buttons.find(b => b.type === 'destructive');
@@ -59,16 +77,24 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
   return (
     <Modal
-      animationType="fade"
+      animationType="none"
       transparent={true}
       visible={visible}
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.centeredView}>
-          <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
-          
-          <TouchableWithoutFeedback onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
+      <Animated.View 
+        style={[
+          styles.centeredView,
+          { opacity: fadeAnim }
+        ]}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.modalBackground}>
+            <BlurView intensity={60} tint="dark" style={StyleSheet.absoluteFill} />
+          </View>
+        </TouchableWithoutFeedback>
+        
+        <TouchableWithoutFeedback onPress={(e: GestureResponderEvent) => e.stopPropagation()}>
             <View style={styles.modalView}>
               {/* Optional Icon */}
               {icon && (
@@ -153,8 +179,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
               </View>
             </View>
           </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+      </Animated.View>
     </Modal>
   );
 };
@@ -164,7 +189,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    position: 'relative',
+  },
+  modalBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
   },
   modalView: {
     width: width * 0.85,

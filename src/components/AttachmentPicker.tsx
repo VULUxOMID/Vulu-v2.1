@@ -107,7 +107,7 @@ const AttachmentPicker: React.FC<AttachmentPickerProps> = ({
   ];
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="none">
       <View style={styles.modalOverlay}>
         <View style={styles.modalContainer}>
           <View style={styles.header}>

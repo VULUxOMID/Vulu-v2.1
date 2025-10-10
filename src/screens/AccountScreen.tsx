@@ -953,7 +953,7 @@ const AccountScreen = () => {
       <Modal
         visible={showBlockedUsersModal}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={closeBlockedUsersModal}
       >
         <View style={styles.modalOverlay}>
@@ -1221,7 +1221,12 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalOverlayTouch: {
     flex: 1,

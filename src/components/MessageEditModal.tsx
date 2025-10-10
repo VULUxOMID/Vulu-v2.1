@@ -118,7 +118,7 @@ const MessageEditModal: React.FC<MessageEditModalProps> = ({
 
   if (!canEdit && editReason) {
     return (
-      <Modal visible={visible} transparent animationType="fade">
+      <Modal visible={visible} transparent animationType="none">
         <View style={styles.modalOverlay}>
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={48} color="#FF6B6B" />
@@ -134,7 +134,7 @@ const MessageEditModal: React.FC<MessageEditModalProps> = ({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="none">
       <KeyboardAvoidingView
         style={styles.modalOverlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -221,9 +221,14 @@ const MessageEditModal: React.FC<MessageEditModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalContainer: {
     backgroundColor: 'white',

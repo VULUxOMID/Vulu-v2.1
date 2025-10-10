@@ -282,7 +282,8 @@ const ActivityModal = ({
         onPress={closeModal}
       >
         <Animated.View style={[styles.backdropContent, { opacity }]}>
-          <BlurView intensity={30} style={StyleSheet.absoluteFill} tint="dark" />
+          <BlurView intensity={60} style={StyleSheet.absoluteFill} tint="dark" />
+          <View style={styles.enhancedBackdrop} />
         </Animated.View>
       </TouchableOpacity>
 
@@ -515,6 +516,15 @@ const styles = StyleSheet.create({
   backdropContent: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+  enhancedBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalContainer: {
     position: 'absolute',

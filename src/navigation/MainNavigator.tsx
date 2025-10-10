@@ -82,8 +82,10 @@ const MainTabNavigator = () => {
         },
         tabBarStyle: {
           backgroundColor: 'transparent',
-          elevation: 10,
+          elevation: 0,
           borderTopWidth: 0,
+          borderWidth: 0,
+          borderColor: 'transparent',
           position: 'absolute',
           bottom: 0,
           left: 0,
