@@ -73,6 +73,11 @@ const AccountScreen = () => {
 
   // Validate username uniqueness
   const validateUsername = async (newUsername: string): Promise<boolean> => {
+    if (isGuest) {
+      setErrorMessage('Guest users cannot validate usernames');
+      return false;
+    }
+
     if (!newUsername || newUsername === userProfile?.username) {
       return true; // No change or empty
     }
@@ -187,6 +192,12 @@ const AccountScreen = () => {
   };
 
   const handleLogout = () => {
+    if (isGuest) {
+      // For guest users, navigate to sign in instead of signing out
+      router.push('/auth/selection');
+      return;
+    }
+
     Alert.alert(
       'Sign Out',
       'Are you sure you want to sign out of your account?',
@@ -220,6 +231,20 @@ const AccountScreen = () => {
   };
 
   const handleDeleteAccount = () => {
+    if (isGuest) {
+      Alert.alert(
+        'Cannot Delete Guest Account',
+        'Guest accounts cannot be deleted. To create a permanent account, please sign up.',
+        [
+          {
+            text: 'OK',
+            style: 'default'
+          }
+        ]
+      );
+      return;
+    }
+
     Alert.alert(
       'Delete Account',
       'Are you sure you want to delete your account?\n\nThis action cannot be undone and you will lose all your data, messages, and settings.',
@@ -597,29 +622,33 @@ const AccountScreen = () => {
             style={styles.logoutContainer}
             onPress={handleLogout}
           >
-            <Feather name="log-out" size={16} color="#FF9500" style={styles.logoutIcon} />
-            <Text style={styles.logoutText}>Sign Out</Text>
+            <Feather name={isGuest ? "log-in" : "log-out"} size={16} color="#FF9500" style={styles.logoutIcon} />
+            <Text style={styles.logoutText}>{isGuest ? "Sign In" : "Sign Out"}</Text>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          {!isGuest && (
+            <>
+              <View style={styles.divider} />
 
-          <TouchableOpacity 
-            style={styles.deleteAccountContainer}
-            onPress={handleDeleteAccount}
-            disabled={isDeleting}
-          >
-            {isDeleting ? (
-              <>
-                <ActivityIndicator size="small" color="#FF3B30" style={styles.deleteIcon} />
-                <Text style={styles.deleteAccountText}>Deleting Account...</Text>
-              </>
-            ) : (
-              <>
-                <Feather name="trash-2" size={16} color="#FF3B30" style={styles.deleteIcon} />
-                <Text style={styles.deleteAccountText}>Delete Account</Text>
-              </>
-            )}
-          </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deleteAccountContainer}
+                onPress={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <ActivityIndicator size="small" color="#FF3B30" style={styles.deleteIcon} />
+                    <Text style={styles.deleteAccountText}>Deleting Account...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Feather name="trash-2" size={16} color="#FF3B30" style={styles.deleteIcon} />
+                    <Text style={styles.deleteAccountText}>Delete Account</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
         </LinearGradient>
       </View>
     );
@@ -1037,15 +1066,15 @@ const AccountScreen = () => {
           { paddingTop: 5 }
         ]}
       >
-        {renderAccountInformation()}
-        {renderSignInSection()}
-        {renderUsersSection()}
-        {renderShopSection()}
+        {!isGuest && renderAccountInformation()}
+        {!isGuest && renderSignInSection()}
+        {!isGuest && renderUsersSection()}
+        {!isGuest && renderShopSection()}
 
-        <SecurityMonitor showDetails={true} />
-        <SecuritySettings />
+        {!isGuest && <SecurityMonitor showDetails={true} />}
+        {!isGuest && <SecuritySettings />}
 
-        {/* Discord Theme Toggle */}
+        {/* Discord Theme Toggle - available for all users */}
         <DiscordThemeToggle style={{ marginHorizontal: 20, marginVertical: 10 }} />
 
         {renderAccountManagement()}
@@ -1053,10 +1082,10 @@ const AccountScreen = () => {
         <View style={{ height: 40 }} />
       </ScrollableContentContainer>
       
-      {renderEditModal()}
-      {renderPasswordModal()}
-      {renderDeleteAccountModal()}
-      {renderBlockedUsersModal()}
+      {!isGuest && renderEditModal()}
+      {!isGuest && renderPasswordModal()}
+      {!isGuest && renderDeleteAccountModal()}
+      {!isGuest && renderBlockedUsersModal()}
       
       {showToast && (
         <View style={styles.toast}>
