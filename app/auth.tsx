@@ -10,7 +10,7 @@ import { OnboardingProvider } from '../src/context/OnboardingContext';
 const OnboardingNavigator = lazy(() => import('../src/navigation/OnboardingNavigator'));
 
 export default function Auth() {
-  const { user, loading, isGuest } = useAuth();
+  const { user, loading, isGuest, justRegistered, clearRegistrationFlag } = useAuth();
   const router = useRouter();
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
@@ -45,12 +45,20 @@ export default function Auth() {
         return;
       }
 
+      // CRITICAL FIX: Skip onboarding for newly registered users
+      if (justRegistered) {
+        console.log('✅ User just registered, skipping onboarding and going to main app');
+        clearRegistrationFlag(); // Clear the flag
+        router.replace('/(main)');
+        return;
+      }
+
       if (onboardingCompleted) {
         router.replace('/(main)');
       }
       // If onboarding not completed for regular users, stay in auth flow to show onboarding
     }
-  }, [user, loading, checkingOnboarding, onboardingCompleted, isGuest, router]);
+  }, [user, loading, checkingOnboarding, onboardingCompleted, isGuest, justRegistered, router, clearRegistrationFlag]);
 
   // Show loading screen while checking authentication or onboarding
   if (loading || checkingOnboarding) {

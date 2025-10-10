@@ -22,7 +22,20 @@ public class AppDelegate: ExpoAppDelegate {
     bindReactNativeFactory(factory)
 
 #if os(iOS) || os(tvOS)
-    window = UIWindow(frame: UIScreen.main.bounds)
+    // Fix iOS 26+ deprecation: Use windowScene instead of UIScreen.main.bounds
+    if #available(iOS 13.0, *) {
+      // For iOS 13+, use window scene
+      if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+        window = UIWindow(windowScene: windowScene)
+      } else {
+        // Fallback for edge cases
+        window = UIWindow(frame: UIScreen.main.bounds)
+      }
+    } else {
+      // Fallback for iOS 12 and below
+      window = UIWindow(frame: UIScreen.main.bounds)
+    }
+
     factory.startReactNative(
       withModuleName: "main",
       in: window,

@@ -52,9 +52,30 @@ const initializeFirebase = (): { success: boolean; error?: Error } => {
         persistence: getReactNativePersistence(AsyncStorage)
       });
       console.log('✅ Firebase Auth initialized with AsyncStorage persistence');
+
+      // Verify persistence is working
+      console.log('🔄 Checking Firebase Auth persistence...');
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        console.log('✅ Auth state restored from persistence:', {
+          uid: currentUser.uid,
+          email: currentUser.email
+        });
+      } else {
+        console.log('ℹ️ No persisted auth state found (user not signed in)');
+      }
     } catch (authError: any) {
       console.error('❌ Firebase Auth initialization failed:', authError);
-      throw authError;
+
+      // Try fallback initialization without explicit persistence
+      try {
+        console.log('🔄 Attempting fallback auth initialization...');
+        auth = getAuth(app);
+        console.log('✅ Firebase Auth initialized with fallback method');
+      } catch (fallbackError) {
+        console.error('❌ Fallback auth initialization also failed:', fallbackError);
+        throw authError; // Throw original error
+      }
     }
 
     // Initialize Firestore

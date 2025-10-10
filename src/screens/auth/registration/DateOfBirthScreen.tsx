@@ -12,19 +12,20 @@ import { useRegistration } from '../../../context/RegistrationContext';
 import { useAuth } from '../../../context/AuthContext';
 import { profileSyncService } from '../../../services/profileSyncService';
 import { auth } from '../../../services/firebase';
+import FirebaseErrorHandler from '../../../utils/firebaseErrorHandler';
 
 const DateOfBirthScreen: React.FC = () => {
   const router = useRouter();
-  const { signUp } = useAuth();
-  const { 
-    registrationData, 
-    updateRegistrationData, 
-    setCurrentStep, 
+  const { signUp, markRegistrationComplete } = useAuth();
+  const {
+    registrationData,
+    updateRegistrationData,
+    setCurrentStep,
     validateStep,
     isLoading,
     setIsLoading,
     error,
-    setError 
+    setError
   } = useRegistration();
 
   const [dateOfBirth, setDateOfBirth] = useState<Date>(
@@ -54,49 +55,66 @@ const DateOfBirthScreen: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    // Update registration data
-    updateRegistrationData({
-      dateOfBirth,
-    });
-
-    // Validate current input directly (not from context)
-    const age = getAge();
-    if (age < 13) {
-      Alert.alert(
-        'Age Requirement',
-        'You must be at least 13 years old to create a VuluGO account. This is required by law to protect your privacy.',
-        [
-          {
-            text: 'Go Back',
-            onPress: () => {
-              setIsLoading(false);
-              setCurrentStep(4);
-            }
-          }
-        ]
-      );
-      return;
-    }
-
-    if (age > 120) {
-      setError('Please enter a valid date of birth');
-      setIsLoading(false);
-      return;
-    }
-
-
-
     try {
-      // Create Firebase account
+      // Update registration data
+      updateRegistrationData({
+        dateOfBirth,
+      });
+
+      // Validate current input directly (not from context)
+      const age = getAge();
+      if (age < 13) {
+        Alert.alert(
+          'Age Requirement',
+          'You must be at least 13 years old to create a VuluGO account. This is required by law to protect your privacy.',
+          [
+            {
+              text: 'Go Back',
+              onPress: () => {
+                setIsLoading(false);
+                setCurrentStep(4);
+              }
+            }
+          ]
+        );
+        return;
+      }
+
+      if (age > 120) {
+        setError('Please enter a valid date of birth');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate required registration data before proceeding
+      if (!registrationData.contactValue || !registrationData.password ||
+          !registrationData.displayName || !registrationData.username) {
+        setError('Missing required registration information. Please go back and complete all fields.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Create Firebase account with enhanced error handling
       const email = registrationData.contactMethod === 'email'
         ? registrationData.contactValue
         : `${registrationData.username}@temp.vulugotemp.com`;
+
+      console.log('🔄 Starting registration process...', {
+        contactMethod: registrationData.contactMethod,
+        hasEmail: !!email,
+        hasPassword: !!registrationData.password,
+        hasDisplayName: !!registrationData.displayName,
+        hasUsername: !!registrationData.username
+      });
+
       await signUp(
         email!,
         registrationData.password!,
         registrationData.displayName!,
         registrationData.username!
       );
+
+      console.log('✅ Registration successful, syncing additional data...');
 
       // Sync additional registration data to profile
       try {
@@ -111,17 +129,60 @@ const DateOfBirthScreen: React.FC = () => {
             dateOfBirth,
             phoneVerified: registrationData.phoneVerified
           });
+          console.log('✅ Profile sync completed successfully');
         }
       } catch (syncError) {
         console.warn('Failed to sync registration data to profile:', syncError);
         // Don't fail the registration process for sync errors
       }
 
-      // Navigate to main app or onboarding
+      // CRITICAL FIX: Mark registration as complete to skip onboarding
+      markRegistrationComplete();
+
+      console.log('✅ Registration process completed, navigating to main app...');
+      // Navigate to main app (will skip onboarding due to justRegistered flag)
       router.replace('/(main)');
     } catch (err: any) {
-      console.error('Registration error:', err);
-      setError(err.message || 'Failed to create account. Please try again.');
+      console.error('❌ Registration error:', err);
+
+      // Enhanced error handling with specific checks
+      let errorMessage = 'Failed to create account. Please try again.';
+
+      try {
+        // Use enhanced Firebase error handling
+        const errorInfo = FirebaseErrorHandler.formatAuthErrorForUI(err);
+        errorMessage = errorInfo.message;
+
+        // Special handling for specific error types
+        if (err?.code === 'auth/email-already-in-use') {
+          errorMessage = 'This email is already registered. Please sign in instead or use a different email.';
+        } else if (err?.code === 'auth/weak-password') {
+          errorMessage = 'Password is too weak. Please choose a stronger password with at least 6 characters.';
+        } else if (err?.code === 'auth/invalid-email') {
+          errorMessage = 'Please enter a valid email address.';
+        } else if (err?.code === 'auth/network-request-failed') {
+          errorMessage = 'Network error. Please check your internet connection and try again.';
+        }
+      } catch (handlingError) {
+        console.error('Error in error handling:', handlingError);
+        // Use fallback error message
+      }
+
+      setError(errorMessage);
+
+      // Log the error for debugging (without PII)
+      try {
+        FirebaseErrorHandler.logError('registration', err, {
+          contactMethod: registrationData.contactMethod,
+          hasUsername: !!registrationData.username,
+          hasDisplayName: !!registrationData.displayName,
+          age: getAge(),
+          errorCode: err?.code,
+          errorMessage: err?.message
+        });
+      } catch (loggingError) {
+        console.error('Error logging registration error:', loggingError);
+      }
     } finally {
       setIsLoading(false);
     }

@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authService, GuestUser } from '../services/authService';
 import { firestoreService } from '../services/firestoreService';
 import { sessionService } from '../services/sessionService';
+import { safePropertySet, SafeTimer, safeAsync } from '../utils/crashPrevention';
 // Import socialAuthService dynamically to avoid Google Sign-In errors in Expo Go
 let socialAuthService: any = null;
 try {
@@ -21,6 +22,7 @@ interface AuthContextType {
   userProfile: any | null;
   loading: boolean;
   isGuest: boolean;
+  justRegistered: boolean; // ADDED: Track if user just completed registration
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, displayName: string, username: string) => Promise<void>;
   signInAsGuest: () => Promise<void>;
@@ -32,6 +34,8 @@ interface AuthContextType {
   isEmailVerified: () => boolean;
   updateUserEmail: (newEmail: string, currentPassword: string) => Promise<void>;
   deleteAccount: (currentPassword: string) => Promise<void>;
+  markRegistrationComplete: () => void; // ADDED: Mark registration as complete
+  clearRegistrationFlag: () => void; // ADDED: Clear registration flag
   updateActivity: () => void;
   getSessionData: () => any;
   signInWithGoogle: () => Promise<void>;
@@ -230,51 +234,110 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const [justRegistered, setJustRegistered] = useState(false); // ADDED: Track registration completion
+
+  // Safe timer instance for memory leak prevention
+  const safeTimer = useRef(new SafeTimer());
+  const mounted = useRef(true);
+
+  // Safe state setters to prevent Hermes crashes
+  const safeSetUser = (newUser: User | GuestUser | null) => {
+    try {
+      if (mounted.current) {
+        setUser(newUser);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Safe setUser failed:', error);
+    }
+  };
+
+  const safeSetUserProfile = (newProfile: any | null) => {
+    try {
+      if (mounted.current) {
+        setUserProfile(newProfile);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Safe setUserProfile failed:', error);
+    }
+  };
+
+  const safeSetIsGuest = (newIsGuest: boolean) => {
+    try {
+      if (mounted.current) {
+        setIsGuest(newIsGuest);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Safe setIsGuest failed:', error);
+    }
+  };
+
+  const safeSetLoading = (newLoading: boolean) => {
+    try {
+      if (mounted.current) {
+        setLoading(newLoading);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Safe setLoading failed:', error);
+    }
+  };
+
+  const safeSetJustRegistered = (newJustRegistered: boolean) => {
+    try {
+      if (mounted.current) {
+        setJustRegistered(newJustRegistered);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Safe setJustRegistered failed:', error);
+    }
+  };
 
 
 
   useEffect(() => {
-    let mounted = true;
-    let loadingTimeout: ReturnType<typeof setTimeout>;
+    mounted.current = true;
 
-    // Initialize session service
+    // Initialize session service with safe async wrapper
     const initializeSession = async () => {
-      await sessionService.initialize(() => {
-        // Session expired callback
-        if (mounted) {
-          console.log('Session expired, signing out user');
-          signOut();
-        }
-      });
+      await safeAsync(async () => {
+        await sessionService.initialize(() => {
+          // Session expired callback
+          if (mounted.current) {
+            console.log('Session expired, signing out user');
+            signOut();
+          }
+        });
+      }, undefined, 'sessionService.initialize');
     };
 
     initializeSession();
 
-    // Set a maximum loading time to prevent infinite loading states
-    loadingTimeout = setTimeout(() => {
-      if (mounted && loading) {
+    // Set a maximum loading time to prevent infinite loading states using SafeTimer
+    // Increased timeout to allow more time for auth state restoration
+    const loadingTimeout = safeTimer.current.setTimeout(() => {
+      if (mounted.current && loading) {
         console.warn('Authentication loading timeout, setting loading to false');
-        setLoading(false);
+        safeSetLoading(false);
       }
-    }, 15000); // 15 second timeout
+    }, 30000); // 30 second timeout (increased for better auth restoration)
 
     const unsubscribe = authService.onAuthStateChange(async (firebaseUser) => {
-      if (!mounted) return;
+      if (!mounted.current) return;
 
       // Clear timeout since we got a response
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
-      
+      safeTimer.current.clearTimeout(loadingTimeout);
+
       if (firebaseUser) {
-        // Regular Firebase user
-        setUser(firebaseUser);
-        setIsGuest(false);
+        // Regular Firebase user - use safe setters
+        safeSetUser(firebaseUser);
+        safeSetIsGuest(false);
         
-        // Get user profile from Firestore
+        // Get user profile from Firestore with safe async wrapper
         try {
-          let profile = await firestoreService.getUser(firebaseUser.uid);
-          if (mounted) {
+          const profile = await safeAsync(async () => {
+            return await firestoreService.getUser(firebaseUser.uid);
+          }, null, 'firestoreService.getUser');
+
+          if (mounted.current) {
             if (profile && profile.username && profile.displayName) {
               // Real profile exists with proper data - use it
               console.log(`✅ Loaded existing profile for user ${firebaseUser.uid}:`, {
@@ -282,57 +345,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 username: profile.username,
                 email: profile.email
               });
-              setUserProfile(profile);
+              safeSetUserProfile(profile);
               // Start profile synchronization for this user
-              try {
+              await safeAsync(async () => {
                 profileSyncService.startProfileSync(firebaseUser.uid);
                 console.log(`✅ Profile sync started for user ${firebaseUser.uid}`);
-              } catch (syncError) {
-                console.error('Failed to start profile sync:', {
-                  userId: firebaseUser.uid,
-                  error: syncError,
-                  errorCode: syncError?.code,
-                  errorMessage: syncError?.message
-                });
-              }
+              }, undefined, 'profileSyncService.startProfileSync');
 
               // Initialize encryption for existing user
-              try {
+              await safeAsync(async () => {
                 await encryptionService.initialize(firebaseUser.uid);
-              } catch (encryptionError) {
-                console.warn('Encryption initialization failed:', encryptionError);
-              }
+              }, undefined, 'encryptionService.initialize');
             } else {
               // Profile missing or incomplete - wait for signup process to complete
               console.log(`⏳ Profile incomplete for user ${firebaseUser.uid}, waiting for signup sync...`);
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Wait longer for signup
-              const updatedProfile = await firestoreService.getUser(firebaseUser.uid);
+
+              // Use safe timer for delay
+              await new Promise(resolve => {
+                safeTimer.current.setTimeout(() => resolve(undefined), 2000);
+              });
+
+              const updatedProfile = await safeAsync(async () => {
+                return await firestoreService.getUser(firebaseUser.uid);
+              }, null, 'firestoreService.getUser (retry)');
+
               if (updatedProfile && updatedProfile.username && updatedProfile.displayName) {
                 console.log(`✅ Profile sync completed for user ${firebaseUser.uid}:`, {
                   displayName: updatedProfile.displayName,
                   username: updatedProfile.username,
                   email: updatedProfile.email
                 });
-                setUserProfile(updatedProfile);
+                safeSetUserProfile(updatedProfile);
+
                 // Start profile synchronization for this user
-                try {
+                await safeAsync(async () => {
                   profileSyncService.startProfileSync(firebaseUser.uid);
                   console.log(`✅ Profile sync started for user ${firebaseUser.uid}`);
-                } catch (syncError) {
-                  console.error('Failed to start profile sync:', {
-                    userId: firebaseUser.uid,
-                    error: syncError,
-                    errorCode: syncError?.code,
-                    errorMessage: syncError?.message
-                  });
-                }
+                }, undefined, 'profileSyncService.startProfileSync (retry)');
 
                 // Initialize encryption for existing user
-                try {
+                await safeAsync(async () => {
                   await encryptionService.initialize(firebaseUser.uid);
-                } catch (encryptionError) {
-                  console.warn('Encryption initialization failed:', encryptionError);
-                }
+                }, undefined, 'encryptionService.initialize (retry)');
               } else {
                 // Only create fallback if this is truly a new user (not from signup flow)
                 console.warn(`⚠️ No profile found after waiting - creating minimal fallback for ${firebaseUser.uid}`);
@@ -343,7 +397,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   username: firebaseUser.email?.split('@')[0] || `user_${firebaseUser.uid.substring(0, 8)}`,
                   photoURL: firebaseUser.photoURL || undefined,
                   gold: 0,
-                  gems: 50,
+                  gems: 0, // Start with zero balance
                   level: 1,
                   status: 'online' as const,
                   isOnline: true,
@@ -359,7 +413,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   subscriptionPlan: 'free' as const,
                   subscriptionStatus: 'expired' as const,
                 };
-                setUserProfile(minimalProfile);
+                safeSetUserProfile(minimalProfile);
                 // Don't create in Firestore - let signup process handle it
               }
             }
@@ -367,7 +421,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch (error) {
           console.error('Error loading user profile:', error);
           // Only set minimal fallback on error
-          if (mounted && firebaseUser) {
+          if (mounted.current && firebaseUser) {
             const errorFallbackProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
@@ -375,35 +429,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               username: firebaseUser.email?.split('@')[0] || 'user',
               photoURL: firebaseUser.photoURL,
               gold: 0,
-              gems: 50,
+              gems: 0, // Start with zero balance
               level: 1,
             };
-            setUserProfile(errorFallbackProfile);
+            safeSetUserProfile(errorFallbackProfile);
           }
         }
       } else {
         // CRITICAL FIX: Disable automatic sign-in - always require explicit user choice
         console.log('🚫 No Firebase user found - requiring explicit authentication choice');
 
-        if (mounted) {
+        if (mounted.current) {
           // Always set to signed out state - no automatic guest sign-in
-          setUser(null);
-          setUserProfile(null);
-          setIsGuest(false);
+          safeSetUser(null);
+          safeSetUserProfile(null);
+          safeSetIsGuest(false);
           console.log('✅ User state cleared - authentication selection required');
         }
       }
-      
-      if (mounted) {
-        setLoading(false);
+
+      if (mounted.current) {
+        safeSetLoading(false);
       }
     });
 
     return () => {
-      mounted = false;
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
+      mounted.current = false;
+      // Clean up all timers to prevent memory leaks
+      safeTimer.current.clearAll();
       unsubscribe();
       sessionService.cleanup();
     };
@@ -488,9 +541,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authService.signOut();
       
       const guestUser = await authService.signInAsGuest();
-      setUser(guestUser);
-      setIsGuest(true);
-      
+      safeSetUser(guestUser);
+      safeSetIsGuest(true);
+
       // Create guest profile
       const guestProfile = {
         uid: guestUser.uid,
@@ -498,13 +551,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         displayName: 'Guest',
         username: 'guest',
         photoURL: null, // No default avatar
-        gold: 500, // Limited gold for guests
-        gems: 10,  // Limited gems for guests
+        gold: 0, // Start with zero balance
+        gems: 0, // Start with zero balance
         level: 1,
         isGuest: true,
         guestId: guestUser.guestId,
       };
-      setUserProfile(guestProfile);
+      safeSetUserProfile(guestProfile);
     } catch (error) {
       throw error;
     }
@@ -519,10 +572,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
 
-      // Clear guest user state immediately
-      setUser(null);
-      setUserProfile(null);
-      setIsGuest(false);
+      // Clear guest user state immediately using safe setters
+      safeSetUser(null);
+      safeSetUserProfile(null);
+      safeSetIsGuest(false);
 
       // CRITICAL FIX: Clear ALL cached authentication data with error handling
       await safeAsyncStorage.multiRemove([
@@ -578,18 +631,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Sign out from Firebase
       await authService.signOut();
 
-      // Clear state
-      setUser(null);
-      setUserProfile(null);
-      setIsGuest(false);
+      // Clear state using safe setters
+      safeSetUser(null);
+      safeSetUserProfile(null);
+      safeSetIsGuest(false);
 
       console.log('✅ Authentication cache cleared completely');
     } catch (error: any) {
       console.error('❌ Error clearing auth cache:', error);
       // Still try to clear state even if storage operations fail
-      setUser(null);
-      setUserProfile(null);
-      setIsGuest(false);
+      safeSetUser(null);
+      safeSetUserProfile(null);
+      safeSetIsGuest(false);
     }
   };
 
@@ -606,7 +659,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log(`🔄 Updating user profile for ${user.uid}:`, updates);
       await firestoreService.updateUser(user.uid, updates);
       console.log(`✅ Firestore update successful, updating local state...`);
-      setUserProfile(prev => {
+      safeSetUserProfile(prev => {
         const newProfile = { ...prev, ...updates };
         console.log(`🔄 Profile state updated:`, {
           before: { displayName: prev?.displayName, username: prev?.username },
@@ -671,7 +724,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authService.updateEmail(newEmail, currentPassword);
       // Update local user profile
       if (userProfile) {
-        setUserProfile(prev => ({ ...prev, email: newEmail }));
+        safeSetUserProfile(prev => ({ ...prev, email: newEmail }));
       }
     } catch (error) {
       throw error;
@@ -683,10 +736,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authService.deleteAccount(currentPassword);
       // End session
       await sessionService.endSession();
-      // Clear local state
-      setUser(null);
-      setUserProfile(null);
-      setIsGuest(false);
+      // Clear local state using safe setters
+      safeSetUser(null);
+      safeSetUserProfile(null);
+      safeSetIsGuest(false);
     } catch (error) {
       throw error;
     }
@@ -834,11 +887,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // ADDED: Mark registration as complete to skip onboarding
+  const markRegistrationComplete = () => {
+    console.log('✅ Marking registration as complete - will skip onboarding');
+    safeSetJustRegistered(true);
+  };
+
+  // ADDED: Clear registration flag (called when user reaches main app)
+  const clearRegistrationFlag = () => {
+    console.log('🔄 Clearing registration flag');
+    safeSetJustRegistered(false);
+  };
+
   const value: AuthContextType = {
     user,
     userProfile,
     loading,
     isGuest,
+    justRegistered, // ADDED: Registration completion flag
     signIn,
     signUp,
     signInAsGuest,
@@ -862,6 +928,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     getBiometricTypeDescription,
     completeOnboarding,
     isOnboardingComplete,
+    markRegistrationComplete, // ADDED: Mark registration complete
+    clearRegistrationFlag, // ADDED: Clear registration flag
   };
 
   return (

@@ -30,10 +30,10 @@ class SessionService {
 
   private constructor() {
     this.config = {
-      inactivityTimeoutMinutes: 30, // 30 minutes of inactivity
-      backgroundTimeoutMinutes: 15, // 15 minutes in background
-      maxSessionDurationHours: 24, // 24 hours max session
-      enableAutoLogout: true,
+      inactivityTimeoutMinutes: 60 * 24 * 7, // 7 days of inactivity (very long for mobile)
+      backgroundTimeoutMinutes: 60 * 24 * 3, // 3 days in background (mobile-friendly)
+      maxSessionDurationHours: 24 * 30, // 30 days max session (mobile-friendly)
+      enableAutoLogout: false, // CRITICAL FIX: Disable aggressive auto-logout for mobile
     };
   }
 
@@ -62,18 +62,24 @@ class SessionService {
       if (this.sessionData) {
         const isValid = this.isSessionValid();
         if (!isValid) {
-          await this.expireSession();
+          console.log('🔄 Session expired, clearing session data');
+          await this.endSession(); // Just end session, don't trigger signOut
           return;
+        } else {
+          console.log('✅ Existing session is still valid');
         }
       }
 
-      // Start new session if none exists
-      if (!this.sessionData) {
+      // Start new session if none exists (only if auto-logout is enabled)
+      if (!this.sessionData && this.config.enableAutoLogout) {
         await this.startSession();
+        console.log('🔄 Started new session');
       }
 
-      // Set up timers
-      this.setupInactivityTimer();
+      // Set up timers only if auto-logout is enabled
+      if (this.config.enableAutoLogout) {
+        this.setupInactivityTimer();
+      }
 
       this.isInitialized = true;
     } finally {
@@ -233,9 +239,13 @@ class SessionService {
 
   private async expireSession(): Promise<void> {
     await this.endSession();
-    
-    if (this.onSessionExpired) {
+
+    // Only trigger session expired callback if auto-logout is enabled
+    if (this.config.enableAutoLogout && this.onSessionExpired) {
+      console.log('🔄 Session expired, triggering signOut');
       this.onSessionExpired();
+    } else {
+      console.log('🔄 Session expired but auto-logout disabled, maintaining auth state');
     }
   }
 

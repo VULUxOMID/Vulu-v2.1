@@ -189,14 +189,34 @@ class AuthService {
         throw new Error('Firebase Auth not available');
       }
 
+      // Validate input parameters
+      if (!email || !email.trim()) {
+        throw new Error('Email is required');
+      }
+      if (!password || password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      console.log('🔄 Starting signup process...', {
+        email: email.trim(),
+        hasDisplayName: !!displayName,
+        hasUsername: !!username
+      });
+
       // Check if username is already taken (if provided) with circuit breaker protection
       if (username) {
         try {
           const isUsernameTaken = await firestoreService.isUsernameTaken(username);
           if (isUsernameTaken) {
-            throw new Error('Username is already taken. Please choose a different one.');
+            const error = new Error('Username is already taken. Please choose a different one.');
+            (error as any).code = 'auth/username-already-in-use';
+            throw error;
           }
         } catch (usernameError: any) {
+          // If it's our custom username error, re-throw it
+          if (usernameError.code === 'auth/username-already-in-use') {
+            throw usernameError;
+          }
           // If username check fails due to permissions, log it but continue
           // The server-side validation will catch duplicates
           if (!FirebaseErrorHandler.shouldSuppressErrorLogging(usernameError, 'username-check')) {
@@ -207,14 +227,21 @@ class AuthService {
 
       // Use circuit breaker protection for auth operations
       const userCredential = await FirebaseErrorHandler.executeWithProtection(async () => {
-        return await createUserWithEmailAndPassword(auth, email, password);
+        return await createUserWithEmailAndPassword(auth, email.trim(), password);
       }, 'auth');
 
       const user = userCredential.user;
+      console.log('✅ Firebase user created successfully:', user.uid);
 
       // Update profile with display name if provided
       if (displayName) {
-        await updateProfile(user, { displayName });
+        try {
+          await updateProfile(user, { displayName: displayName.trim() });
+          console.log('✅ User profile updated with display name');
+        } catch (profileError) {
+          console.warn('Failed to update user profile:', profileError);
+          // Don't fail the signup for profile update errors
+        }
       }
 
       // Create user profile in Firestore with username and messaging fields
@@ -271,8 +298,17 @@ class AuthService {
         photoURL: user.photoURL
       };
     } catch (error: any) {
-      console.error('signUp failed:', error);
-      throw new Error('Failed to sign up. Please try again or contact support.');
+      console.error('❌ signUp failed:', {
+        errorCode: error.code,
+        errorMessage: error.message,
+        email: email?.trim(),
+        hasDisplayName: !!displayName,
+        hasUsername: !!username
+      });
+
+      // Re-throw the original error to preserve Firebase error codes
+      // This ensures proper error handling in the UI components
+      throw error;
     }
   }
 
@@ -345,9 +381,42 @@ class AuthService {
     return auth.currentUser;
   }
 
-  // Listen to auth state changes
+  // Listen to auth state changes with enhanced persistence support
   onAuthStateChange(callback: (user: User | null) => void): () => void {
-    return onAuthStateChanged(auth, callback);
+    console.log('🔄 Setting up Firebase auth state listener...');
+
+    return onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('✅ Firebase auth state restored:', {
+          uid: user.uid,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          displayName: user.displayName
+        });
+      } else {
+        console.log('🚫 No Firebase user found in auth state');
+      }
+
+      callback(user);
+    });
+  }
+
+  // Check if user should remain authenticated (for session persistence)
+  shouldMaintainSession(): boolean {
+    const currentUser = this.getCurrentUser();
+    if (!currentUser) {
+      return false;
+    }
+
+    // Check if user was recently active (within last 30 days)
+    const lastSignInTime = currentUser.metadata.lastSignInTime;
+    if (lastSignInTime) {
+      const lastSignIn = new Date(lastSignInTime);
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      return lastSignIn > thirtyDaysAgo;
+    }
+
+    return true; // Default to maintaining session
   }
 
   // Update user password

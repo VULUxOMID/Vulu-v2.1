@@ -252,17 +252,23 @@ const ProfileScreen = () => {
       } catch (error: any) {
         // Handle Firebase permission errors gracefully
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          // For permission errors, set default balances and don't log error
+          // For permission errors, set zero balances (no dummy data)
           setCurrencyBalances({
-            gold: 1000, // Default guest balance
-            gems: 50,   // Default guest balance
+            gold: 0, // Start with zero balance
+            gems: 0, // Start with zero balance
             tokens: 0,
             lastUpdated: new Date()
           });
         } else {
-          // Log non-permission errors
+          // Log non-permission errors and set zero balances
           console.error('Failed to load currency balances:', error);
           FirebaseErrorHandler.logError('loadCurrencyBalances', error);
+          setCurrencyBalances({
+            gold: 0,
+            gems: 0,
+            tokens: 0,
+            lastUpdated: new Date()
+          });
         }
       } finally {
         setIsLoadingCurrency(false);

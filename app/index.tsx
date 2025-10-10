@@ -13,6 +13,7 @@ function AuthenticationRouter() {
   // Extract user and loading from context if available
   const user = authContext?.user;
   const loading = authContext?.loading;
+  const clearRegistrationFlag = authContext?.clearRegistrationFlag;
 
   useEffect(() => {
     // Don't navigate if auth context is not available or still loading
@@ -29,6 +30,12 @@ function AuthenticationRouter() {
     if (user) {
       // User is authenticated (either regular user or guest) - go to main app
       console.log('✅ User authenticated, navigating to main app');
+
+      // Clear registration flag when user reaches main app
+      if (clearRegistrationFlag) {
+        clearRegistrationFlag();
+      }
+
       router.replace('/(main)');
     } else {
       // No user - show authentication selection screen

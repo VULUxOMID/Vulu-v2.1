@@ -183,8 +183,8 @@ class VirtualCurrencyService {
         if (doc.exists()) {
           const userData = doc.data();
           const balances = userData.currencyBalances || {
-            gold: 1000,
-            gems: 50,
+            gold: 0,
+            gems: 0,
             tokens: 0,
             lastUpdated: new Date()
           };
@@ -199,10 +199,10 @@ class VirtualCurrencyService {
       }, (error) => {
         // Handle permission errors gracefully for guest users
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          // Silently provide default balances for guest users
+          // Provide zero balances for guest users (no dummy data)
           callback({
-            gold: 1000,
-            gems: 50,
+            gold: 0,
+            gems: 0,
             tokens: 0,
             lastUpdated: new Date()
           });

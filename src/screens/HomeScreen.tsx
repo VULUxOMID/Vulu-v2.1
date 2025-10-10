@@ -25,6 +25,7 @@ import {
 } from 'react-native-reanimated';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
+import { safePush, safePropertySet } from '../utils/safePropertySet';
 import authService from '../services/authService';
 
 import GuestModeIndicator from '../components/GuestModeIndicator';
@@ -581,24 +582,32 @@ const HomeScreen = () => {
 
     const activityWidgets: JSX.Element[] = [];
 
-    // Render different types of activities
+    // Render different types of activities - Use immutable array operations to prevent crashes
     friendActivities.slice(0, 5).forEach((activity, index) => {
       switch (activity.activityType) {
         case 'live_stream':
           const liveStreamWidget = renderLiveStreamActivityWidget(activity, index);
-          if (liveStreamWidget) activityWidgets.push(liveStreamWidget);
+          if (liveStreamWidget) {
+            activityWidgets = [...activityWidgets, liveStreamWidget];
+          }
           break;
         case 'music_listening':
           const musicWidget = renderMusicActivityWidget(activity, index);
-          if (musicWidget) activityWidgets.push(musicWidget);
+          if (musicWidget) {
+            activityWidgets = [...activityWidgets, musicWidget];
+          }
           break;
         case 'gaming':
           const gamingWidget = renderGamingActivityWidget(activity, index);
-          if (gamingWidget) activityWidgets.push(gamingWidget);
+          if (gamingWidget) {
+            activityWidgets = [...activityWidgets, gamingWidget];
+          }
           break;
         default:
           const genericWidget = renderGenericActivityWidget(activity, index);
-          if (genericWidget) activityWidgets.push(genericWidget);
+          if (genericWidget) {
+            activityWidgets = [...activityWidgets, genericWidget];
+          }
           break;
       }
     });
@@ -2164,17 +2173,23 @@ const HomeScreen = () => {
       } catch (error: any) {
         // Handle Firebase permission errors gracefully
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          // For permission errors, set default balances and don't log error
+          // For permission errors, set zero balances (no dummy data)
           setCurrencyBalances({
-            gold: 1000, // Default guest balance
-            gems: 50,   // Default guest balance
+            gold: 0, // Start with zero balance
+            gems: 0, // Start with zero balance
             tokens: 0,
             lastUpdated: new Date()
           });
         } else {
-          // Log non-permission errors
+          // Log non-permission errors and set zero balances
           console.error('Failed to load currency balances:', error);
           FirebaseErrorHandler.logError('loadCurrencyBalances', error);
+          setCurrencyBalances({
+            gold: 0,
+            gems: 0,
+            tokens: 0,
+            lastUpdated: new Date()
+          });
         }
       } finally {
         setIsLoadingCurrency(false);

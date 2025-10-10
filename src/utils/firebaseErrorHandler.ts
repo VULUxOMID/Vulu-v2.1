@@ -309,6 +309,20 @@ export class FirebaseErrorHandler {
             fallbackAction: 'fix_email_format'
           };
 
+        case 'auth/username-already-in-use':
+          return {
+            code: error.code,
+            message: error.message,
+            userFriendlyMessage: 'This username is already taken. Please choose a different username.',
+            shouldRetry: false,
+            requiresAuth: false,
+            severity: ErrorSeverity.WARN,
+            category: ErrorCategory.VALIDATION,
+            retryDelay: 0,
+            maxRetries: 0,
+            fallbackAction: 'fix_username'
+          };
+
         case 'auth/user-not-found':
           return {
             code: error.code,

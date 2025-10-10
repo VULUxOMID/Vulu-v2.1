@@ -59,7 +59,10 @@ if (__DEV__) {
   if (typeof global !== 'undefined' && global.addEventListener) {
     global.addEventListener('unhandledrejection', (event: any) => {
       console.warn('Unhandled promise rejection caught:', event.reason);
-      event.preventDefault();
+      // Only call preventDefault if it exists (web environment)
+      if (typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
     });
   }
 
@@ -105,6 +108,7 @@ import { MiniPlayerProvider } from '../src/context/MiniPlayerContext';
 import { MenuPositionProvider } from '../src/components/SidebarMenu';
 import { UserStatusProvider } from '../src/context/UserStatusContext';
 import ErrorBoundary from '../src/components/ErrorBoundary';
+import { setupGlobalErrorHandling } from '../src/utils/crashPrevention';
 
 // Import test utilities for debugging (temporarily disabled)
 // import '../src/utils/testSubscription';
@@ -127,6 +131,11 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
+
+  // Set up additional crash prevention
+  useEffect(() => {
+    setupGlobalErrorHandling();
+  }, []);
 
   if (!loaded) {
     return null;
