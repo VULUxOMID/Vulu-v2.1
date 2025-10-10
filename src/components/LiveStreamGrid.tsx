@@ -8,8 +8,12 @@ import { streamingService } from '../services/streamingService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StreamErrorBoundary } from './StreamErrorBoundary';
 import LiveStreamRefreshButton from './LiveStreamRefreshButton';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+
+// Tutorial storage key
+const LIVESTREAM_TUTORIAL_KEY = '@vulu_livestream_tutorial_shown';
 
 // Fixed padding values - reduced horizontal padding to use more screen space
 const HORIZONTAL_PADDING = 8; // Reduced from 12 to get closer to edges
@@ -283,11 +287,34 @@ const LiveStreamGrid = () => {
   const { user, isGuest } = useAuth();
   
   // Create a global state for controlling the tutorial visibility
-  const [showTutorialState, setShowTutorialState] = useState(true);
-  
-  // Create a function to hide the tutorial
-  const hideTutorial = () => {
-    setShowTutorialState(false);
+  const [showTutorialState, setShowTutorialState] = useState(false);
+
+  // Load tutorial state from storage
+  useEffect(() => {
+    const loadTutorialState = async () => {
+      try {
+        const tutorialShown = await AsyncStorage.getItem(LIVESTREAM_TUTORIAL_KEY);
+        if (!tutorialShown) {
+          setShowTutorialState(true);
+        }
+      } catch (error) {
+        console.warn('Failed to load livestream tutorial state:', error);
+        setShowTutorialState(true); // Show tutorial if we can't load state
+      }
+    };
+
+    loadTutorialState();
+  }, []);
+
+  // Create a function to hide the tutorial permanently
+  const hideTutorial = async () => {
+    try {
+      await AsyncStorage.setItem(LIVESTREAM_TUTORIAL_KEY, 'true');
+      setShowTutorialState(false);
+    } catch (error) {
+      console.warn('Failed to save livestream tutorial state:', error);
+      setShowTutorialState(false); // Still hide it locally
+    }
   };
 
   // Handle stream selection with confirmation dialog for stream switching
@@ -585,10 +612,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.08)',
     marginBottom: 2, // Small margin to make shadow visible
@@ -598,9 +625,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#5865F2', // Discord blue for active stream
     shadowColor: '#5865F2',
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 20,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
     backgroundColor: '#1F2037', // Slightly different background for active stream
   },
   watchingIndicator: {

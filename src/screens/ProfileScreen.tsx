@@ -47,6 +47,9 @@ import { useAuth } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import firestoreService from '../services/firestoreService';
+import { getDefaultProfileAvatar } from '../utils/defaultAvatars';
+import virtualCurrencyService, { CurrencyBalance } from '../services/virtualCurrencyService';
+import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
 
 const { width } = Dimensions.get('window');
 
@@ -167,15 +170,24 @@ const ProfileScreen = () => {
       setFilteredFriends(friends);
       return;
     }
-    
+
     const query = friendSearchQuery.toLowerCase().trim();
-    const results = friends.filter(friend => 
-      friend.name.toLowerCase().includes(query) || 
+    const results = friends.filter(friend =>
+      friend.name.toLowerCase().includes(query) ||
       friend.username.toLowerCase().includes(query)
     );
-    
+
     setFilteredFriends(results);
   }, [friendSearchQuery, friends]);
+
+  // Currency balance state (synced with HomeScreen)
+  const [currencyBalances, setCurrencyBalances] = useState<CurrencyBalance>({
+    gold: 0,
+    gems: 0,
+    tokens: 0,
+    lastUpdated: new Date()
+  });
+  const [isLoadingCurrency, setIsLoadingCurrency] = useState(false);
   
   // Add search input handler
   const handleFriendSearch = (text: string) => {
@@ -211,6 +223,60 @@ const ProfileScreen = () => {
 
     return unsubscribe;
   }, [user?.uid, isGuest]);
+
+  // Load virtual currency balances (synced with HomeScreen)
+  useEffect(() => {
+    if (!user || isGuest) {
+      setCurrencyBalances({
+        gold: 0,
+        gems: 0,
+        tokens: 0,
+        lastUpdated: new Date()
+      });
+      return;
+    }
+
+    let unsubscribeCurrency: (() => void) | undefined;
+
+    const loadCurrencyBalances = async () => {
+      setIsLoadingCurrency(true);
+      try {
+        // Get initial currency balances
+        const balances = await virtualCurrencyService.getCurrencyBalances(user.uid);
+        setCurrencyBalances(balances);
+
+        // Set up real-time listener for currency changes
+        unsubscribeCurrency = virtualCurrencyService.onCurrencyBalances(user.uid, (newBalances) => {
+          setCurrencyBalances(newBalances);
+        });
+      } catch (error: any) {
+        // Handle Firebase permission errors gracefully
+        if (FirebaseErrorHandler.isPermissionError(error)) {
+          // For permission errors, set default balances and don't log error
+          setCurrencyBalances({
+            gold: 1000, // Default guest balance
+            gems: 50,   // Default guest balance
+            tokens: 0,
+            lastUpdated: new Date()
+          });
+        } else {
+          // Log non-permission errors
+          console.error('Failed to load currency balances:', error);
+          FirebaseErrorHandler.logError('loadCurrencyBalances', error);
+        }
+      } finally {
+        setIsLoadingCurrency(false);
+      }
+    };
+
+    loadCurrencyBalances();
+
+    return () => {
+      if (unsubscribeCurrency) {
+        unsubscribeCurrency();
+      }
+    };
+  }, [user, isGuest]);
 
   const navigateToAccount = () => {
     router.push('/(main)/account');
@@ -859,7 +925,7 @@ const ProfileScreen = () => {
               style={styles.profileImageTouchable}
             >
               <Image 
-                source={{ uri: profileImage }} 
+                source={{ uri: profileImage || getDefaultProfileAvatar(displayName) }} 
                 style={[styles.profileImage, { borderColor: contextStatusData.color }]} 
               />
               <View style={styles.profileImageOverlay}>
@@ -1090,7 +1156,7 @@ const ProfileScreen = () => {
                       color: '#FFFFFF',
                       fontWeight: 'bold',
                       fontSize: 18
-                    }}>{userProfile?.gems || 0}</Text>
+                    }}>{currencyBalances.gems}</Text>
                     <MaterialCommunityIcons
                       name="diamond-stone"
                       size={14}

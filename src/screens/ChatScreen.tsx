@@ -43,6 +43,7 @@ import OfflineStatusIndicator from '../components/OfflineStatusIndicator';
 import OfflineMessagesModal from '../components/OfflineMessagesModal';
 import { useOfflineMessages, useOptimisticMessages } from '../hooks/useOfflineMessages';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { getDefaultChatAvatar } from '../utils/defaultAvatars';
 
 
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
@@ -1583,16 +1584,13 @@ const ChatScreen = (props: any) => {
     <ChatScreenInternal
       userId={userId}
       name={name}
-      avatar={avatar || defaultAvatarUrl} // Provide a default avatar if needed
+      avatar={avatar || getDefaultChatAvatar(name)} // Provide a default avatar if needed
       goBack={goBack}
       goToDMs={goToDMs}
       source={source}
     />
   );
 };
-
-// Need to define defaultAvatarUrl or remove if not needed
-const defaultAvatarUrl = 'https://randomuser.me/api/portraits/lego/1.jpg';
 
 // Update the styles to match our modern design
 const styles = StyleSheet.create({

@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
+import { PURPLE_COLOR } from '../utils/defaultAvatars';
 import { messagingService } from '../services/messagingService';
 import { presenceService } from '../services/presenceService';
 import { FriendRequest } from '../services/types';
@@ -138,7 +139,7 @@ const FriendRequestsScreen = () => {
             {request.senderAvatar ? (
               <Image source={{ uri: request.senderAvatar }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, styles.defaultAvatar]}>
+              <View style={[styles.avatar, { backgroundColor: PURPLE_COLOR, justifyContent: 'center', alignItems: 'center' }]}>
                 <Text style={styles.avatarText}>
                   {request.senderName.charAt(0).toUpperCase()}
                 </Text>
@@ -194,7 +195,7 @@ const FriendRequestsScreen = () => {
             {request.recipientAvatar ? (
               <Image source={{ uri: request.recipientAvatar }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, styles.defaultAvatar]}>
+              <View style={[styles.avatar, { backgroundColor: PURPLE_COLOR, justifyContent: 'center', alignItems: 'center' }]}>
                 <Text style={styles.avatarText}>
                   {request.recipientName.charAt(0).toUpperCase()}
                 </Text>

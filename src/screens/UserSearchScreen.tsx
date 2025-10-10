@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAuth } from '../context/AuthContext';
+import { PURPLE_COLOR } from '../utils/defaultAvatars';
 import { userSearchService, SearchResult } from '../services/userSearchService';
 import { messagingService } from '../services/messagingService';
 import { presenceService, PresenceService } from '../services/presenceService';
@@ -174,7 +175,7 @@ const UserSearchScreen = () => {
             {user.photoURL ? (
               <Image source={{ uri: user.photoURL }} style={styles.avatar} />
             ) : (
-              <View style={[styles.avatar, styles.defaultAvatar]}>
+              <View style={[styles.avatar, { backgroundColor: PURPLE_COLOR, justifyContent: 'center', alignItems: 'center' }]}>
                 <Text style={styles.avatarText}>
                   {user.displayName.charAt(0).toUpperCase()}
                 </Text>

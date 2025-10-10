@@ -62,7 +62,7 @@ class UserDataSanitizer {
     const name = displayName || email?.split('@')[0] || 'User';
     const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     
-    // Use a placeholder service that generates avatars based on initials
+    // Use a placeholder service that generates avatars based on initials with our purple color
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=6E69F4&color=FFFFFF&size=150`;
   }
 

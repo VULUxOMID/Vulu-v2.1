@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeIcon, NotificationIcon, PersonIcon } from './icons/AppIcons';
 import { useUserStatus, getStatusColor } from '../context/UserStatusContext';
 import { useNotifications } from '../context/NotificationContext';
+import { getDefaultProfileAvatar } from '../utils/defaultAvatars';
 
 interface CustomTabBarProps extends BottomTabBarProps {
   profileImage?: string;
@@ -78,22 +79,18 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
       case 'profile':
         return (
           <View style={[styles.iconContainer, isFocused && styles.activeIconContainer]}>
-            {profileImage ? (
-              <View 
-                style={[
-                  styles.profileImageContainer, 
-                  { borderColor: profileStatusColor }
-                ]}
-              >
-                <Image 
-                  source={{ uri: profileImage }} 
-                  style={styles.profileImage} 
-                  resizeMode="cover"
-                />
-              </View>
-            ) : (
-              <PersonIcon color={color} size={size} active={isFocused} />
-            )}
+            <View 
+              style={[
+                styles.profileImageContainer, 
+                { borderColor: profileStatusColor }
+              ]}
+            >
+              <Image 
+                source={{ uri: profileImage || getDefaultProfileAvatar() }} 
+                style={styles.profileImage} 
+                resizeMode="cover"
+              />
+            </View>
             {badgeCount && (
               <View style={styles.notificationsBadge}>
                 <Text style={styles.notificationsBadgeValue}>{badgeCount}</Text>

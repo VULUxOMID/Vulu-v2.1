@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Platform } from 'react
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getDefaultAvatarViewProps } from '../utils/defaultAvatars';
 
 
 export interface ChatHeaderProps {
@@ -107,7 +108,7 @@ const ChatHeader = ({
                 style={styles.avatar}
               />
             ) : (
-              <View style={[styles.avatar, styles.defaultAvatar]}>
+              <View style={[styles.avatar, { backgroundColor: '#6E69F4', justifyContent: 'center', alignItems: 'center' }]}>
                 {isGroup ? (
                   <MaterialIcons name="group" size={24} color="#FFFFFF" />
                 ) : (

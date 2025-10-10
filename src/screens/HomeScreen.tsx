@@ -26,8 +26,9 @@ import {
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import authService from '../services/authService';
-import FirebaseTest from '../components/FirebaseTest';
+
 import GuestModeIndicator from '../components/GuestModeIndicator';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import debug utilities for testing
 import '../utils/debugStreamTest';
@@ -42,8 +43,7 @@ import { useGaming } from '../context/GamingContext';
 import { useShop } from '../context/ShopContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { formatCurrencyCompact } from '../utils/currencyUtils';
-
-const defaultSpotlightAvatar = 'https://ui-avatars.com/api/?name=User&background=6E69F4&color=FFFFFF&size=150';
+import { getDefaultSpotlightAvatar, getDefaultProfileAvatar } from '../utils/defaultAvatars';
 
 // Fallback router for when useRouter() fails
 const fallbackRouter = {
@@ -60,6 +60,25 @@ const fallbackRouter = {
   setParams: (params: any) => {
     console.warn('⚠️ Fallback router: Cannot set params', params);
   }
+};
+
+// Tutorial preferences management
+const TUTORIAL_STORAGE_KEY = '@vulu_tutorial_preferences';
+
+interface TutorialPreferences {
+  eventExpandTutorialShown: boolean;
+  eventMinimizeTutorialShown: boolean;
+  gemsExpandTutorialShown: boolean;
+  gemsMinimizeTutorialShown: boolean;
+  liveStreamTutorialShown: boolean;
+}
+
+const defaultTutorialPreferences: TutorialPreferences = {
+  eventExpandTutorialShown: false,
+  eventMinimizeTutorialShown: false,
+  gemsExpandTutorialShown: false,
+  gemsMinimizeTutorialShown: false,
+  liveStreamTutorialShown: false,
 };
 
 // Use the router for navigation
@@ -179,7 +198,7 @@ const HomeScreen = () => {
   
   // Add state for the new minimal gems widget
   const [isMinimalGemsExpanded, setIsMinimalGemsExpanded] = useState(false);
-  // Add states to track if the tutorials have been shown for gems widget
+  // Add states to track if the tutorials have been shown for gems widget (start with default values)
   const [showGemsExpandTutorial, setShowGemsExpandTutorial] = useState(true);
   const [showGemsMinimizeTutorial, setShowGemsMinimizeTutorial] = useState(true);
   
@@ -1013,20 +1032,62 @@ const HomeScreen = () => {
   
   // Add a state for the new minimal event widget
   const [isMinimalEventExpanded, setIsMinimalEventExpanded] = useState(false);
-  // Add states to track if the tutorials have been shown
+  // Tutorial preferences state - loaded from persistent storage
+  const [tutorialPreferences, setTutorialPreferences] = useState<TutorialPreferences>(defaultTutorialPreferences);
+
+  // Add states to track if the tutorials have been shown (start with default values)
   const [showExpandTutorial, setShowExpandTutorial] = useState(true);
   const [showMinimizeTutorial, setShowMinimizeTutorial] = useState(true);
 
-  // Add logging to track state changes
+  // Tutorial preferences management functions
+  const loadTutorialPreferences = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(TUTORIAL_STORAGE_KEY);
+      if (stored) {
+        const preferences = JSON.parse(stored);
+        setTutorialPreferences(preferences);
+        // Update tutorial states based on loaded preferences
+        setShowExpandTutorial(!preferences.eventExpandTutorialShown);
+        setShowMinimizeTutorial(!preferences.eventMinimizeTutorialShown);
+        setShowGemsExpandTutorial(!preferences.gemsExpandTutorialShown);
+        setShowGemsMinimizeTutorial(!preferences.gemsMinimizeTutorialShown);
+      }
+    } catch (error) {
+      console.warn('Failed to load tutorial preferences:', error);
+    }
+  };
+
+  const saveTutorialPreferences = async (newPreferences: Partial<TutorialPreferences>) => {
+    try {
+      const updatedPreferences = { ...tutorialPreferences, ...newPreferences };
+      await AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify(updatedPreferences));
+      setTutorialPreferences(updatedPreferences);
+    } catch (error) {
+      console.warn('Failed to save tutorial preferences:', error);
+    }
+  };
+
+  const markTutorialAsShown = async (tutorialType: keyof TutorialPreferences) => {
+    await saveTutorialPreferences({ [tutorialType]: true });
+  };
+
+  // Load tutorial preferences on component mount
+  useEffect(() => {
+    loadTutorialPreferences();
+  }, []);
+
+  // Add logging to track state changes and mark tutorials as permanently shown
   useEffect(() => {
     // Hide appropriate tutorial after user has interacted with the widget
-    if (isMinimalEventExpanded) {
+    if (isMinimalEventExpanded && showExpandTutorial) {
       setShowExpandTutorial(false);
-    } else if (!isMinimalEventExpanded && !showExpandTutorial) {
+      markTutorialAsShown('eventExpandTutorialShown');
+    } else if (!isMinimalEventExpanded && !showExpandTutorial && showMinimizeTutorial) {
       // User has minimized after expanding, so hide minimize tutorial
       setShowMinimizeTutorial(false);
+      markTutorialAsShown('eventMinimizeTutorialShown');
     }
-  }, [isMinimalEventExpanded, showExpandTutorial]);
+  }, [isMinimalEventExpanded, showExpandTutorial, showMinimizeTutorial]);
 
   // Add animated styles for the minimal event content
   const minimalEventAnimatedStyle = useAnimatedStyle(() => {
@@ -1224,7 +1285,7 @@ const HomeScreen = () => {
         >
           {/* Content is now directly inside TouchableOpacity */}
         <View style={styles.spotlightAvatarWrapper}>
-          <Image source={{ uri: profileImage || defaultSpotlightAvatar }} style={styles.spotlightAvatar} />
+          <Image source={{ uri: profileImage || getDefaultSpotlightAvatar() }} style={styles.spotlightAvatar} />
           <View style={styles.spotlightIndicator} />
         </View>
         <View style={styles.spotlightInfo}>
@@ -1295,16 +1356,18 @@ const HomeScreen = () => {
     };
   }, [isMinimalGemsExpanded]); // Add dependency array
 
-  // Add logging to track gems state changes
+  // Add logging to track gems state changes and mark tutorials as permanently shown
   useEffect(() => {
     // Hide appropriate tutorial after user has interacted with the widget
-    if (isMinimalGemsExpanded) {
+    if (isMinimalGemsExpanded && showGemsExpandTutorial) {
       setShowGemsExpandTutorial(false);
-    } else if (!isMinimalGemsExpanded && !showGemsExpandTutorial) {
+      markTutorialAsShown('gemsExpandTutorialShown');
+    } else if (!isMinimalGemsExpanded && !showGemsExpandTutorial && showGemsMinimizeTutorial) {
       // User has minimized after expanding, so hide minimize tutorial
       setShowGemsMinimizeTutorial(false);
+      markTutorialAsShown('gemsMinimizeTutorialShown');
     }
-  }, [isMinimalGemsExpanded, showGemsExpandTutorial]);
+  }, [isMinimalGemsExpanded, showGemsExpandTutorial, showGemsMinimizeTutorial]);
 
   // Add animated styles for the minimal gems content
   const minimalGemsAnimatedStyle = useAnimatedStyle(() => {
@@ -1534,7 +1597,7 @@ const HomeScreen = () => {
                     textAlign: 'center',
                     lineHeight: 14
                   }}>
-                    {isSubscriptionActive() ? `Renews in ${daysUntilRenewal} days` : 'Weekly: 200 gems • Monthly: 500 gems'}
+                    Weekly: 200 gems • Monthly: 500 gems
                   </Text>
                 </View>
               </View>
@@ -2706,9 +2769,9 @@ const HomeScreen = () => {
                     <View style={styles.pillContentWrapper}>
                     <View style={[
                       styles.avatarContainer,
-                      { borderColor: yourSpotlightTimeLeft > 0 ? '#4CAF50' : 'transparent' }
+                      { borderColor: yourSpotlightTimeLeft > 0 ? '#4CAF50' : 'transparent', marginRight: 0 }
                     ]}>
-                      <Image source={{ uri: profileImage || defaultSpotlightAvatar }} style={styles.gridAvatar} />
+                      <Image source={{ uri: profileImage || getDefaultSpotlightAvatar() }} style={styles.gridAvatar} />
                     </View>
                     <Text style={styles.nameLabel}>You</Text>
                     <Text style={yourSpotlightTimeLeft > 0 ? styles.statusLabel : styles.statusLabelInactive}>
@@ -2747,7 +2810,7 @@ const HomeScreen = () => {
                   />
                   {/* Content with higher zIndex */}
                   <View style={styles.pillContentWrapper}>
-                    <View style={[styles.avatarContainer, { borderColor: '#FFC107' }]}>
+                    <View style={[styles.avatarContainer, { borderColor: '#FFC107', marginRight: 0 }]}>
                     <Image source={{ uri: otherSpotlightCandidate.avatar }} style={styles.gridAvatar} />
                   </View>
                   <Text style={styles.nameLabel}>{otherSpotlightCandidate.name}</Text>
@@ -2867,8 +2930,7 @@ const HomeScreen = () => {
       {/* Add Global Chat Modal */}
       {renderGlobalChatModal()}
       
-      {/* Firebase Connection Test */}
-      <FirebaseTest />
+
     </SafeAreaView>
   );
 };
