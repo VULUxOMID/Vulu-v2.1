@@ -114,7 +114,7 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
           if (isEmailRegistered) {
             console.log('❌ Email is already registered, setting error:', contactValue);
             safeSetEmailError('This email is already registered. Please sign in instead.');
-            safeSetError('This email is already registered. Please sign in instead.');
+            // Don't set the main error - only use emailError for email-specific validation
           } else {
             console.log('✅ Email is available, clearing errors:', contactValue);
             safeSetEmailError(null);
@@ -123,7 +123,7 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
         } catch (err: any) {
           console.error('❌ Email validation failed:', err);
           safeSetEmailError('Unable to verify email. Please try again.');
-          safeSetError('Unable to verify email. Please try again.');
+          // Don't set the main error - only use emailError for email-specific validation
         } finally {
           console.log('🔄 Email check completed, setting checkingEmail to false');
           safeSetCheckingEmail(false);
@@ -320,7 +320,7 @@ const ContactMethodScreen: React.FC<ContactMethodScreenProps> = ({ onBackToLandi
                 )}
               </View>
               {emailError && <Text style={styles.errorText}>{emailError}</Text>}
-              {error && <Text style={styles.errorText}>{error}</Text>}
+              {!emailError && error && <Text style={styles.errorText}>{error}</Text>}
             </>
           ) : (
             // Phone Number Input with Country Code Selector

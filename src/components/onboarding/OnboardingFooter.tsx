@@ -24,7 +24,7 @@ export const OnboardingFooter: React.FC<OnboardingFooterProps> = ({
   secondaryText,
   onSecondaryPress,
   currentStep,
-  totalSteps = 17,
+  totalSteps = 16,
   showStepDots = true,
 }) => {
   const renderStepDots = () => {

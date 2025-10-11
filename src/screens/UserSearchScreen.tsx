@@ -99,8 +99,8 @@ const UserSearchScreen = () => {
         user.uid,
         user.displayName,
         `Hi ${user.displayName}, I'd like to add you as a friend!`,
-        currentUser.photoURL || undefined,
-        user.photoURL || undefined
+        currentUser.photoURL || null, // Use null instead of undefined
+        user.photoURL || null // Use null instead of undefined
       );
 
       // Update the user's status in both search results and suggestions

@@ -92,7 +92,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   const [onboardingData, setOnboardingData] = useState<OnboardingData>(defaultOnboardingData);
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const totalSteps = 17;
+  const totalSteps = 16;
 
   // Update onboarding data
   const updateOnboardingData = useCallback((updates: Partial<OnboardingData>) => {
@@ -129,9 +129,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
   // Validation for each step
   const getNextStepValidation = useCallback((): string | null => {
     switch (currentStep) {
-      case 1: // Welcome
-        return null; // No validation needed
-      case 2: // Age Gate
+      case 1: // Age Gate
         if (!onboardingData.dateOfBirth) {
           return 'Please enter your date of birth';
         }
@@ -140,7 +138,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           return 'You must be at least 13 years old to use this app';
         }
         return null;
-      case 3: // Username
+      case 2: // Username
         if (!onboardingData.username.trim()) {
           return 'Please enter a username';
         }
@@ -148,7 +146,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           return 'Username must be at least 3 characters';
         }
         return null;
-      case 4: // Email
+      case 3: // Email
         if (!onboardingData.email.trim()) {
           return 'Please enter your email';
         }
@@ -157,7 +155,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           return 'Please enter a valid email address';
         }
         return null;
-      case 5: // Password
+      case 4: // Password
         if (!onboardingData.password) {
           return 'Please enter a password';
         }
@@ -165,7 +163,7 @@ export const OnboardingProvider: React.FC<OnboardingProviderProps> = ({ children
           return 'Password must be at least 8 characters';
         }
         return null;
-      case 6: // Terms
+      case 5: // Terms
         if (!onboardingData.termsAccepted) {
           return 'Please accept the terms and conditions';
         }

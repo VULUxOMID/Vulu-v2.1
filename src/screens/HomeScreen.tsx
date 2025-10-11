@@ -27,9 +27,9 @@ import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 import { safePush, safePropertySet } from '../utils/safePropertySet';
 import authService from '../services/authService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GuestModeIndicator from '../components/GuestModeIndicator';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import debug utilities for testing
 import '../utils/debugStreamTest';
@@ -156,9 +156,9 @@ const HomeScreen = () => {
     streamId: '1', // Default stream ID
   });
   
-  // Separate timers for you and the boosted user
-  const [yourSpotlightTimeLeft, setYourSpotlightTimeLeft] = useState<number>(120); 
-  const [otherSpotlightTimeLeft, setOtherSpotlightTimeLeft] = useState<number>(180);
+  // Separate timers for you and the boosted user - start at 0 (no free spotlight time)
+  const [yourSpotlightTimeLeft, setYourSpotlightTimeLeft] = useState<number>(0); 
+  const [otherSpotlightTimeLeft, setOtherSpotlightTimeLeft] = useState<number>(0);
   
   // Remove pulsing animation but keep fade effect for transitions
   const fadeAnimRef = useRef(new Animated.Value(1));
@@ -202,6 +202,56 @@ const HomeScreen = () => {
   // Add states to track if the tutorials have been shown for gems widget (start with default values)
   const [showGemsExpandTutorial, setShowGemsExpandTutorial] = useState(true);
   const [showGemsMinimizeTutorial, setShowGemsMinimizeTutorial] = useState(true);
+  
+  // Load saved spotlight time from AsyncStorage on component mount
+  useEffect(() => {
+    const loadSpotlightTime = async () => {
+      try {
+        if (user?.uid) {
+          const savedYourTime = await AsyncStorage.getItem(`spotlight_your_${user.uid}`);
+          const savedOtherTime = await AsyncStorage.getItem(`spotlight_other_${user.uid}`);
+          
+          if (savedYourTime) {
+            const time = parseInt(savedYourTime, 10);
+            // Only restore if time is still valid (not expired)
+            if (time > 0) {
+              setYourSpotlightTimeLeft(time);
+              console.log(`✅ Restored your spotlight time: ${time} seconds`);
+            }
+          }
+          
+          if (savedOtherTime) {
+            const time = parseInt(savedOtherTime, 10);
+            // Only restore if time is still valid (not expired)
+            if (time > 0) {
+              setOtherSpotlightTimeLeft(time);
+              console.log(`✅ Restored other spotlight time: ${time} seconds`);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load spotlight time from storage:', error);
+      }
+    };
+    
+    loadSpotlightTime();
+  }, [user?.uid]);
+  
+  // Save spotlight time to AsyncStorage whenever it changes
+  useEffect(() => {
+    const saveSpotlightTime = async () => {
+      try {
+        if (user?.uid) {
+          await AsyncStorage.setItem(`spotlight_your_${user.uid}`, yourSpotlightTimeLeft.toString());
+          await AsyncStorage.setItem(`spotlight_other_${user.uid}`, otherSpotlightTimeLeft.toString());
+        }
+      } catch (error) {
+        console.warn('Failed to save spotlight time to storage:', error);
+      }
+    };
+    
+    saveSpotlightTime();
+  }, [yourSpotlightTimeLeft, otherSpotlightTimeLeft, user?.uid]);
   
   // --- Animation Setup for Your Spotlight Shadow ---
   const yourShadowOpacity = useSharedValue(0.7); // Initial opacity - safe default
@@ -269,17 +319,25 @@ const HomeScreen = () => {
   }, []); // Add empty dependency array to prevent reading during render
   // --- End Other Animation Setup ---
   
-  // Random user spotlight candidate
-  const [otherSpotlightCandidate, setOtherSpotlightCandidate] = useState<{ name: string; avatar: string }>({ name: 'Alex', avatar: 'https://ui-avatars.com/api/?name=Alex&background=6E69F4&color=FFFFFF&size=150' });
+  // Random user spotlight candidate - only set when user has spotlight time
+  const [otherSpotlightCandidate, setOtherSpotlightCandidate] = useState<{ name: string; avatar: string } | null>(null);
   
-  // Pick a random friend from watching streams
+  // Pick a random friend from watching streams only when they have spotlight time
   useEffect(() => {
-    // pick a random friend from watching streams, or fallback
-    const friends = friendStreams.watching[0]?.friends || [];
-    if (friends.length > 0) {
-      setOtherSpotlightCandidate(friends[Math.floor(Math.random() * friends.length)]);
-    } // else keep existing fallback
-  }, [friendStreams]);
+    // Only set a candidate if there's spotlight time and friends available
+    if (otherSpotlightTimeLeft > 0) {
+      const friends = friendStreams.watching[0]?.friends || [];
+      if (friends.length > 0) {
+        setOtherSpotlightCandidate(friends[Math.floor(Math.random() * friends.length)]);
+      } else {
+        // No friends available, clear the candidate
+        setOtherSpotlightCandidate(null);
+      }
+    } else {
+      // No spotlight time, clear the candidate
+      setOtherSpotlightCandidate(null);
+    }
+  }, [friendStreams, otherSpotlightTimeLeft]);
   
   // Your spotlight timer effect
   useEffect(() => {

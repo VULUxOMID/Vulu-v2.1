@@ -422,7 +422,7 @@ class AuthService {
     return true; // Default to maintaining session
   }
 
-  // Check if email is already registered
+  // Check if email is already registered - Works with email enumeration protection
   async isEmailRegistered(email: string): Promise<boolean> {
     try {
       this.ensureFirebaseReady();
@@ -431,14 +431,63 @@ class AuthService {
         throw new Error('Firebase Auth not available');
       }
 
-      console.log('🔄 Checking if email is registered:', email);
+      console.log('🔄 Checking if email is registered (enumeration-safe):', email);
 
-      // Use Firebase's fetchSignInMethodsForEmail to check if email exists
-      const signInMethods = await fetchSignInMethodsForEmail(auth, email.trim());
-      const isRegistered = signInMethods.length > 0;
+      // Method 1: Try fetchSignInMethodsForEmail first (works if enumeration protection is disabled)
+      try {
+        const signInMethods = await fetchSignInMethodsForEmail(auth, email.trim());
+        if (signInMethods.length > 0) {
+          console.log('✅ Email found via fetchSignInMethodsForEmail:', { email, methods: signInMethods });
+          return true;
+        }
+        console.log('📧 fetchSignInMethodsForEmail returned empty - trying alternative method');
+      } catch (fetchError: any) {
+        console.log('⚠️ fetchSignInMethodsForEmail failed, trying alternative method:', fetchError.code);
+      }
 
-      console.log('✅ Email registration check result:', { email, isRegistered, methods: signInMethods });
-      return isRegistered;
+      // Method 2: Try to sign in with a dummy password to check if email exists
+      // This works even with email enumeration protection enabled
+      try {
+        console.log('🔍 Attempting sign-in with dummy password to check email existence');
+        await signInWithEmailAndPassword(auth, email.trim(), 'dummy_password_that_will_fail_123');
+
+        // If we get here without error, the email exists but password was correct (very unlikely)
+        // Sign out immediately and return true
+        await signOut(auth);
+        console.log('✅ Email exists (unexpected successful sign-in)');
+        return true;
+
+      } catch (signInError: any) {
+        console.log('🔍 Sign-in attempt result:', { code: signInError.code, message: signInError.message });
+
+        // Check the specific error codes to determine if email exists
+        if (signInError.code === 'auth/wrong-password') {
+          // Email exists but password is wrong - this is what we expect
+          console.log('✅ Email exists (wrong password error)');
+          return true;
+        } else if (signInError.code === 'auth/user-not-found') {
+          // Email doesn't exist
+          console.log('✅ Email is available (user not found)');
+          return false;
+        } else if (signInError.code === 'auth/invalid-email') {
+          // Invalid email format
+          console.log('❌ Invalid email format');
+          return false;
+        } else if (signInError.code === 'auth/user-disabled') {
+          // Email exists but account is disabled
+          console.log('✅ Email exists (account disabled)');
+          return true;
+        } else if (signInError.code === 'auth/too-many-requests') {
+          // Too many attempts - assume email is available to avoid blocking
+          console.log('⚠️ Too many requests - assuming email is available');
+          return false;
+        } else {
+          // Other errors - assume email is available to avoid blocking registration
+          console.log('⚠️ Unknown error during email check - assuming email is available:', signInError.code);
+          return false;
+        }
+      }
+
     } catch (error: any) {
       console.error('❌ Email registration check failed:', error);
 

@@ -18,6 +18,7 @@ import CommonHeader from '../components/CommonHeader';
 import { useAuth } from '../context/AuthContext';
 import { firestoreService } from '../services/firestoreService';
 import { notificationService } from '../services/notificationService';
+import { messagingService } from '../services/messagingService';
 import { LoadingState, ErrorState, EmptyState } from '../components/ErrorHandling';
 
 interface User {
@@ -122,15 +123,23 @@ const AddFriendsScreen = () => {
       const currentUserFriends = await firestoreService.getUserFriends(currentUser.uid);
       const friendIds = new Set(currentUserFriends.map(friend => friend.id));
 
-      setSearchResults(users.map(user => ({
-        id: user.uid,
-        displayName: user.displayName || 'Unknown User',
-        username: user.username || '',
-        email: user.email,
-        photoURL: user.photoURL,
-        isFriend: friendIds.has(user.uid),
-        requestSent: false // TODO: Check if request already sent
-      })));
+      // Check friend request status for each user
+      const usersWithStatus = await Promise.all(
+        users.map(async (user) => {
+          const requestStatus = await messagingService.getFriendRequestStatus(currentUser.uid, user.uid);
+          return {
+            id: user.uid,
+            displayName: user.displayName || 'Unknown User',
+            username: user.username || '',
+            email: user.email,
+            photoURL: user.photoURL,
+            isFriend: friendIds.has(user.uid) || requestStatus.status === 'friends',
+            requestSent: requestStatus.status === 'sent'
+          };
+        })
+      );
+
+      setSearchResults(usersWithStatus);
     } catch (error: any) {
       console.error('Error searching users:', error);
       setError('Failed to search users');
@@ -171,30 +180,61 @@ const AddFriendsScreen = () => {
     if (!currentUser?.uid) return;
 
     try {
-      // Add friend directly for now (simplified)
-      await firestoreService.addFriend(currentUser.uid, targetUser.id);
-      
-      // Send notification
-      await notificationService.createFriendRequestNotification(
-        targetUser.id,
+      // Use the proper friend request system instead of direct add
+      await messagingService.sendFriendRequest(
         currentUser.uid,
         currentUser.displayName || 'Someone',
-        currentUser.photoURL || undefined
+        targetUser.id,
+        targetUser.displayName || 'User',
+        undefined, // message
+        currentUser.photoURL || null, // Use null instead of undefined
+        targetUser.photoURL || null // Use null instead of undefined
       );
 
       // Update search results to show request sent
-      setSearchResults(prev => 
-        prev.map(user => 
-          user.id === targetUser.id 
+      setSearchResults(prev =>
+        prev.map(user =>
+          user.id === targetUser.id
             ? { ...user, requestSent: true }
             : user
         )
       );
 
-      Alert.alert('Success', `Friend request sent to ${targetUser.displayName}`);
+      // Success - no popup needed, UI already updated
     } catch (error: any) {
       console.error('Error sending friend request:', error);
       Alert.alert('Error', 'Failed to send friend request. Please try again.');
+    }
+  };
+
+  const cancelFriendRequest = async (targetUser: User) => {
+    if (!currentUser?.uid) return;
+
+    try {
+      // Cancel the friend request
+      await messagingService.cancelFriendRequest(currentUser.uid, targetUser.id);
+
+      // Update search results to show request cancelled
+      setSearchResults(prev =>
+        prev.map(user =>
+          user.id === targetUser.id
+            ? { ...user, requestSent: false }
+            : user
+        )
+      );
+
+      // Success - no popup needed, UI already updated
+    } catch (error: any) {
+      console.error('Error cancelling friend request:', error);
+      Alert.alert('Error', 'Failed to cancel friend request. Please try again.');
+    }
+  };
+
+  const handleFriendRequestToggle = async (targetUser: User) => {
+    if (targetUser.requestSent) {
+      await cancelFriendRequest(targetUser);
+    } else {
+      await sendFriendRequest(targetUser);
     }
   };
 
@@ -203,8 +243,12 @@ const AddFriendsScreen = () => {
 
     try {
       if (action === 'accept') {
-        await firestoreService.addFriend(currentUser.uid, request.fromUserId);
+        // Use the proper messaging service to respond to friend requests
+        await messagingService.respondToFriendRequest(request.id, 'accepted');
         Alert.alert('Success', `You are now friends with ${request.fromUserName}`);
+      } else {
+        // Decline the request
+        await messagingService.respondToFriendRequest(request.id, 'declined');
       }
 
       // Remove request from list
@@ -230,16 +274,18 @@ const AddFriendsScreen = () => {
       <TouchableOpacity
         style={[
           styles.actionButton,
-          (item.isFriend || item.requestSent) && styles.actionButtonDisabled
+          item.isFriend && styles.actionButtonDisabled,
+          item.requestSent && styles.cancelButton
         ]}
-        onPress={() => sendFriendRequest(item)}
-        disabled={item.isFriend || item.requestSent}
+        onPress={() => handleFriendRequestToggle(item)}
+        disabled={item.isFriend}
       >
         <Text style={[
           styles.actionButtonText,
-          (item.isFriend || item.requestSent) && styles.actionButtonTextDisabled
+          item.isFriend && styles.actionButtonTextDisabled,
+          item.requestSent && styles.cancelButtonText
         ]}>
-          {item.isFriend ? 'Friends' : item.requestSent ? 'Sent' : 'Add Friend'}
+          {item.isFriend ? 'Friends' : item.requestSent ? 'Cancel' : 'Add Friend'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -514,6 +560,14 @@ const styles = StyleSheet.create({
   },
   actionButtonTextDisabled: {
     color: '#9BA1A6',
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  cancelButtonText: {
+    color: '#FF9800',
   },
   requestActions: {
     flexDirection: 'row',

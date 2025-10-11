@@ -51,16 +51,13 @@ export const getNextRoute = async (
   const devicePermissions = permissions || await checkDevicePermissions();
 
   switch (currentRoute) {
-    case 'Welcome':
-      return { nextRoute: 'AgeGate' };
-
     case 'AgeGate':
       // Check if user is old enough
       if (onboardingData.dateOfBirth) {
         const age = new Date().getFullYear() - onboardingData.dateOfBirth.getFullYear();
         if (age < 13) {
           // Could redirect to age restriction screen or show error
-          return { nextRoute: 'Welcome', skipReason: 'User too young' };
+          return { nextRoute: 'AgeGate', skipReason: 'User too young' };
         }
       }
       return { nextRoute: 'Username' };
@@ -121,7 +118,7 @@ export const getNextRoute = async (
       return { nextRoute: 'COMPLETE' };
 
     default:
-      return { nextRoute: 'Welcome' };
+      return { nextRoute: 'AgeGate' };
   }
 };
 
@@ -132,11 +129,8 @@ export const getPreviousRoute = (
 ): keyof OnboardingStackParamList | null => {
   
   switch (currentRoute) {
-    case 'Welcome':
-      return null; // No previous route
-
     case 'AgeGate':
-      return 'Welcome';
+      return null; // No previous route
 
     case 'Username':
       return 'AgeGate';
@@ -292,7 +286,7 @@ export const getConditionalRoute = (
 
     default:
       // Default routing
-      return { nextRoute: 'Welcome' };
+      return { nextRoute: 'AgeGate' };
   }
 };
 
@@ -305,23 +299,22 @@ export const canNavigateToRoute = (
   
   // Define step numbers for each route
   const routeSteps: Record<keyof OnboardingStackParamList, number> = {
-    Welcome: 1,
-    AgeGate: 2,
-    Username: 3,
-    Email: 4,
-    Password: 5,
-    Terms: 6,
-    PermissionsIntro: 7,
-    NotificationsPermission: 8,
-    AvatarPicker: 9,
-    ThemeChoice: 10,
-    Interests: 11,
-    ContactsIntro: 12,
-    ContactsPermission: 13,
-    PhoneIntro: 14,
-    PhoneVerification: 15,
-    Success: 16,
-    HomeHandoff: 17,
+    AgeGate: 1,
+    Username: 2,
+    Email: 3,
+    Password: 4,
+    Terms: 5,
+    PermissionsIntro: 6,
+    NotificationsPermission: 7,
+    AvatarPicker: 8,
+    ThemeChoice: 9,
+    Interests: 10,
+    ContactsIntro: 11,
+    ContactsPermission: 12,
+    PhoneIntro: 13,
+    PhoneVerification: 14,
+    Success: 15,
+    HomeHandoff: 16,
   };
 
   const targetStep = routeSteps[targetRoute];
@@ -344,7 +337,6 @@ export const canNavigateToRoute = (
 // Get route title for header
 export const getRouteTitle = (route: keyof OnboardingStackParamList): string => {
   const titles: Record<keyof OnboardingStackParamList, string> = {
-    Welcome: '',
     AgeGate: 'Age Verification',
     Username: 'Choose Username',
     Email: 'Email Address',

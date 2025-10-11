@@ -27,33 +27,48 @@ export const OnboardingCard: React.FC<OnboardingCardProps> = ({
     </View>
   );
 
-  const Container = showGradient ? LinearGradient : View;
-  const containerProps = showGradient
-    ? {
-        colors: [AuthColors.background, AuthColors.cardBackground],
-        start: { x: 0, y: 0 },
-        end: { x: 0, y: 1 },
-      }
-    : { style: { backgroundColor: AuthColors.background } };
-
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <Container {...containerProps} style={styles.gradientContainer}>
-        {scrollable ? (
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            <CardContent />
-          </ScrollView>
-        ) : (
-          <View style={styles.staticContainer}>
-            <CardContent />
-          </View>
-        )}
-      </Container>
+      {showGradient ? (
+        <LinearGradient
+          colors={[AuthColors.background, AuthColors.cardBackground]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.gradientContainer}
+        >
+          {scrollable ? (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <CardContent />
+            </ScrollView>
+          ) : (
+            <View style={styles.staticContainer}>
+              <CardContent />
+            </View>
+          )}
+        </LinearGradient>
+      ) : (
+        <View style={[styles.gradientContainer, { backgroundColor: AuthColors.background }]}>
+          {scrollable ? (
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <CardContent />
+            </ScrollView>
+          ) : (
+            <View style={styles.staticContainer}>
+              <CardContent />
+            </View>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 };

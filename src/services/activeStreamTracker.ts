@@ -40,15 +40,26 @@ export class ActiveStreamTracker {
 
     console.log(`🧪 Testing Firebase permissions for user ${userId}`);
 
-    // Test write permission
+    // Test write permission - ONLY test activeStream subcollection, NOT create actual streams
     try {
-      const testStreamId = `test-${Date.now()}`;
-      await this.setActiveStream(userId, testStreamId);
+      const testStreamId = `test-permission-${Date.now()}`;
+      
+      // Only test writing to activeStream subcollection, don't create actual stream
+      const activeStreamRef = doc(db, 'users', userId, 'activeStream', 'current');
+      const testData = {
+        streamId: testStreamId,
+        isActive: false, // Mark as test data
+        joinedAt: Date.now(),
+        lastUpdated: Date.now(),
+        isTestData: true // Flag this as test data
+      };
+
+      await setDoc(activeStreamRef, testData);
       canWrite = true;
       console.log(`✅ Write permission test passed for user ${userId}`);
 
-      // Clean up test data
-      await this.clearActiveStream(userId);
+      // Clean up test data immediately
+      await deleteDoc(activeStreamRef);
     } catch (error: any) {
       canWrite = false;
       errors.push(`Write test failed: ${error?.code} - ${error?.message}`);
@@ -76,6 +87,12 @@ export class ActiveStreamTracker {
    * Set user's active stream with enhanced error handling and debugging
    */
   static async setActiveStream(userId: string, streamId: string): Promise<void> {
+    // Prevent test streams from being created (except permission tests)
+    if (streamId.startsWith('test-') && !streamId.includes('permission')) {
+      console.warn(`⚠️ Blocking test stream creation: ${streamId}`);
+      return;
+    }
+
     // Handle guest users - they can't write to Firebase
     if (this.isGuestUser(userId)) {
       console.log(`🎭 Guest user ${userId} setting active stream locally: ${streamId}`);

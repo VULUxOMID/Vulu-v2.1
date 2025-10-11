@@ -1206,15 +1206,16 @@ export class MessagingService {
         throw new Error('Users are already friends');
       }
 
+      // Create request data, filtering out undefined values for Firebase compatibility
       const requestData: Omit<FriendRequest, 'id'> = {
         senderId,
         senderName,
-        senderAvatar,
+        senderAvatar: senderAvatar || null, // Use null instead of undefined
         recipientId,
         recipientName,
-        recipientAvatar,
+        recipientAvatar: recipientAvatar || null, // Use null instead of undefined
         status: 'pending',
-        message,
+        message: message || null, // Use null instead of undefined
         createdAt: serverTimestamp() as Timestamp
       };
 
@@ -1223,6 +1224,28 @@ export class MessagingService {
     } catch (error: any) {
       console.error('Error sending friend request:', error);
       throw new Error('Failed to send friend request. Please try again.');
+    }
+  }
+
+  /**
+   * Cancel a sent friend request
+   */
+  async cancelFriendRequest(senderId: string, recipientId: string): Promise<void> {
+    try {
+      // Find the existing request
+      const existingRequest = await this.findExistingFriendRequest(senderId, recipientId);
+      if (!existingRequest) {
+        throw new Error('No pending friend request found');
+      }
+
+      // Delete the friend request
+      const requestRef = doc(db, 'friendRequests', existingRequest.id);
+      await deleteDoc(requestRef);
+
+      console.log(`✅ Friend request cancelled: ${senderId} -> ${recipientId}`);
+    } catch (error: any) {
+      console.error('Error cancelling friend request:', error);
+      throw new Error('Failed to cancel friend request. Please try again.');
     }
   }
 
@@ -1257,8 +1280,8 @@ export class MessagingService {
             userId2: request.recipientId,
             user1Name: request.senderName,
             user2Name: request.recipientName,
-            user1Avatar: request.senderAvatar,
-            user2Avatar: request.recipientAvatar,
+            user1Avatar: request.senderAvatar || null, // Use null instead of undefined
+            user2Avatar: request.recipientAvatar || null, // Use null instead of undefined
             status: 'active',
             createdAt: serverTimestamp() as Timestamp
           };
