@@ -123,7 +123,7 @@ class EncryptionService {
       await this.loadSettings();
 
       if (!this.settings.enabled) {
-        console.log('🔒 Encryption disabled in settings');
+        logger.debug('🔒 Encryption disabled in settings');
         return;
       }
 
@@ -133,9 +133,9 @@ class EncryptionService {
       // Load conversation keys
       await this.loadConversationKeys();
 
-      console.log('✅ Encryption service initialized');
+      logger.debug('✅ Encryption service initialized');
     } catch (error) {
-      console.error('Error initializing encryption service:', error);
+      logger.error('Error initializing encryption service:', error);
     }
   }
 
@@ -149,7 +149,7 @@ class EncryptionService {
       
       if (storedKeyPair) {
         this.userKeyPair = JSON.parse(storedKeyPair);
-        console.log('🔑 Loaded existing key pair');
+        logger.debug('🔑 Loaded existing key pair');
         return;
       }
 
@@ -178,15 +178,15 @@ class EncryptionService {
           createdAt: Date.now(),
           userId,
         });
-        console.log('🔑 Public key stored in Firestore');
+        logger.debug('🔑 Public key stored in Firestore');
       } catch (firestoreError) {
-        console.warn('⚠️ Could not store public key in Firestore (permissions issue), continuing with local storage only');
+        logger.warn('⚠️ Could not store public key in Firestore (permissions issue), continuing with local storage only');
         // Continue without storing in Firestore - the key pair is still stored locally
       }
 
-      console.log('🔑 Generated new key pair');
+      logger.debug('🔑 Generated new key pair');
     } catch (error) {
-      console.error('Error loading/generating key pair:', error);
+      logger.error('Error loading/generating key pair:', error);
     }
   }
 
@@ -206,7 +206,7 @@ class EncryptionService {
       return { publicKey, privateKey };
     } catch (error) {
       // Fallback to a simpler random generation if crypto module fails
-      console.warn('Crypto module failed, using fallback key generation');
+      logger.warn('Crypto module failed, using fallback key generation');
       const privateKey = Math.random().toString(36) + Date.now().toString(36);
       const publicKey = CryptoJS.SHA256(privateKey).toString();
       
@@ -299,7 +299,7 @@ class EncryptionService {
       this.conversationKeys.set(conversationId, conversationKey);
       return conversationKey;
     } catch (error) {
-      console.error('Error getting/creating conversation key:', error);
+      logger.error('Error getting/creating conversation key:', error);
       throw error;
     }
   }
@@ -364,7 +364,7 @@ class EncryptionService {
         timestamp: Date.now(),
       };
     } catch (error) {
-      console.error('Error encrypting message:', error);
+      logger.error('Error encrypting message:', error);
       throw error;
     }
   }
@@ -416,7 +416,7 @@ class EncryptionService {
 
       // Validate that decryption produced readable text
       if (!decryptedText || decryptedText.length === 0) {
-        console.warn('Decryption produced empty result');
+        logger.warn('Decryption produced empty result');
         return 'Message unavailable';
       }
 
@@ -425,13 +425,13 @@ class EncryptionService {
       const totalChars = decryptedText.length;
 
       if (totalChars > 0 && printableChars / totalChars > 0.3) {
-        console.warn('Decryption produced garbled text, likely corrupted');
+        logger.warn('Decryption produced garbled text, likely corrupted');
         return 'Message corrupted';
       }
 
       return decryptedText;
     } catch (error) {
-      console.error('Error decrypting message:', error);
+      logger.error('Error decrypting message:', error);
       return 'Message unavailable';
     }
   }
@@ -485,9 +485,9 @@ class EncryptionService {
         encryptionUpdatedBy: currentUserId,
       });
 
-      console.log(`🔒 Conversation encryption ${enabled ? 'enabled' : 'disabled'}`);
+      logger.debug(`🔒 Conversation encryption ${enabled ? 'enabled' : 'disabled'}`);
     } catch (error) {
-      console.error('Error setting conversation encryption:', error);
+      logger.error('Error setting conversation encryption:', error);
       throw error;
     }
   }
@@ -499,9 +499,9 @@ class EncryptionService {
     try {
       this.settings = { ...this.settings, ...newSettings };
       await AsyncStorage.setItem('encryption_settings', JSON.stringify(this.settings));
-      console.log('✅ Encryption settings updated');
+      logger.debug('✅ Encryption settings updated');
     } catch (error) {
-      console.error('Error updating encryption settings:', error);
+      logger.error('Error updating encryption settings:', error);
     }
   }
 
@@ -522,7 +522,7 @@ class EncryptionService {
         this.settings = { ...this.settings, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.error('Error loading encryption settings:', error);
+      logger.error('Error loading encryption settings:', error);
     }
   }
 
@@ -537,7 +537,7 @@ class EncryptionService {
         this.conversationKeys = new Map(Object.entries(keys));
       }
     } catch (error) {
-      console.error('Error loading conversation keys:', error);
+      logger.error('Error loading conversation keys:', error);
     }
   }
 
@@ -549,7 +549,7 @@ class EncryptionService {
       const keys = Object.fromEntries(this.conversationKeys);
       await AsyncStorage.setItem('conversation_keys', JSON.stringify(keys));
     } catch (error) {
-      console.error('Error saving conversation keys:', error);
+      logger.error('Error saving conversation keys:', error);
     }
   }
 
@@ -566,7 +566,7 @@ class EncryptionService {
   cleanup(): void {
     this.conversationKeys.clear();
     this.userKeyPair = null;
-    console.log('✅ Encryption service cleaned up');
+    logger.debug('✅ Encryption service cleaned up');
   }
 }
 

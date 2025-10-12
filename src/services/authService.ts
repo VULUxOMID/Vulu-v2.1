@@ -67,7 +67,7 @@ class AuthService {
   private async persistGuestUser(guestUser: GuestUser): Promise<void> {
     const result = await safeSetItem(this.GUEST_USER_KEY, JSON.stringify(guestUser));
     if (!result.success) {
-      console.warn('Failed to persist guest user:', result.error);
+      logger.warn('Failed to persist guest user:', result.error);
       // In development environment, this is expected and not critical
       if (result.error?.includes('Development environment')) {
         console.info('Guest user will be stored in memory only (development limitation)');
@@ -95,7 +95,7 @@ class AuthService {
 
     if (!result.success) {
       if (result.error && !result.error.includes('Development environment')) {
-        console.warn('Failed to load persisted guest user:', result.error);
+        logger.warn('Failed to load persisted guest user:', result.error);
       }
       return null;
     }
@@ -107,14 +107,14 @@ class AuthService {
 
       // Validate the parsed data structure
       if (!this.isValidGuestUser(parsed)) {
-        console.warn('Invalid guest user data found in storage, clearing...');
+        logger.warn('Invalid guest user data found in storage, clearing...');
         await this.clearPersistedGuestUser();
         return null;
       }
 
       return parsed;
     } catch (parseError) {
-      console.warn('Failed to parse persisted guest user:', parseError);
+      logger.warn('Failed to parse persisted guest user:', parseError);
       // Clear corrupted data
       await this.clearPersistedGuestUser();
       return null;
@@ -125,7 +125,7 @@ class AuthService {
   private async clearPersistedGuestUser(): Promise<void> {
     const result = await safeRemoveItem(this.GUEST_USER_KEY);
     if (!result.success && result.error && !result.error.includes('Development environment')) {
-      console.warn('Failed to clear persisted guest user:', result.error);
+      logger.warn('Failed to clear persisted guest user:', result.error);
     }
   }
 
@@ -198,7 +198,7 @@ class AuthService {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      console.log('🔄 Starting signup process...', {
+      logger.debug('🔄 Starting signup process...', {
         email: email.trim(),
         hasDisplayName: !!displayName,
         hasUsername: !!username
@@ -221,7 +221,7 @@ class AuthService {
 
           // For any other username check errors, re-throw them to prevent registration
           // This ensures users get proper error messages instead of crashes
-          console.error('Username availability check failed:', usernameError.message);
+          logger.error('Username availability check failed:', usernameError.message);
           const error = new Error('Unable to verify username availability. Please try again.');
           (error as any).code = 'auth/username-check-failed';
           throw error;
@@ -234,15 +234,15 @@ class AuthService {
       }, 'auth');
 
       const user = userCredential.user;
-      console.log('✅ Firebase user created successfully:', user.uid);
+      logger.debug('✅ Firebase user created successfully:', user.uid);
 
       // Update profile with display name if provided
       if (displayName) {
         try {
           await updateProfile(user, { displayName: displayName.trim() });
-          console.log('✅ User profile updated with display name');
+          logger.debug('✅ User profile updated with display name');
         } catch (profileError) {
-          console.warn('Failed to update user profile:', profileError);
+          logger.warn('Failed to update user profile:', profileError);
           // Don't fail the signup for profile update errors
         }
       }
@@ -301,7 +301,7 @@ class AuthService {
         photoURL: user.photoURL
       };
     } catch (error: any) {
-      console.error('❌ signUp failed:', {
+      logger.error('❌ signUp failed:', {
         errorCode: error.code,
         errorMessage: error.message,
         email: email?.trim(),
@@ -325,7 +325,7 @@ class AuthService {
       }
 
       // DIAGNOSTIC: Enhanced logging for authentication debugging
-      console.log('🔐 AuthService.signIn called:', {
+      logger.debug('🔐 AuthService.signIn called:', {
         email: email,
         emailLength: email.length,
         passwordLength: password.length,
@@ -336,7 +336,7 @@ class AuthService {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      console.log('✅ AuthService.signIn successful:', {
+      logger.debug('✅ AuthService.signIn successful:', {
         uid: user.uid,
         email: user.email,
         emailVerified: user.emailVerified,
@@ -354,7 +354,7 @@ class AuthService {
       };
     } catch (error: any) {
       // DIAGNOSTIC: Enhanced error logging
-      console.error('❌ AuthService.signIn failed:', {
+      logger.error('❌ AuthService.signIn failed:', {
         errorCode: error.code,
         errorMessage: error.message,
         email: email,
@@ -374,7 +374,7 @@ class AuthService {
       await this.clearGuestUser();
       await signOut(auth);
     } catch (error: any) {
-      console.error('signOut failed:', error);
+      logger.error('signOut failed:', error);
       throw new Error('Failed to sign out. Please try again.');
     }
   }
@@ -386,18 +386,18 @@ class AuthService {
 
   // Listen to auth state changes with enhanced persistence support
   onAuthStateChange(callback: (user: User | null) => void): () => void {
-    console.log('🔄 Setting up Firebase auth state listener...');
+    logger.debug('🔄 Setting up Firebase auth state listener...');
 
     return onAuthStateChanged(auth, (user) => {
       if (user) {
-        console.log('✅ Firebase auth state restored:', {
+        logger.debug('✅ Firebase auth state restored:', {
           uid: user.uid,
           email: user.email,
           emailVerified: user.emailVerified,
           displayName: user.displayName
         });
       } else {
-        console.log('🚫 No Firebase user found in auth state');
+        logger.debug('🚫 No Firebase user found in auth state');
       }
 
       callback(user);
@@ -431,71 +431,71 @@ class AuthService {
         throw new Error('Firebase Auth not available');
       }
 
-      console.log('🔄 Checking if email is registered (enumeration-safe):', email);
+      logger.debug('🔄 Checking if email is registered (enumeration-safe):', email);
 
       // Method 1: Try fetchSignInMethodsForEmail first (works if enumeration protection is disabled)
       try {
         const signInMethods = await fetchSignInMethodsForEmail(auth, email.trim());
         if (signInMethods.length > 0) {
-          console.log('✅ Email found via fetchSignInMethodsForEmail:', { email, methods: signInMethods });
+          logger.debug('✅ Email found via fetchSignInMethodsForEmail:', { email, methods: signInMethods });
           return true;
         }
-        console.log('📧 fetchSignInMethodsForEmail returned empty - trying alternative method');
+        logger.debug('📧 fetchSignInMethodsForEmail returned empty - trying alternative method');
       } catch (fetchError: any) {
-        console.log('⚠️ fetchSignInMethodsForEmail failed, trying alternative method:', fetchError.code);
+        logger.debug('⚠️ fetchSignInMethodsForEmail failed, trying alternative method:', fetchError.code);
       }
 
       // Method 2: Try to sign in with a dummy password to check if email exists
       // This works even with email enumeration protection enabled
       try {
-        console.log('🔍 Attempting sign-in with dummy password to check email existence');
+        logger.debug('🔍 Attempting sign-in with dummy password to check email existence');
         await signInWithEmailAndPassword(auth, email.trim(), 'dummy_password_that_will_fail_123');
 
         // If we get here without error, the email exists but password was correct (very unlikely)
         // Sign out immediately and return true
         await signOut(auth);
-        console.log('✅ Email exists (unexpected successful sign-in)');
+        logger.debug('✅ Email exists (unexpected successful sign-in)');
         return true;
 
       } catch (signInError: any) {
-        console.log('🔍 Sign-in attempt result:', { code: signInError.code, message: signInError.message });
+        logger.debug('🔍 Sign-in attempt result:', { code: signInError.code, message: signInError.message });
 
         // Check the specific error codes to determine if email exists
         if (signInError.code === 'auth/wrong-password') {
           // Email exists but password is wrong - this is what we expect
-          console.log('✅ Email exists (wrong password error)');
+          logger.debug('✅ Email exists (wrong password error)');
           return true;
         } else if (signInError.code === 'auth/user-not-found') {
           // Email doesn't exist
-          console.log('✅ Email is available (user not found)');
+          logger.debug('✅ Email is available (user not found)');
           return false;
         } else if (signInError.code === 'auth/invalid-email') {
           // Invalid email format
-          console.log('❌ Invalid email format');
+          logger.debug('❌ Invalid email format');
           return false;
         } else if (signInError.code === 'auth/user-disabled') {
           // Email exists but account is disabled
-          console.log('✅ Email exists (account disabled)');
+          logger.debug('✅ Email exists (account disabled)');
           return true;
         } else if (signInError.code === 'auth/too-many-requests') {
           // Too many attempts - assume email is available to avoid blocking
-          console.log('⚠️ Too many requests - assuming email is available');
+          logger.debug('⚠️ Too many requests - assuming email is available');
           return false;
         } else {
           // Other errors - assume email is available to avoid blocking registration
-          console.log('⚠️ Unknown error during email check - assuming email is available:', signInError.code);
+          logger.debug('⚠️ Unknown error during email check - assuming email is available:', signInError.code);
           return false;
         }
       }
 
     } catch (error: any) {
-      console.error('❌ Email registration check failed:', error);
+      logger.error('❌ Email registration check failed:', error);
 
       // If it's a network error or permission error, assume email is available
       if (error.code === 'auth/network-request-failed' ||
           error.code === 'auth/too-many-requests' ||
           FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Network/permission error during email check, assuming email is available');
+        logger.warn('Network/permission error during email check, assuming email is available');
         return false;
       }
 

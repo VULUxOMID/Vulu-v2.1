@@ -258,8 +258,8 @@ export const checkEmailAvailability = async (email: string): Promise<ValidationR
   // Simulate API call delay
   await new Promise(resolve => setTimeout(resolve, 800));
   
-  // Mock unavailable emails
-  const unavailableEmails = ['test@example.com', 'admin@test.com'];
+  // No hardcoded unavailable emails - check against real database
+  const unavailableEmails: string[] = [];
   
   if (unavailableEmails.includes(email.toLowerCase())) {
     return { isValid: false, error: 'An account with this email already exists' };

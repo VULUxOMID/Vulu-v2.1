@@ -12,6 +12,7 @@ import {
 import { db, auth } from './firebase';
 import { firestoreService } from './firestoreService';
 import { AppUser } from './types';
+import { logger } from '../utils/logger';
 
 export interface ProfileUpdateData {
   displayName?: string;
@@ -38,11 +39,14 @@ class ProfileSyncService {
   private profileListeners: Map<string, Unsubscribe> = new Map();
   private profileRetryCounts: Map<string, number> = new Map();
   private profileRetryTimers: Map<string, NodeJS.Timeout> = new Map();
+  private lastSyncTime: Map<string, number> = new Map();
+  private conversationCache: Map<string, boolean> = new Map(); // Cache whether user has conversations
 
   // Exponential backoff configuration
   private readonly maxRetries = 5;
   private readonly baseDelay = 1000; // 1 second
   private readonly maxDelay = 30000; // 30 seconds
+  private readonly minSyncInterval = 60000; // Minimum 60 seconds between syncs
 
   /**
    * Check if user is a guest user (not authenticated with Firebase)
@@ -58,7 +62,7 @@ class ProfileSyncService {
   startProfileSync(userId: string): Unsubscribe {
     // Handle guest users - they don't have Firebase profiles to sync
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} - skipping profile sync (expected behavior)`);
+      logger.info(`🎭 Guest user ${userId} - skipping profile sync (expected behavior)`);
       // Return a no-op unsubscribe function
       return () => {};
     }
@@ -70,7 +74,7 @@ class ProfileSyncService {
     
     const unsubscribe = onSnapshot(userRef, async (userDoc) => {
       if (!userDoc.exists()) {
-        console.warn('User document does not exist for profile sync');
+        logger.warn('User document does not exist for profile sync');
         return;
       }
 
@@ -88,17 +92,17 @@ class ProfileSyncService {
           bio: userData.bio,
           customStatus: userData.customStatus
         });
-        console.log('✅ Profile sync successful for user:', userId);
+        // Success logged only when actual updates occur
       } catch (syncError) {
-        console.error('❌ Profile sync failed:', syncError);
+        logger.error('❌ Profile sync failed:', syncError);
         // Don't throw - profile sync failure should not break the app
       }
     }, (error) => {
-      console.error(`❌ Error monitoring profile changes for user ${userId}:`, error);
+      logger.error(`❌ Error monitoring profile changes for user ${userId}:`, error);
 
       // Handle permission errors specifically
       if (error.code === 'permission-denied') {
-        console.warn('🔒 Profile sync permission denied - this may affect menu functionality');
+        logger.warn('🔒 Profile sync permission denied - this may affect menu functionality');
       }
 
       // Clean up the failed listener
@@ -119,7 +123,7 @@ class ProfileSyncService {
     const currentRetryCount = this.profileRetryCounts.get(userId) || 0;
     
     if (currentRetryCount >= this.maxRetries) {
-      console.error(`Max retries (${this.maxRetries}) exceeded for user ${userId}. Aborting profile sync.`);
+      logger.error(`Max retries (${this.maxRetries}) exceeded for user ${userId}. Aborting profile sync.`);
       this.cleanupUserRetryData(userId);
       return;
     }
@@ -131,7 +135,7 @@ class ProfileSyncService {
     const jitter = delay * 0.25 * (Math.random() * 2 - 1); // -25% to +25%
     const finalDelay = Math.max(0, delay + jitter);
     
-    console.log(`Retrying profile sync for user ${userId} in ${Math.round(finalDelay)}ms (attempt ${currentRetryCount + 1}/${this.maxRetries})`);
+    logger.info(`Retrying profile sync for user ${userId} in ${Math.round(finalDelay)}ms (attempt ${currentRetryCount + 1}/${this.maxRetries})`);
     
     // Increment retry count
     this.profileRetryCounts.set(userId, currentRetryCount + 1);
@@ -177,13 +181,25 @@ class ProfileSyncService {
   async syncProfileToConversations(userId: string, profileData: ProfileUpdateData): Promise<void> {
     // Handle guest users - they don't have conversations to sync
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} - skipping conversation sync (expected behavior)`);
+      return; // Silent return for guest users
+    }
+
+    // Check if user has conversations (cached)
+    const hasConversations = this.conversationCache.get(userId);
+    if (hasConversations === false) {
+      // User has no conversations, skip sync silently
+      return;
+    }
+
+    // Throttle syncs - don't sync more than once per minute
+    const lastSync = this.lastSyncTime.get(userId) || 0;
+    const now = Date.now();
+    if (now - lastSync < this.minSyncInterval) {
+      // Too soon since last sync, skip
       return;
     }
 
     try {
-      console.log(`🔄 Syncing profile for user ${userId} to conversations...`);
-
       // Find all conversations where this user is a participant
       const conversationsQuery = query(
         collection(db, 'conversations'),
@@ -193,11 +209,16 @@ class ProfileSyncService {
       const conversationsSnapshot = await getDocs(conversationsQuery);
 
       if (conversationsSnapshot.empty) {
-        console.log(`No conversations found for user ${userId}`);
-        return;
+        // Cache that user has no conversations to avoid repeated queries
+        this.conversationCache.set(userId, false);
+        return; // Silent return
       }
 
-      console.log(`Found ${conversationsSnapshot.docs.length} conversations for user ${userId}`);
+      // User has conversations, cache this
+      this.conversationCache.set(userId, true);
+      this.lastSyncTime.set(userId, now);
+
+      logger.debug(`Found ${conversationsSnapshot.docs.length} conversations for user ${userId}`);
 
       // Use batch writes for better performance
       const batch = writeBatch(db);
@@ -211,7 +232,7 @@ class ProfileSyncService {
 
           // Verify user is actually in participants array
           if (!conversationData.participants || !conversationData.participants.includes(userId)) {
-            console.warn(`⚠️ User ${userId} not found in participants for conversation ${conversationDoc.id}`);
+            logger.warn(`⚠️ User ${userId} not found in participants for conversation ${conversationDoc.id}`);
             failedUpdates.push(conversationDoc.id);
             return;
           }
@@ -249,7 +270,7 @@ class ProfileSyncService {
           }
 
         } catch (docError) {
-          console.error(`Error processing conversation ${conversationDoc.id}:`, docError);
+          logger.error(`Error processing conversation ${conversationDoc.id}:`, docError);
           failedUpdates.push(conversationDoc.id);
         }
       });
@@ -257,30 +278,30 @@ class ProfileSyncService {
       if (updateCount > 0) {
         try {
           await batch.commit();
-          console.log(`✅ Updated ${updateCount} conversation records for user ${userId}`);
+          logger.debug(`✅ Updated ${updateCount} conversation records for user ${userId}`);
 
           if (failedUpdates.length > 0) {
-            console.warn(`⚠️ Failed to update ${failedUpdates.length} conversations: ${failedUpdates.join(', ')}`);
+            logger.warn(`⚠️ Failed to update ${failedUpdates.length} conversations: ${failedUpdates.join(', ')}`);
           }
         } catch (batchError) {
-          console.error(`❌ Batch commit failed for user ${userId}:`, batchError);
+          logger.error(`❌ Batch commit failed for user ${userId}:`, batchError);
 
           // If batch fails, try individual updates for critical data
           if (profileData.displayName) {
-            console.log(`🔄 Attempting individual updates for user ${userId}...`);
+            logger.debug(`🔄 Attempting individual updates for user ${userId}...`);
             await this.fallbackIndividualUpdates(userId, profileData, conversationsSnapshot.docs);
           }
         }
       } else {
-        console.log(`No conversation updates needed for user ${userId}`);
+        logger.debug(`No conversation updates needed for user ${userId}`);
       }
 
     } catch (error) {
-      console.error(`Failed to sync profile for user ${userId}:`, error);
+      logger.error(`Failed to sync profile for user ${userId}:`, error);
 
       // Don't throw the error - profile sync failure should not crash the app
       // The error is already logged and the user can continue using the app
-      console.warn(`⚠️ Profile sync failed for user ${userId}, continuing without sync`);
+      logger.warn(`⚠️ Profile sync failed for user ${userId}, continuing without sync`);
     }
   }
 
@@ -329,12 +350,12 @@ class ProfileSyncService {
         }
 
       } catch (error) {
-        console.error(`Individual update failed for conversation ${conversationDoc.id}:`, error);
+        logger.error(`Individual update failed for conversation ${conversationDoc.id}:`, error);
         failCount++;
       }
     }
 
-    console.log(`🔄 Individual updates completed: ${successCount} success, ${failCount} failed`);
+    logger.debug(`🔄 Individual updates completed: ${successCount} success, ${failCount} failed`);
   }
 
   /**
@@ -346,7 +367,7 @@ class ProfileSyncService {
       // Get the latest user profile
       const userProfile = await firestoreService.getUser(userId);
       if (!userProfile) {
-        console.warn(`User profile not found for ${userId}`);
+        logger.warn(`User profile not found for ${userId}`);
         return;
       }
 
@@ -359,7 +380,7 @@ class ProfileSyncService {
       });
 
     } catch (error) {
-      console.error(`Failed to force refresh user ${userId} in conversations:`, error);
+      logger.error(`Failed to force refresh user ${userId} in conversations:`, error);
       throw error;
     }
   }
@@ -369,15 +390,15 @@ class ProfileSyncService {
    * Useful for maintenance operations
    */
   async batchSyncProfiles(userIds: string[]): Promise<void> {
-    console.log(`🔄 Batch syncing profiles for ${userIds.length} users...`);
+    logger.debug(`🔄 Batch syncing profiles for ${userIds.length} users...`);
 
     const promises = userIds.map(userId => this.forceRefreshUserInConversations(userId));
     
     try {
       await Promise.allSettled(promises);
-      console.log(`✅ Batch profile sync completed for ${userIds.length} users`);
+      logger.debug(`✅ Batch profile sync completed for ${userIds.length} users`);
     } catch (error) {
-      console.error('Batch profile sync failed:', error);
+      logger.error('Batch profile sync failed:', error);
       throw error;
     }
   }
@@ -419,12 +440,20 @@ class ProfileSyncService {
 
       if (Object.keys(updateData).length > 0) {
         await updateDoc(userRef, updateData);
-        console.log('✅ Registration data synced to user profile:', updateData);
+        logger.debug('✅ Registration data synced to user profile:', updateData);
       }
     } catch (error: any) {
-      console.error('Failed to sync registration data to profile:', error);
+      logger.error('Failed to sync registration data to profile:', error);
       throw new Error(`Failed to sync registration data: ${error.message}`);
     }
+  }
+
+  /**
+   * Clear conversation cache for a user (call when user creates/joins a conversation)
+   */
+  clearConversationCache(userId: string): void {
+    this.conversationCache.delete(userId);
+    this.lastSyncTime.delete(userId);
   }
 
   /**
@@ -443,7 +472,11 @@ class ProfileSyncService {
     this.profileRetryTimers.clear();
     this.profileRetryCounts.clear();
     
-    console.log('🧹 Profile sync service cleaned up');
+    // Clear sync throttling caches
+    this.lastSyncTime.clear();
+    this.conversationCache.clear();
+    
+    logger.debug('🧹 Profile sync service cleaned up');
   }
 
   /**

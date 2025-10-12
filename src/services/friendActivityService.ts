@@ -210,7 +210,7 @@ class FriendActivityService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getFriendActivities - returning empty array for guest user');
+        logger.warn('Permission denied for getFriendActivities - returning empty array for guest user');
         return [];
       }
 
@@ -268,12 +268,12 @@ class FriendActivityService {
       }, (error) => {
         // Handle permission errors gracefully for guest users
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          console.warn('Permission denied for onFriendActivities - returning empty array for guest user');
+          logger.warn('Permission denied for onFriendActivities - returning empty array for guest user');
           callback([]);
           return;
         }
 
-        console.error('Friend activities listener error:', error);
+        logger.error('Friend activities listener error:', error);
         FirebaseErrorHandler.logError('onFriendActivities', error);
         callback([]);
       });
@@ -415,11 +415,11 @@ class FriendActivityService {
       const results = await Promise.allSettled(notificationPromises);
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
-          console.error(`Failed to create notification ${index}:`, result.reason);
+          logger.error(`Failed to create notification ${index}:`, result.reason);
         }
       });
     } catch (error) {
-      console.warn('Failed to notify friends about activity:', error);
+      logger.warn('Failed to notify friends about activity:', error);
     }
   }
 

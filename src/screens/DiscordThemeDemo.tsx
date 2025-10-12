@@ -24,7 +24,7 @@ const DiscordThemeDemo: React.FC = () => {
       text: 'Hey! Check out this new Discord-style theme! 🎨',
       senderId: 'demo-user-1',
       senderName: 'Alex',
-      senderAvatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+      senderAvatar: null,
       timestamp: new Date(Date.now() - 60000 * 30), // 30 minutes ago
     },
     {
@@ -46,7 +46,7 @@ const DiscordThemeDemo: React.FC = () => {
       text: 'The avatars and status indicators look great too! 👍',
       senderId: 'demo-user-1',
       senderName: 'Alex',
-      senderAvatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+      senderAvatar: null,
       timestamp: new Date(Date.now() - 60000 * 20), // 20 minutes ago
       reactions: [
         { emoji: '👍', count: 2, users: ['demo-user-1', 'demo-user-2'] },
@@ -69,7 +69,7 @@ const DiscordThemeDemo: React.FC = () => {
       text: 'This is going to make VULU\'s messaging experience so much better! 🚀',
       senderId: 'demo-user-1',
       senderName: 'Alex',
-      senderAvatar: 'https://randomuser.me/api/portraits/men/1.jpg',
+      senderAvatar: null,
       timestamp: new Date(Date.now() - 60000 * 10), // 10 minutes ago
     },
     {
@@ -120,8 +120,8 @@ const DiscordThemeDemo: React.FC = () => {
       {/* Discord Chat Interface */}
       <DiscordChatWrapper
         messages={messages}
-        participantName="Alex"
-        participantAvatar="https://randomuser.me/api/portraits/men/1.jpg"
+        participantName="User"
+        participantAvatar={null}
         participantStatus="online"
         isTyping={false}
         currentUserId="demo-user-2"

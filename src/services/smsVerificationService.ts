@@ -71,7 +71,7 @@ export class SMSVerificationService {
       // Check if we're in a web environment (Expo Web)
       if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         // Web environment - use reCAPTCHA
-        console.log('🌐 Web environment detected - initializing reCAPTCHA');
+        logger.debug('🌐 Web environment detected - initializing reCAPTCHA');
 
         // Ensure reCAPTCHA container exists
         let recaptchaContainer = document.getElementById('recaptcha-container');
@@ -92,22 +92,22 @@ export class SMSVerificationService {
         this.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: () => {
-            console.log('✅ reCAPTCHA solved');
+            logger.debug('✅ reCAPTCHA solved');
           },
           'expired-callback': () => {
-            console.log('⚠️ reCAPTCHA expired');
+            logger.debug('⚠️ reCAPTCHA expired');
           }
         });
 
         await this.recaptchaVerifier.render();
-        console.log('✅ reCAPTCHA verifier initialized for web');
+        logger.debug('✅ reCAPTCHA verifier initialized for web');
       } else {
         // React Native environment - reCAPTCHA not available
-        console.log('📱 React Native environment detected - reCAPTCHA not available');
+        logger.debug('📱 React Native environment detected - reCAPTCHA not available');
         throw new Error('reCAPTCHA not available in React Native environment');
       }
     } catch (error: any) {
-      console.error('❌ reCAPTCHA initialization failed:', error);
+      logger.error('❌ reCAPTCHA initialization failed:', error);
       throw error;
     }
   }
@@ -126,9 +126,9 @@ export class SMSVerificationService {
   async sendVerificationCode(phoneNumber: string): Promise<SMSVerificationResult> {
     try {
       const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
-      console.log('📱 Sending SMS verification code:');
-      console.log('  Original:', phoneNumber);
-      console.log('  Normalized:', normalizedPhone);
+      logger.debug('📱 Sending SMS verification code:');
+      logger.debug('  Original:', phoneNumber);
+      logger.debug('  Normalized:', normalizedPhone);
 
       // Log SMS service status
       logSMSServiceStatus();
@@ -137,7 +137,7 @@ export class SMSVerificationService {
       const bestService = getBestSMSService();
       const config = getSMSConfig();
 
-      console.log(`🎯 Using SMS service: ${bestService}`);
+      logger.debug(`🎯 Using SMS service: ${bestService}`);
 
       // Route to the appropriate service using normalized phone number
       switch (bestService) {
@@ -153,7 +153,7 @@ export class SMSVerificationService {
       }
 
     } catch (error: any) {
-      console.error('❌ SMS sending failed:', error);
+      logger.error('❌ SMS sending failed:', error);
 
       return {
         success: false,
@@ -176,7 +176,7 @@ export class SMSVerificationService {
       // Initialize reCAPTCHA verifier (required for web)
       await this.initializeRecaptcha();
 
-      console.log('🔥 Using Firebase Auth Phone Authentication');
+      logger.debug('🔥 Using Firebase Auth Phone Authentication');
       this.confirmationResult = await signInWithPhoneNumber(
         auth,
         phoneNumber,
@@ -186,7 +186,7 @@ export class SMSVerificationService {
       if (this.confirmationResult.verificationId) {
         this.verificationId = this.confirmationResult.verificationId;
 
-        console.log('✅ SMS sent successfully via Firebase Auth');
+        logger.debug('✅ SMS sent successfully via Firebase Auth');
         return {
           success: true,
           verificationId: this.confirmationResult.verificationId,
@@ -195,7 +195,7 @@ export class SMSVerificationService {
         throw new Error('Failed to get verification ID from Firebase');
       }
     } catch (error: any) {
-      console.error('❌ Firebase SMS failed:', error);
+      logger.error('❌ Firebase SMS failed:', error);
       throw error;
     }
   }
@@ -207,20 +207,20 @@ export class SMSVerificationService {
     try {
       const code = this.generateVerificationCode();
 
-      console.log('📤 SENDING via Twilio:');
-      console.log('  Phone Number:', phoneNumber);
-      console.log('  Generated Code:', code);
-      console.log('  Code Type:', typeof code);
-      console.log('  Code Length:', code.length);
+      logger.debug('📤 SENDING via Twilio:');
+      logger.debug('  Phone Number:', phoneNumber);
+      logger.debug('  Generated Code:', code);
+      logger.debug('  Code Type:', typeof code);
+      logger.debug('  Code Length:', code.length);
 
       const twilioResult = await twilioSMSService.sendVerificationCode(phoneNumber, code);
 
       if (twilioResult.success) {
         // Store the code for verification since Twilio doesn't handle verification
-        console.log('💾 About to store code for verification...');
+        logger.debug('💾 About to store code for verification...');
         this.storeVerificationCode(phoneNumber, code);
 
-        console.log('✅ SMS sent successfully via Twilio');
+        logger.debug('✅ SMS sent successfully via Twilio');
         return {
           success: true,
           verificationId: twilioResult.verificationId || 'twilio-verification',
@@ -229,7 +229,7 @@ export class SMSVerificationService {
         throw new Error(twilioResult.error || 'Twilio SMS failed');
       }
     } catch (error: any) {
-      console.error('❌ Twilio SMS failed:', error);
+      logger.error('❌ Twilio SMS failed:', error);
       throw error;
     }
   }
@@ -243,19 +243,19 @@ export class SMSVerificationService {
       // Ensure code is always a string
       const codeAsString = String(code).trim();
 
-      console.log('🔍 SMS Verification Service - verifyCode called:');
-      console.log('  Original Phone Number:', phoneNumber);
-      console.log('  Normalized Phone Number:', normalizedPhone);
-      console.log('  Original Code:', code);
-      console.log('  Code as String:', codeAsString);
-      console.log('  Code Type:', typeof code, '→', typeof codeAsString);
-      console.log('  Has Firebase Confirmation:', !!this.confirmationResult);
-      console.log('  Stored Codes Map:', Array.from(verificationCodes.keys()));
+      logger.debug('🔍 SMS Verification Service - verifyCode called:');
+      logger.debug('  Original Phone Number:', phoneNumber);
+      logger.debug('  Normalized Phone Number:', normalizedPhone);
+      logger.debug('  Original Code:', code);
+      logger.debug('  Code as String:', codeAsString);
+      logger.debug('  Code Type:', typeof code, '→', typeof codeAsString);
+      logger.debug('  Has Firebase Confirmation:', !!this.confirmationResult);
+      logger.debug('  Stored Codes Map:', Array.from(verificationCodes.keys()));
 
       // If we have a Firebase confirmation result, use it
       if (this.confirmationResult) {
         try {
-          console.log('🔥 Using Firebase Auth Phone verification');
+          logger.debug('🔥 Using Firebase Auth Phone verification');
           const result = await this.confirmationResult.confirm(codeAsString);
 
           if (result.user) {
@@ -266,24 +266,24 @@ export class SMSVerificationService {
             // Also clear any stored verification data
             this.clearVerificationCode(normalizedPhone);
 
-            console.log('✅ SMS code verified successfully via Firebase Auth');
+            logger.debug('✅ SMS code verified successfully via Firebase Auth');
             return { success: true };
           } else {
             throw new Error('Verification failed - no user returned');
           }
         } catch (firebaseError: any) {
-          console.warn('⚠️ Firebase verification failed, trying fallback:', firebaseError.message);
+          logger.warn('⚠️ Firebase verification failed, trying fallback:', firebaseError.message);
 
           // If Firebase verification fails, try stored code verification as fallback
           return this.verifyStoredCode(normalizedPhone, codeAsString);
         }
       } else {
         // No Firebase confirmation result, use stored code verification
-        console.log('📝 Using stored code verification (fallback)');
+        logger.debug('📝 Using stored code verification (fallback)');
         return this.verifyStoredCode(normalizedPhone, codeAsString);
       }
     } catch (error: any) {
-      console.error('❌ SMS verification failed:', error);
+      logger.error('❌ SMS verification failed:', error);
 
       // Increment attempt count using the original phone parameter
       const phone = this.normalizePhoneNumber(phoneNumber);
@@ -313,7 +313,7 @@ export class SMSVerificationService {
       try {
         this.recaptchaVerifier.clear();
       } catch (error) {
-        console.warn('⚠️ Failed to clear reCAPTCHA verifier:', error);
+        logger.warn('⚠️ Failed to clear reCAPTCHA verifier:', error);
       }
       this.recaptchaVerifier = null;
     }
@@ -374,12 +374,12 @@ export class SMSVerificationService {
 
     // Enhanced logging for debugging (development only)
     if (process.env.NODE_ENV === 'development') {
-      console.log('💾 STORING Verification Code:');
-      console.log('  Phone Number (masked):', phoneNumber.slice(0, -4) + '****');
-      console.log('  Code Length:', code.length);
-      console.log('  Code Type:', typeof code);
-      console.log('  Expires At:', expiresAt.toISOString());
-      console.log('  Storage Keys Count:', verificationCodes.size);
+      logger.debug('💾 STORING Verification Code:');
+      logger.debug('  Phone Number (masked):', phoneNumber.slice(0, -4) + '****');
+      logger.debug('  Code Length:', code.length);
+      logger.debug('  Code Type:', typeof code);
+      logger.debug('  Expires At:', expiresAt.toISOString());
+      logger.debug('  Storage Keys Count:', verificationCodes.size);
     }
 
     // Log verification code in development if explicitly enabled
@@ -389,8 +389,8 @@ export class SMSVerificationService {
     if (isDev && smsDebugEnabled && config.logVerificationCodes) {
       // Only log masked version for security
       const maskedCode = code.slice(0, -2) + '**';
-      console.log(`📱 *** VERIFICATION CODE (masked): ${maskedCode} ***`);
-      console.log('📱 Full code available in secure dev store (if configured)');
+      logger.debug(`📱 *** VERIFICATION CODE (masked): ${maskedCode} ***`);
+      logger.debug('📱 Full code available in secure dev store (if configured)');
     }
   }
 
@@ -417,30 +417,30 @@ export class SMSVerificationService {
    */
   private verifyStoredCode(phoneNumber: string, code: string): CodeVerificationResult {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 VERIFYING Stored Code:');
-      console.log('  Phone Number (masked):', phoneNumber.slice(0, -4) + '****');
-      console.log('  Phone Number Type:', typeof phoneNumber);
-      console.log('  Phone Number Length:', phoneNumber.length);
-      console.log('  Entered Code Length:', code.length);
-      console.log('  Entered Code Type:', typeof code);
-      console.log('  Storage Keys Count:', verificationCodes.size);
+      logger.debug('🔍 VERIFYING Stored Code:');
+      logger.debug('  Phone Number (masked):', phoneNumber.slice(0, -4) + '****');
+      logger.debug('  Phone Number Type:', typeof phoneNumber);
+      logger.debug('  Phone Number Length:', phoneNumber.length);
+      logger.debug('  Entered Code Length:', code.length);
+      logger.debug('  Entered Code Type:', typeof code);
+      logger.debug('  Storage Keys Count:', verificationCodes.size);
     }
 
     const stored = verificationCodes.get(phoneNumber);
     if (process.env.NODE_ENV === 'development') {
-      console.log('  Stored Data Found:', !!stored);
+      logger.debug('  Stored Data Found:', !!stored);
       if (stored) {
-        console.log('  Stored Code Length:', stored.code.length);
-        console.log('  Attempts:', stored.attempts);
-        console.log('  Max Attempts:', stored.maxAttempts);
-        console.log('  Expires At:', stored.expiresAt.toISOString());
+        logger.debug('  Stored Code Length:', stored.code.length);
+        logger.debug('  Attempts:', stored.attempts);
+        logger.debug('  Max Attempts:', stored.maxAttempts);
+        logger.debug('  Expires At:', stored.expiresAt.toISOString());
       }
     }
 
     if (!stored) {
-      console.log('❌ No stored verification code found');
-      console.log('  Available keys:', Array.from(verificationCodes.keys()));
-      console.log('  Looking for key:', phoneNumber);
+      logger.debug('❌ No stored verification code found');
+      logger.debug('  Available keys:', Array.from(verificationCodes.keys()));
+      logger.debug('  Looking for key:', phoneNumber);
       return {
         success: false,
         error: 'No verification code found. Please request a new code.',
@@ -448,16 +448,16 @@ export class SMSVerificationService {
       };
     }
 
-    console.log('  Stored Code:', stored.code);
-    console.log('  Stored Code Type:', typeof stored.code);
-    console.log('  Stored Code Length:', stored.code.length);
-    console.log('  Expires At:', stored.expiresAt);
-    console.log('  Current Time:', new Date());
-    console.log('  Is Expired:', new Date() > stored.expiresAt);
-    console.log('  Attempts:', stored.attempts, '/', stored.maxAttempts);
+    logger.debug('  Stored Code:', stored.code);
+    logger.debug('  Stored Code Type:', typeof stored.code);
+    logger.debug('  Stored Code Length:', stored.code.length);
+    logger.debug('  Expires At:', stored.expiresAt);
+    logger.debug('  Current Time:', new Date());
+    logger.debug('  Is Expired:', new Date() > stored.expiresAt);
+    logger.debug('  Attempts:', stored.attempts, '/', stored.maxAttempts);
 
     if (new Date() > stored.expiresAt) {
-      console.log('❌ Code has expired');
+      logger.debug('❌ Code has expired');
       this.clearVerificationCode(phoneNumber);
       return {
         success: false,
@@ -467,7 +467,7 @@ export class SMSVerificationService {
     }
 
     if (stored.attempts >= stored.maxAttempts) {
-      console.log('❌ Too many attempts');
+      logger.debug('❌ Too many attempts');
       this.clearVerificationCode(phoneNumber);
       return {
         success: false,
@@ -477,14 +477,14 @@ export class SMSVerificationService {
     }
 
     // Detailed code comparison
-    console.log('🔍 CODE COMPARISON:');
-    console.log('  Stored Code:', `"${stored.code}"`);
-    console.log('  Entered Code:', `"${code}"`);
-    console.log('  Stored Code Chars:', stored.code.split('').map(c => `'${c}' (${c.charCodeAt(0)})`));
-    console.log('  Entered Code Chars:', code.split('').map(c => `'${c}' (${c.charCodeAt(0)})`));
-    console.log('  Strict Equality (===):', stored.code === code);
-    console.log('  Loose Equality (==):', stored.code == code);
-    console.log('  String Comparison:', String(stored.code) === String(code));
+    logger.debug('🔍 CODE COMPARISON:');
+    logger.debug('  Stored Code:', `"${stored.code}"`);
+    logger.debug('  Entered Code:', `"${code}"`);
+    logger.debug('  Stored Code Chars:', stored.code.split('').map(c => `'${c}' (${c.charCodeAt(0)})`));
+    logger.debug('  Entered Code Chars:', code.split('').map(c => `'${c}' (${c.charCodeAt(0)})`));
+    logger.debug('  Strict Equality (===):', stored.code === code);
+    logger.debug('  Loose Equality (==):', stored.code == code);
+    logger.debug('  String Comparison:', String(stored.code) === String(code));
 
     // Try multiple comparison methods to be more lenient
     const codeMatch = stored.code === code ||
@@ -493,11 +493,11 @@ export class SMSVerificationService {
 
     if (!codeMatch) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('❌ CODE MISMATCH DETECTED!');
-        console.log('  Expected Length:', stored.code.length);
-        console.log('  Received Length:', code.length);
-        console.log('  Length Match:', stored.code.length === code.length);
-        console.log('  String Comparison:', String(stored.code) === String(code));
+        logger.debug('❌ CODE MISMATCH DETECTED!');
+        logger.debug('  Expected Length:', stored.code.length);
+        logger.debug('  Received Length:', code.length);
+        logger.debug('  Length Match:', stored.code.length === code.length);
+        logger.debug('  String Comparison:', String(stored.code) === String(code));
       }
 
       stored.attempts += 1;
@@ -512,7 +512,7 @@ export class SMSVerificationService {
     }
 
     // Code is valid
-    console.log('✅ Code verification successful');
+    logger.debug('✅ Code verification successful');
     this.clearVerificationCode(phoneNumber);
     return { success: true };
   }
@@ -529,7 +529,7 @@ export class SMSVerificationService {
       throw new Error('Mock SMS is not enabled in this environment');
     }
 
-    console.log('🧪 Using mock SMS for development');
+    logger.debug('🧪 Using mock SMS for development');
 
     const code = this.generateVerificationCode();
     this.storeVerificationCode(phoneNumber, code);
@@ -537,7 +537,7 @@ export class SMSVerificationService {
     // Log the code for development (masked for security)
     const maskedPhone = phoneNumber.slice(0, -4) + '****';
     const maskedCode = code.slice(0, -2) + '**';
-    console.log(`📱 Mock SMS Code for ${maskedPhone}: ${maskedCode}`);
+    logger.debug(`📱 Mock SMS Code for ${maskedPhone}: ${maskedCode}`);
     
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 1000));

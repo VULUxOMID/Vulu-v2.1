@@ -30,14 +30,14 @@ export class StreamSyncValidator {
   static startSyncValidation(userId: string, localStreamId: string | null): void {
     // Handle guest users - they don't need Firebase sync validation
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} - skipping sync validation (expected behavior)`);
+      logger.debug(`🎭 Guest user ${userId} - skipping sync validation (expected behavior)`);
       return;
     }
 
     // Always stop existing listener first to prevent duplicates
     this.stopSyncValidation(userId);
 
-    console.log(`🔄 Starting sync validation for user ${userId}, local stream: ${localStreamId}`);
+    logger.debug(`🔄 Starting sync validation for user ${userId}, local stream: ${localStreamId}`);
 
     try {
       // Set up real-time listener for user's active stream
@@ -49,15 +49,15 @@ export class StreamSyncValidator {
           try {
             this.handleActiveStreamChange(userId, localStreamId, snapshot);
           } catch (error) {
-            console.error(`❌ Error handling active stream change for user ${userId}:`, error);
+            logger.error(`❌ Error handling active stream change for user ${userId}:`, error);
           }
         },
         (error) => {
-          console.error(`❌ Error in sync validation listener for user ${userId}:`, error);
+          logger.error(`❌ Error in sync validation listener for user ${userId}:`, error);
 
           // Handle Firestore internal errors by restarting the listener
           if (error?.message?.includes('INTERNAL ASSERTION FAILED')) {
-            console.warn(`🔄 Restarting sync validation due to Firestore internal error for user ${userId}`);
+            logger.warn(`🔄 Restarting sync validation due to Firestore internal error for user ${userId}`);
             setTimeout(() => {
               this.stopSyncValidation(userId);
               this.startSyncValidation(userId, localStreamId);
@@ -69,13 +69,13 @@ export class StreamSyncValidator {
       );
 
       this.activeListeners.set(userId, unsubscribe);
-      console.log(`✅ Sync validation listener started for user ${userId}`);
+      logger.debug(`✅ Sync validation listener started for user ${userId}`);
 
       // Start periodic sync validation if not already running
       this.startPeriodicValidation();
 
     } catch (error) {
-      console.error(`❌ Failed to start sync validation for user ${userId}:`, error);
+      logger.error(`❌ Failed to start sync validation for user ${userId}:`, error);
     }
   }
   
@@ -89,9 +89,9 @@ export class StreamSyncValidator {
         // Call unsubscribe function to clean up the listener
         unsubscribe();
         this.activeListeners.delete(userId);
-        console.log(`✅ Stopped sync validation for user ${userId}`);
+        logger.debug(`✅ Stopped sync validation for user ${userId}`);
       } else {
-        console.log(`ℹ️ No active sync validation found for user ${userId}`);
+        logger.debug(`ℹ️ No active sync validation found for user ${userId}`);
       }
 
       // Stop periodic validation if no active listeners
@@ -99,7 +99,7 @@ export class StreamSyncValidator {
         this.stopPeriodicValidation();
       }
     } catch (error) {
-      console.error(`❌ Error stopping sync validation for user ${userId}:`, error);
+      logger.error(`❌ Error stopping sync validation for user ${userId}:`, error);
       // Force remove from map even if unsubscribe fails
       this.activeListeners.delete(userId);
     }
@@ -117,18 +117,18 @@ export class StreamSyncValidator {
       const serverActiveStream = snapshot.exists() ? snapshot.data() : null;
       const serverStreamId = serverActiveStream?.streamId || null;
       
-      console.log(`🔄 Server active stream change for user ${userId}:`);
-      console.log(`  Local: ${localStreamId}`);
-      console.log(`  Server: ${serverStreamId}`);
+      logger.debug(`🔄 Server active stream change for user ${userId}:`);
+      logger.debug(`  Local: ${localStreamId}`);
+      logger.debug(`  Server: ${serverStreamId}`);
       
       // Check for discrepancies
       if (localStreamId !== serverStreamId) {
-        console.warn(`⚠️ Stream state mismatch detected for user ${userId}`);
+        logger.warn(`⚠️ Stream state mismatch detected for user ${userId}`);
         await this.resolveStreamStateMismatch(userId, localStreamId, serverStreamId);
       }
       
     } catch (error) {
-      console.error(`❌ Error handling active stream change for user ${userId}:`, error);
+      logger.error(`❌ Error handling active stream change for user ${userId}:`, error);
     }
   }
   
@@ -142,12 +142,12 @@ export class StreamSyncValidator {
   ): Promise<void> {
     // Handle guest users - they don't have server state to resolve
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} - no server state mismatch to resolve`);
+      logger.debug(`🎭 Guest user ${userId} - no server state mismatch to resolve`);
       return;
     }
 
     try {
-      console.log(`🔧 Resolving stream state mismatch for user ${userId}`);
+      logger.debug(`🔧 Resolving stream state mismatch for user ${userId}`);
 
       // Validate server stream exists and is active
       let serverStreamValid = false;
@@ -176,28 +176,28 @@ export class StreamSyncValidator {
       // Resolution logic
       if (serverStreamValid && !localStreamValid) {
         // Server is correct, update local state
-        console.log(`✅ Correcting local state to match server: ${serverStreamId}`);
+        logger.debug(`✅ Correcting local state to match server: ${serverStreamId}`);
         this.notifyStateCorrection(userId, serverStreamId, 'server_wins');
         
       } else if (localStreamValid && !serverStreamValid) {
         // Local is correct, update server state
-        console.log(`✅ Correcting server state to match local: ${localStreamId}`);
+        logger.debug(`✅ Correcting server state to match local: ${localStreamId}`);
         await ActiveStreamTracker.setActiveStream(userId, localStreamId!);
         
       } else if (!serverStreamValid && !localStreamValid) {
         // Both invalid, clear everything
-        console.log(`✅ Clearing invalid state for user ${userId}`);
+        logger.debug(`✅ Clearing invalid state for user ${userId}`);
         await ActiveStreamTracker.clearActiveStream(userId);
         this.notifyStateCorrection(userId, null, 'both_invalid');
         
       } else if (serverStreamValid && localStreamValid) {
         // Both valid but different - use most recent
-        console.log(`⚠️ Both states valid but different - using server state: ${serverStreamId}`);
+        logger.debug(`⚠️ Both states valid but different - using server state: ${serverStreamId}`);
         this.notifyStateCorrection(userId, serverStreamId, 'conflict_server_wins');
       }
       
     } catch (error) {
-      console.error(`❌ Error resolving stream state mismatch for user ${userId}:`, error);
+      logger.error(`❌ Error resolving stream state mismatch for user ${userId}:`, error);
     }
   }
   
@@ -220,9 +220,9 @@ export class StreamSyncValidator {
     try {
       const eventEmitter = PlatformUtils.getEventEmitter();
       eventEmitter.emit('streamStateCorrection', eventData);
-      console.log(`📢 State correction notification: ${reason} for user ${userId}`);
+      logger.debug(`📢 State correction notification: ${reason} for user ${userId}`);
     } catch (error) {
-      console.error('❌ Error emitting state correction event:', error);
+      logger.error('❌ Error emitting state correction event:', error);
     }
   }
   
@@ -240,7 +240,7 @@ export class StreamSyncValidator {
       this.runPeriodicSyncCheck();
     }, this.SYNC_CHECK_INTERVAL);
     
-    console.log('🔄 Started periodic sync validation');
+    logger.debug('🔄 Started periodic sync validation');
   }
   
   /**
@@ -253,7 +253,7 @@ export class StreamSyncValidator {
     }
     
     this.isValidationActive = false;
-    console.log('✅ Stopped periodic sync validation');
+    logger.debug('✅ Stopped periodic sync validation');
   }
   
   /**
@@ -261,15 +261,15 @@ export class StreamSyncValidator {
    */
   private static async runPeriodicSyncCheck(): Promise<void> {
     try {
-      console.log('🔄 Running periodic sync check...');
+      logger.debug('🔄 Running periodic sync check...');
       
       // This would typically check all active users
       // For now, we'll implement user-specific checks when they're active
       
-      console.log('✅ Periodic sync check completed');
+      logger.debug('✅ Periodic sync check completed');
       
     } catch (error) {
-      console.error('❌ Error in periodic sync check:', error);
+      logger.error('❌ Error in periodic sync check:', error);
     }
   }
   
@@ -277,18 +277,18 @@ export class StreamSyncValidator {
    * Handle sync errors
    */
   private static handleSyncError(userId: string, error: any): void {
-    console.error(`❌ Sync error for user ${userId}:`, error);
+    logger.error(`❌ Sync error for user ${userId}:`, error);
 
     // For Firestore internal errors, clean up and don't restart automatically
     if (error?.message?.includes('INTERNAL ASSERTION FAILED')) {
-      console.warn(`🚨 Firestore internal error detected, cleaning up listener for user ${userId}`);
+      logger.warn(`🚨 Firestore internal error detected, cleaning up listener for user ${userId}`);
       this.stopSyncValidation(userId);
       return;
     }
 
     // For other errors, attempt to restart sync validation after delay
     setTimeout(() => {
-      console.log(`🔄 Attempting to restart sync validation for user ${userId}`);
+      logger.debug(`🔄 Attempting to restart sync validation for user ${userId}`);
       this.stopSyncValidation(userId);
       // The app should call startSyncValidation again when appropriate
     }, this.SYNC_RETRY_DELAY);
@@ -298,16 +298,16 @@ export class StreamSyncValidator {
    * Emergency cleanup - stop all listeners
    */
   static emergencyCleanup(): void {
-    console.warn(`🚨 Emergency cleanup: stopping all sync validation listeners`);
+    logger.warn(`🚨 Emergency cleanup: stopping all sync validation listeners`);
 
     try {
       // Stop all active listeners
       for (const [userId, unsubscribe] of this.activeListeners.entries()) {
         try {
           unsubscribe();
-          console.log(`✅ Emergency cleanup: stopped listener for user ${userId}`);
+          logger.debug(`✅ Emergency cleanup: stopped listener for user ${userId}`);
         } catch (error) {
-          console.error(`❌ Error during emergency cleanup for user ${userId}:`, error);
+          logger.error(`❌ Error during emergency cleanup for user ${userId}:`, error);
         }
       }
 
@@ -317,9 +317,9 @@ export class StreamSyncValidator {
       // Stop periodic validation
       this.stopPeriodicValidation();
 
-      console.log(`✅ Emergency cleanup completed`);
+      logger.debug(`✅ Emergency cleanup completed`);
     } catch (error) {
-      console.error(`❌ Error during emergency cleanup:`, error);
+      logger.error(`❌ Error during emergency cleanup:`, error);
     }
   }
   
@@ -333,12 +333,12 @@ export class StreamSyncValidator {
   ): Promise<{ valid: boolean; correctedStreamId?: string | null }> {
     // Handle guest users - they don't need sync validation
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} - sync validation always valid for ${operationType}`);
+      logger.debug(`🎭 Guest user ${userId} - sync validation always valid for ${operationType}`);
       return { valid: true };
     }
 
     try {
-      console.log(`🔍 Validating sync before ${operationType} operation for user ${userId}`);
+      logger.debug(`🔍 Validating sync before ${operationType} operation for user ${userId}`);
 
       const serverActiveStream = await ActiveStreamTracker.getActiveStream(userId);
       const serverStreamId = serverActiveStream?.streamId || null;
@@ -360,7 +360,7 @@ export class StreamSyncValidator {
       };
       
     } catch (error) {
-      console.error(`❌ Error validating sync before ${operationType}:`, error);
+      logger.error(`❌ Error validating sync before ${operationType}:`, error);
       return { valid: false };
     }
   }

@@ -36,6 +36,9 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
               style={styles.backButton}
               onPress={onBackPress}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              accessibilityHint="Returns to the previous screen"
             >
               <Ionicons name="arrow-back" size={24} color={AuthColors.primaryText} />
             </TouchableOpacity>
@@ -72,6 +75,9 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
               style={[styles.actionButton, styles.primaryAction]}
               onPress={onSignUpPress}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Sign up for VULU"
+              accessibilityHint="Opens the sign up form to create a new account"
             >
               <LinearGradient
                 colors={[AuthColors.primaryButton, AuthColors.primaryButtonHover]}
@@ -95,6 +101,9 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
               style={[styles.actionButton, styles.secondaryAction]}
               onPress={onLoginPress}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Log in to existing account"
+              accessibilityHint="Opens the login form to sign into your account"
             >
               <View style={styles.actionButtonContent}>
                 <Ionicons name="log-in" size={20} color={AuthColors.primaryText} />
@@ -113,6 +122,9 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
               style={[styles.actionButton, styles.guestAction]}
               onPress={onGuestContinue}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Continue as guest"
+              accessibilityHint="Explore VULU with limited features, no account required"
             >
               <View style={styles.actionButtonContent}>
                 <Ionicons name="person-outline" size={20} color={AuthColors.secondaryText} />

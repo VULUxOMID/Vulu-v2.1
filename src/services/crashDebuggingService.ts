@@ -46,7 +46,7 @@ class CrashDebuggingService {
       this.crashHistory = this.crashHistory.slice(0, this.maxCrashHistory);
     }
 
-    console.error('🚨 Crash logged:', crashInfo);
+    logger.error('🚨 Crash logged:', crashInfo);
     this.analyzeCrashPattern(crashInfo);
   }
 
@@ -84,7 +84,7 @@ class CrashDebuggingService {
     const errorMessage = error?.message?.toLowerCase() || '';
     const stackTrace = error?.stack?.toLowerCase() || '';
 
-    console.log('🔍 Analyzing crash pattern...');
+    logger.debug('🔍 Analyzing crash pattern...');
 
     // Check for known crash patterns
     const patterns = [
@@ -120,18 +120,18 @@ class CrashDebuggingService {
       .sort((a, b) => b.likelihood - a.likelihood);
 
     if (likelyPatterns.length > 0) {
-      console.log('🎯 Likely crash causes:');
+      logger.debug('🎯 Likely crash causes:');
       likelyPatterns.forEach(pattern => {
-        console.log(`  - ${pattern.name}: ${(pattern.likelihood * 100).toFixed(1)}% match`);
+        logger.debug(`  - ${pattern.name}: ${(pattern.likelihood * 100).toFixed(1)}% match`);
       });
     } else {
-      console.log('❓ Unknown crash pattern - may need symbolication');
+      logger.debug('❓ Unknown crash pattern - may need symbolication');
     }
 
     // Memory address analysis
     if (memoryAddresses.length > 0) {
-      console.log('🧠 Memory addresses found:', memoryAddresses.slice(0, 5));
-      console.log('💡 To symbolicate: Use these addresses with your dSYM file');
+      logger.debug('🧠 Memory addresses found:', memoryAddresses.slice(0, 5));
+      logger.debug('💡 To symbolicate: Use these addresses with your dSYM file');
     }
   }
 
@@ -209,7 +209,7 @@ class CrashDebuggingService {
    */
   clearHistory(): void {
     this.crashHistory = [];
-    console.log('🧹 Crash history cleared');
+    logger.debug('🧹 Crash history cleared');
   }
 
   /**

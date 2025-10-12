@@ -95,9 +95,9 @@ class MessagingAnalyticsService {
     try {
       this.sessionStartTime = Date.now();
       this.trackEvent('messaging_analytics_initialized');
-      console.log('✅ Messaging analytics service initialized');
+      logger.debug('✅ Messaging analytics service initialized');
     } catch (error) {
-      console.error('Error initializing messaging analytics:', error);
+      logger.error('Error initializing messaging analytics:', error);
     }
   }
 
@@ -147,7 +147,7 @@ class MessagingAnalyticsService {
       this.trackPerformance('message_send_time', endTime - startTime, 'messaging');
 
     } catch (error) {
-      console.error('Error tracking message sent:', error);
+      logger.error('Error tracking message sent:', error);
     }
   }
 
@@ -168,7 +168,7 @@ class MessagingAnalyticsService {
         this.updateUserEngagement(message.recipientId, 'message_received');
       }
     } catch (error) {
-      console.error('Error tracking message received:', error);
+      logger.error('Error tracking message received:', error);
     }
   }
 
@@ -191,7 +191,7 @@ class MessagingAnalyticsService {
 
       this.updateUserEngagement(userId, 'message_read');
     } catch (error) {
-      console.error('Error tracking message read:', error);
+      logger.error('Error tracking message read:', error);
     }
   }
 
@@ -223,7 +223,7 @@ class MessagingAnalyticsService {
         isGroup: conversation.isGroup || false,
       });
     } catch (error) {
-      console.error('Error tracking conversation created:', error);
+      logger.error('Error tracking conversation created:', error);
     }
   }
 
@@ -257,7 +257,7 @@ class MessagingAnalyticsService {
 
       this.updateUserEngagement(userId, 'feature_usage', { feature });
     } catch (error) {
-      console.error('Error tracking feature usage:', error);
+      logger.error('Error tracking feature usage:', error);
     }
   }
 
@@ -287,7 +287,7 @@ class MessagingAnalyticsService {
         }
       }
     } catch (error) {
-      console.error('Error tracking user session:', error);
+      logger.error('Error tracking user session:', error);
     }
   }
 
@@ -318,7 +318,7 @@ class MessagingAnalyticsService {
         metadata,
       });
     } catch (error) {
-      console.error('Error tracking performance:', error);
+      logger.error('Error tracking performance:', error);
     }
   }
 
@@ -424,7 +424,7 @@ class MessagingAnalyticsService {
     this.userEngagement.clear();
     this.featureUsage.clear();
     this.performanceMetrics = [];
-    console.log('📊 Messaging analytics data cleared');
+    logger.debug('📊 Messaging analytics data cleared');
   }
 
   /**
@@ -531,7 +531,7 @@ class MessagingAnalyticsService {
         params: properties,
       });
     } catch (error) {
-      console.error('Error tracking event:', error);
+      logger.error('Error tracking event:', error);
     }
   }
 

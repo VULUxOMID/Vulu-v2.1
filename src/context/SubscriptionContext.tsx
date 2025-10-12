@@ -118,7 +118,7 @@ export const SubscriptionProvider: React.FC<SubscriptionProviderProps> = ({ chil
         if (userProfile && (!userProfile.subscriptionPlan || !userProfile.subscriptionStatus)) {
           console.log('🔄 Migrating user subscription fields...');
           // await migrateUserSubscriptionFields(user.uid);
-          console.log('⚠️ Migration temporarily disabled for debugging');
+          console.log('⚠️ Migration disabled - implement proper migration logic');
         } else if (!userProfile) {
           console.log('⚠️ User profile not available yet, skipping migration');
         } else {

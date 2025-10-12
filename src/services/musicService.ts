@@ -230,7 +230,7 @@ class MusicService {
     } catch (error: any) {
       FirebaseErrorHandler.logError('endCurrentMusicActivity', error);
       // Don't throw error to avoid blocking other operations
-      console.warn('Failed to end current music activity:', error);
+      logger.warn('Failed to end current music activity:', error);
     }
   }
 
@@ -265,7 +265,7 @@ class MusicService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getCurrentMusicActivity - returning null for guest user');
+        logger.warn('Permission denied for getCurrentMusicActivity - returning null for guest user');
         return null;
       }
 
@@ -339,7 +339,7 @@ class MusicService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getFriendsMusicActivities - returning empty array for guest user');
+        logger.warn('Permission denied for getFriendsMusicActivities - returning empty array for guest user');
         return [];
       }
 
@@ -394,12 +394,12 @@ class MusicService {
       }, (error) => {
         // Handle permission errors gracefully for guest users
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          console.warn('Permission denied for onMusicActivities - returning empty array for guest user');
+          logger.warn('Permission denied for onMusicActivities - returning empty array for guest user');
           callback([]);
           return;
         }
 
-        console.error('Music activities listener error:', error);
+        logger.error('Music activities listener error:', error);
         FirebaseErrorHandler.logError('onMusicActivities', error);
         callback([]);
       });
@@ -437,7 +437,7 @@ class MusicService {
         lastUpdated: serverTimestamp()
       }, { merge: true });
     } catch (error: any) {
-      console.warn('Failed to update recently played:', error);
+      logger.warn('Failed to update recently played:', error);
     }
   }
 
@@ -471,7 +471,7 @@ class MusicService {
 
       await setDoc(statsRef, stats, { merge: true });
     } catch (error: any) {
-      console.warn('Failed to update music stats:', error);
+      logger.warn('Failed to update music stats:', error);
     }
   }
 
@@ -495,7 +495,7 @@ class MusicService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getMusicPreferences - returning null for guest user');
+        logger.warn('Permission denied for getMusicPreferences - returning null for guest user');
         return null;
       }
 

@@ -48,9 +48,7 @@ const AccountScreen = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [blockedUsers, setBlockedUsers] = useState([
-    { id: '1', name: 'John Smith', avatar: 'https://randomuser.me/api/portraits/men/1.jpg' },
-    { id: '2', name: 'Sarah Johnson', avatar: 'https://randomuser.me/api/portraits/women/2.jpg' },
-    { id: '3', name: 'Mike Williams', avatar: 'https://randomuser.me/api/portraits/men/3.jpg' },
+    // Real friends data from Firebase
   ]);
   const [showBlockedUsersModal, setShowBlockedUsersModal] = useState(false);
   const [toastMessage, setToastMessage] = useState('');

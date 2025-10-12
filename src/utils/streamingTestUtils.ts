@@ -5,7 +5,7 @@
 
 import { agoraService } from '../services/agoraService';
 import { streamRecoveryService } from '../services/streamRecoveryService';
-import { performanceMonitor } from '../services/performanceMonitor';
+import { performanceMonitor } from '../services/performance';
 import { agoraTokenService } from '../services/agoraTokenService';
 
 export interface TestResult {

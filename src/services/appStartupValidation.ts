@@ -6,7 +6,9 @@
  */
 
 import { Platform, Alert } from 'react-native';
+import { logger } from '../utils/logger';
 import { safeStorage } from './safeAsyncStorage';
+import { logger } from '../utils/logger';
 
 interface StartupValidationResult {
   success: boolean;
@@ -28,7 +30,7 @@ class AppStartupValidation {
       return this.validationResult;
     }
 
-    console.log('🔍 Starting app startup validation...');
+    logger.debug('🔍 Starting app startup validation...');
     
     const result: StartupValidationResult = {
       success: true,
@@ -75,7 +77,7 @@ class AppStartupValidation {
    * Validate AsyncStorage functionality (Critical)
    */
   private async validateAsyncStorage(result: StartupValidationResult): Promise<void> {
-    console.log('📦 Validating AsyncStorage...');
+    logger.debug('📦 Validating AsyncStorage...');
 
     try {
       // Initialize safe storage (this performs comprehensive tests)
@@ -84,24 +86,24 @@ class AppStartupValidation {
       result.storageAvailable = storageAvailable;
 
       if (storageAvailable) {
-        console.log('✅ AsyncStorage validation passed');
+        logger.debug('✅ AsyncStorage validation passed');
       } else {
         const status = safeStorage.getStatus();
         const errorMsg = `AsyncStorage unavailable: ${status.lastError}`;
         
         if (status.fallbackMode) {
           result.warnings.push(`${errorMsg} (using memory fallback)`);
-          console.warn('⚠️ AsyncStorage using fallback mode');
+          logger.warn('⚠️ AsyncStorage using fallback mode');
         } else {
           result.errors.push(errorMsg);
-          console.error('❌ AsyncStorage completely unavailable');
+          logger.error('❌ AsyncStorage completely unavailable');
         }
       }
 
     } catch (error: any) {
       const errorMsg = `AsyncStorage validation failed: ${error.message}`;
       result.errors.push(errorMsg);
-      console.error('❌ AsyncStorage validation error:', error);
+      logger.error('❌ AsyncStorage validation error:', error);
     }
   }
 
@@ -109,7 +111,7 @@ class AppStartupValidation {
    * Validate iOS-specific requirements
    */
   private async validateiOSRequirements(result: StartupValidationResult): Promise<void> {
-    console.log('🍎 Validating iOS requirements...');
+    logger.debug('🍎 Validating iOS requirements...');
 
     try {
       // Check if we're in a valid iOS environment
@@ -127,7 +129,7 @@ class AppStartupValidation {
         await safeStorage.removeItem(testKey);
 
         if (retrieved === testValue) {
-          console.log('✅ iOS file system access validated');
+          logger.debug('✅ iOS file system access validated');
         } else {
           result.warnings.push('iOS file system access may be limited');
         }
@@ -137,7 +139,7 @@ class AppStartupValidation {
 
     } catch (error: any) {
       result.warnings.push(`iOS validation error: ${error.message}`);
-      console.warn('⚠️ iOS validation warning:', error);
+      logger.warn('⚠️ iOS validation warning:', error);
     }
   }
 
@@ -145,7 +147,7 @@ class AppStartupValidation {
    * Validate available disk space
    */
   private async validateDiskSpace(result: StartupValidationResult): Promise<void> {
-    console.log('💾 Validating disk space...');
+    logger.debug('💾 Validating disk space...');
 
     try {
       // Test writing a larger chunk of data to detect space issues
@@ -157,7 +159,7 @@ class AppStartupValidation {
       await safeStorage.removeItem(testKey);
 
       if (retrieved === testData) {
-        console.log('✅ Disk space validation passed');
+        logger.debug('✅ Disk space validation passed');
       } else {
         result.warnings.push('Disk space may be limited');
       }
@@ -167,10 +169,10 @@ class AppStartupValidation {
       
       if (message.includes('disk') || message.includes('space') || message.includes('storage')) {
         result.errors.push(`Insufficient disk space: ${error.message}`);
-        console.error('❌ Disk space critical:', error);
+        logger.error('❌ Disk space critical:', error);
       } else {
         result.warnings.push(`Disk space check failed: ${error.message}`);
-        console.warn('⚠️ Disk space warning:', error);
+        logger.warn('⚠️ Disk space warning:', error);
       }
     }
   }
@@ -179,24 +181,24 @@ class AppStartupValidation {
    * Check for previous crashes and handle recovery
    */
   private async checkPreviousCrashes(result: StartupValidationResult): Promise<void> {
-    console.log('🔄 Checking previous crashes...');
+    logger.debug('🔄 Checking previous crashes...');
 
     try {
       const status = safeStorage.getStatus();
       
       if (status.crashCount > 0) {
         result.warnings.push(`Detected ${status.crashCount} previous crashes`);
-        console.warn(`⚠️ Previous crashes detected: ${status.crashCount}`);
+        logger.warn(`⚠️ Previous crashes detected: ${status.crashCount}`);
 
         if (status.crashCount >= 3) {
           result.warnings.push('Multiple crashes detected, cache was cleared');
-          console.warn('🔄 Cache cleared due to repeated crashes');
+          logger.warn('🔄 Cache cleared due to repeated crashes');
         }
       }
 
     } catch (error: any) {
       result.warnings.push(`Crash history check failed: ${error.message}`);
-      console.warn('⚠️ Cannot check crash history:', error);
+      logger.warn('⚠️ Cannot check crash history:', error);
     }
   }
 
@@ -204,22 +206,22 @@ class AppStartupValidation {
    * Log validation results
    */
   private logValidationResults(result: StartupValidationResult): void {
-    console.log('\n📋 Startup Validation Results:');
-    console.log(`Overall Success: ${result.success ? '✅' : '❌'}`);
-    console.log(`Storage Available: ${result.storageAvailable ? '✅' : '❌'}`);
-    console.log(`Can Continue: ${result.canContinue ? '✅' : '❌'}`);
+    logger.debug('\n📋 Startup Validation Results:');
+    logger.debug(`Overall Success: ${result.success ? '✅' : '❌'}`);
+    logger.debug(`Storage Available: ${result.storageAvailable ? '✅' : '❌'}`);
+    logger.debug(`Can Continue: ${result.canContinue ? '✅' : '❌'}`);
 
     if (result.errors.length > 0) {
-      console.log('\n❌ Errors:');
-      result.errors.forEach(error => console.log(`  - ${error}`));
+      logger.debug('\n❌ Errors:');
+      result.errors.forEach(error => logger.debug(`  - ${error}`));
     }
 
     if (result.warnings.length > 0) {
-      console.log('\n⚠️ Warnings:');
-      result.warnings.forEach(warning => console.log(`  - ${warning}`));
+      logger.debug('\n⚠️ Warnings:');
+      result.warnings.forEach(warning => logger.debug(`  - ${warning}`));
     }
 
-    console.log(''); // Empty line for readability
+    logger.debug(''); // Empty line for readability
   }
 
   /**
@@ -227,7 +229,7 @@ class AppStartupValidation {
    * Returns a Promise that resolves with whether the app can continue
    */
   private async handleCriticalFailure(result: StartupValidationResult): Promise<boolean> {
-    console.error('🚨 Critical startup failure detected');
+    logger.error('🚨 Critical startup failure detected');
 
     const errorMessage = result.errors.join('\n');
 
@@ -255,7 +257,7 @@ class AppStartupValidation {
             text: 'Continue Anyway',
             style: 'cancel',
             onPress: () => {
-              console.log('User chose to continue despite errors');
+              logger.debug('User chose to continue despite errors');
               resolve(true); // Allow app to continue
             }
           }
@@ -269,7 +271,7 @@ class AppStartupValidation {
    * Returns whether the app can continue after retry
    */
   private async retryValidation(): Promise<boolean> {
-    console.log('🔄 Retrying startup validation...');
+    logger.debug('🔄 Retrying startup validation...');
     this.validationComplete = false;
     this.validationResult = null;
 
@@ -285,7 +287,7 @@ class AppStartupValidation {
    * Perform validation without showing critical failure dialog (for retries)
    */
   private async performValidationWithoutDialog(): Promise<StartupValidationResult> {
-    console.log('🔍 Performing validation retry...');
+    logger.debug('🔍 Performing validation retry...');
 
     const result: StartupValidationResult = {
       success: true,
@@ -327,13 +329,13 @@ class AppStartupValidation {
    * Returns whether the app can continue after clearing cache and retry
    */
   private async clearCacheAndRetry(): Promise<boolean> {
-    console.log('🧹 Clearing cache and retrying validation...');
+    logger.debug('🧹 Clearing cache and retrying validation...');
 
     try {
       await safeStorage.clear();
-      console.log('Cache cleared successfully');
+      logger.debug('Cache cleared successfully');
     } catch (error) {
-      console.error('Failed to clear cache:', error);
+      logger.error('Failed to clear cache:', error);
     }
 
     return await this.retryValidation();

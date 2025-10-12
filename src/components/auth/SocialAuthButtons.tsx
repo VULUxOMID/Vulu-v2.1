@@ -36,7 +36,18 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({
         router.replace('/(main)');
       }
     } catch (error: any) {
-      Alert.alert('Google Sign-In Failed', error.message || 'Please try again.');
+      console.error('Google Sign-In Error:', error);
+
+      // Show helpful error messages
+      if (error.message.includes('development build')) {
+        Alert.alert(
+          'Google Sign-In Not Available',
+          'Google Sign-In requires a development build. To enable this feature:\n\n1. Run: npx expo run:ios\n2. Or use email/password login instead',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Google Sign-In Failed', error.message || 'Please try again.');
+      }
     } finally {
       setLoading(null);
     }
@@ -55,14 +66,41 @@ export const SocialAuthButtons: React.FC<SocialAuthButtonsProps> = ({
         router.replace('/(main)');
       }
     } catch (error: any) {
-      Alert.alert('Apple Sign-In Failed', error.message || 'Please try again.');
+      console.error('Apple Sign-In Error:', error);
+
+      // Show helpful error messages
+      if (error.message.includes('not available')) {
+        Alert.alert(
+          'Apple Sign-In Not Available',
+          'Apple Sign-In is only available on iOS 13+ devices. Please use email/password login instead.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Apple Sign-In Failed', error.message || 'Please try again.');
+      }
     } finally {
       setLoading(null);
     }
   };
 
   if (!availableMethods.google && !availableMethods.apple) {
-    return null; // No social auth methods available
+    return (
+      <View style={styles.container}>
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>social sign-in</Text>
+          <View style={styles.dividerLine} />
+        </View>
+        <View style={styles.unavailableContainer}>
+          <Text style={styles.unavailableText}>
+            Social sign-in requires a development build
+          </Text>
+          <Text style={styles.unavailableSubtext}>
+            Run "npx expo run:ios" to enable Google & Apple sign-in
+          </Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -209,6 +247,28 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF',
     borderTopColor: 'transparent',
     marginRight: 12,
+  },
+  unavailableContainer: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  unavailableText: {
+    color: '#B9BBBE',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  unavailableSubtext: {
+    color: '#72767D',
+    fontSize: 12,
+    textAlign: 'center',
+    fontFamily: 'monospace',
   },
 });
 

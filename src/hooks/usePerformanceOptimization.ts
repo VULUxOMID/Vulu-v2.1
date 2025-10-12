@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { performanceMonitor, PerformanceMetrics, PerformanceAlert, PerformanceOptimizer } from '../services/performanceMonitor';
+import { performanceMonitor, PerformanceMetrics, PerformanceAlert, PerformanceOptimizer } from '../services/performance';
 
 export interface OptimizationSettings {
   videoEnabled: boolean;

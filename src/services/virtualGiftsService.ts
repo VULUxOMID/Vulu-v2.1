@@ -4,6 +4,7 @@
  */
 
 import {
+import { logger } from '../utils/logger';
   collection,
   doc,
   getDoc,
@@ -21,8 +22,11 @@ import {
   increment
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 import { httpsCallable } from 'firebase/functions';
+import { logger } from '../utils/logger';
 import { functions } from './firebase';
+import { logger } from '../utils/logger';
 
 export interface VirtualGift {
   id: string;
@@ -136,11 +140,11 @@ class VirtualGiftsService {
         ...doc.data()
       })) as VirtualGift[];
 
-      console.log(`✅ Loaded ${this.giftCatalog.length} virtual gifts`);
+      logger.debug(`✅ Loaded ${this.giftCatalog.length} virtual gifts`);
       return this.giftCatalog;
 
     } catch (error: any) {
-      console.error('Failed to load gift catalog:', error);
+      logger.error('Failed to load gift catalog:', error);
       return [];
     }
   }
@@ -188,7 +192,7 @@ class VirtualGiftsService {
       return wallet;
 
     } catch (error: any) {
-      console.error('Failed to get user wallet:', error);
+      logger.error('Failed to get user wallet:', error);
       return null;
     }
   }
@@ -277,11 +281,11 @@ class VirtualGiftsService {
       // Process transaction
       const transactionId = await this.processGiftTransaction(transactionData, gift);
 
-      console.log(`✅ Gift sent: ${gift.name} from ${senderId} to ${recipientId}`);
+      logger.debug(`✅ Gift sent: ${gift.name} from ${senderId} to ${recipientId}`);
       return transactionId;
 
     } catch (error: any) {
-      console.error('Failed to send gift:', error);
+      logger.error('Failed to send gift:', error);
       throw new Error(`Failed to send gift: ${error.message}`);
     }
   }
@@ -417,7 +421,7 @@ class VirtualGiftsService {
       })) as GiftTransaction[];
 
     } catch (error: any) {
-      console.error('Failed to get user transactions:', error);
+      logger.error('Failed to get user transactions:', error);
       return [];
     }
   }
@@ -445,7 +449,7 @@ class VirtualGiftsService {
       })) as GiftTransaction[];
 
     } catch (error: any) {
-      console.error('Failed to get stream transactions:', error);
+      logger.error('Failed to get stream transactions:', error);
       return [];
     }
   }
@@ -472,11 +476,11 @@ class VirtualGiftsService {
       // Refresh user wallet
       await this.getUserWallet();
 
-      console.log(`✅ Purchased ${gemsAdded} gems: ${transactionId}`);
+      logger.debug(`✅ Purchased ${gemsAdded} gems: ${transactionId}`);
       return transactionId;
 
     } catch (error: any) {
-      console.error('Failed to purchase gems:', error);
+      logger.error('Failed to purchase gems:', error);
       throw new Error(`Failed to purchase gems: ${error.message}`);
     }
   }
@@ -516,10 +520,10 @@ class VirtualGiftsService {
       // Refresh local wallet
       await this.getUserWallet();
 
-      console.log(`✅ Converted ${goldToDeduct} gold to ${gemsToAdd} gems`);
+      logger.debug(`✅ Converted ${goldToDeduct} gold to ${gemsToAdd} gems`);
 
     } catch (error: any) {
-      console.error('Failed to convert gold to gems:', error);
+      logger.error('Failed to convert gold to gems:', error);
       throw new Error(`Failed to convert gold to gems: ${error.message}`);
     }
   }
@@ -583,7 +587,7 @@ class VirtualGiftsService {
       return revenueShare;
 
     } catch (error: any) {
-      console.error('Failed to generate revenue share:', error);
+      logger.error('Failed to generate revenue share:', error);
       throw error;
     }
   }
@@ -608,11 +612,11 @@ class VirtualGiftsService {
       const walletRef = doc(db, 'userWallets', userId);
       await setDoc(walletRef, wallet); // Fixed: use setDoc instead of .set()
       
-      console.log(`✅ Created wallet for user: ${userId}`);
+      logger.debug(`✅ Created wallet for user: ${userId}`);
       return wallet;
 
     } catch (error: any) {
-      console.error('Failed to create user wallet:', error);
+      logger.error('Failed to create user wallet:', error);
       throw error;
     }
   }
@@ -689,7 +693,7 @@ class VirtualGiftsService {
   destroy(): void {
     this.giftCatalog = [];
     this.userWallet = null;
-    console.log('🧹 Virtual Gifts Service destroyed');
+    logger.debug('🧹 Virtual Gifts Service destroyed');
   }
 }
 

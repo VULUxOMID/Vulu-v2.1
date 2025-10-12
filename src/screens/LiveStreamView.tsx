@@ -27,6 +27,7 @@ import { AgoraStreamView } from '../components/streaming/AgoraStreamView';
 import { isAgoraConfigured } from '../config/agoraConfig';
 import { permissionService } from '../services/permissionService';
 import agoraService from '../services/agoraService';
+import { StreamErrorBoundary } from '../components/StreamErrorBoundary';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -2921,4 +2922,11 @@ LiveStreamView.options = {
   gestureEnabled: false,
 };
 
-export default LiveStreamView; 
+// Wrap with StreamErrorBoundary for crash prevention
+const LiveStreamViewWithErrorBoundary = () => (
+  <StreamErrorBoundary>
+    <LiveStreamView />
+  </StreamErrorBoundary>
+);
+
+export default LiveStreamViewWithErrorBoundary; 

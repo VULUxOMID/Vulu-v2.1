@@ -48,6 +48,7 @@ import { getDefaultChatAvatar } from '../utils/defaultAvatars';
 
 import VoiceMessagePlayer from '../components/VoiceMessagePlayer';
 import EmojiPicker from '../components/EmojiPicker';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { VoiceMessage } from '../services/voiceMessageService';
 import VirtualizedMessageList from '../components/VirtualizedMessageList';
 import VirtualizationPerformanceMonitor from '../components/VirtualizationPerformanceMonitor';
@@ -1801,5 +1802,12 @@ const ChatScreenWrapper = (props: ChatScreenProps) => {
   return <ChatScreenInternal {...sanitizedProps} />;
 };
 
-export default ChatScreenWrapper;
+// Wrap with ErrorBoundary for crash prevention
+const ChatScreenWithErrorBoundary = (props: ChatScreenProps) => (
+  <ErrorBoundary>
+    <ChatScreenWrapper {...props} />
+  </ErrorBoundary>
+);
+
+export default ChatScreenWithErrorBoundary;
 

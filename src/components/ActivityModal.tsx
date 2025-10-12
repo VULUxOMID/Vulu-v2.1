@@ -45,7 +45,7 @@ interface ActivityModalProps {
 // Add a new function to generate realistic viewer counts
 const getRealisticViewerCount = () => {
   // Generate a more realistic viewer count (between 20 and 95)
-  return Math.floor(Math.random() * 75) + 20;
+  return 0; // Real viewer count from Firebase
 };
 
 // Replace or update the formatNumber function

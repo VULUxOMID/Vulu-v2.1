@@ -90,7 +90,7 @@ class StreamChatService {
     onMessage: (messages: ChatMessage[]) => void,
     onError?: (error: Error) => void
   ): () => void {
-    console.log(`💬 Starting chat listener for stream: ${streamId}`);
+    logger.debug(`💬 Starting chat listener for stream: ${streamId}`);
 
     // Stop existing listener if any
     this.stopChatListener(streamId);
@@ -125,7 +125,7 @@ class StreamChatService {
         onMessage(messages);
       },
       (error) => {
-        console.error(`Error in chat listener for ${streamId}:`, error);
+        logger.error(`Error in chat listener for ${streamId}:`, error);
         onError?.(error);
       }
     );
@@ -143,7 +143,7 @@ class StreamChatService {
       unsubscribe();
       this.chatListeners.delete(streamId);
       this.messageCache.delete(streamId);
-      console.log(`💬 Stopped chat listener for stream: ${streamId}`);
+      logger.debug(`💬 Stopped chat listener for stream: ${streamId}`);
     }
   }
 
@@ -203,11 +203,11 @@ class StreamChatService {
       // Update rate limit
       this.updateRateLimit(user.uid);
 
-      console.log(`💬 Message sent to stream ${streamId}: ${messageRef.id}`);
+      logger.debug(`💬 Message sent to stream ${streamId}: ${messageRef.id}`);
       return messageRef.id;
 
     } catch (error: any) {
-      console.error('Failed to send chat message:', error);
+      logger.error('Failed to send chat message:', error);
       throw new Error(`Failed to send message: ${error.message}`);
     }
   }
@@ -264,10 +264,10 @@ class StreamChatService {
         });
       });
 
-      console.log(`💬 Reaction ${emoji} toggled on message ${messageId}`);
+      logger.debug(`💬 Reaction ${emoji} toggled on message ${messageId}`);
 
     } catch (error: any) {
-      console.error('Failed to add reaction:', error);
+      logger.error('Failed to add reaction:', error);
       throw new Error(`Failed to add reaction: ${error.message}`);
     }
   }
@@ -301,10 +301,10 @@ class StreamChatService {
         editedAt: serverTimestamp()
       });
 
-      console.log(`💬 Message ${messageId} deleted by ${user.uid}: ${reason}`);
+      logger.debug(`💬 Message ${messageId} deleted by ${user.uid}: ${reason}`);
 
     } catch (error: any) {
-      console.error('Failed to delete message:', error);
+      logger.error('Failed to delete message:', error);
       throw new Error(`Failed to delete message: ${error.message}`);
     }
   }
@@ -344,10 +344,10 @@ class StreamChatService {
 
       await batch.commit();
 
-      console.log(`💬 Chat cleared for stream ${streamId} by ${user.uid}`);
+      logger.debug(`💬 Chat cleared for stream ${streamId} by ${user.uid}`);
 
     } catch (error: any) {
-      console.error('Failed to clear chat:', error);
+      logger.error('Failed to clear chat:', error);
       throw new Error(`Failed to clear chat: ${error.message}`);
     }
   }
@@ -375,10 +375,10 @@ class StreamChatService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`💬 Chat settings updated for stream ${streamId}:`, settings);
+      logger.debug(`💬 Chat settings updated for stream ${streamId}:`, settings);
 
     } catch (error: any) {
-      console.error('Failed to update chat settings:', error);
+      logger.error('Failed to update chat settings:', error);
       throw new Error(`Failed to update chat settings: ${error.message}`);
     }
   }
@@ -492,7 +492,7 @@ class StreamChatService {
       return 'viewer';
 
     } catch (error) {
-      console.error('Failed to get user role:', error);
+      logger.error('Failed to get user role:', error);
       return 'viewer';
     }
   }
@@ -542,7 +542,7 @@ class StreamChatService {
       });
     } catch (error) {
       // Non-critical error, just log it
-      console.warn('Failed to update user message count:', error);
+      logger.warn('Failed to update user message count:', error);
     }
   }
 
@@ -560,7 +560,7 @@ class StreamChatService {
     this.messageCache.clear();
     this.rateLimitMap.clear();
 
-    console.log('💬 Stream Chat Service destroyed');
+    logger.debug('💬 Stream Chat Service destroyed');
   }
 }
 

@@ -180,6 +180,15 @@ export interface DirectMessage {
 // Message status for delivery tracking
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
+// Voice message data interface (export for use in messagingService)
+export interface VoiceMessageData {
+  uri: string;
+  duration: number; // in seconds
+  waveform: number[]; // Amplitude values for waveform visualization
+  size: number; // File size in bytes
+  format?: string; // e.g. 'mp3', 'webm', 'aac'
+}
+
 // Message types
 export type MessageType = 'text' | 'image' | 'file' | 'system' | 'deleted' | 'voice';
 

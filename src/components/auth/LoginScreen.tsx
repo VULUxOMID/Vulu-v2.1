@@ -18,8 +18,7 @@ import LoadingOverlay from './LoadingOverlay';
 import { validateEmail, loginRateLimiter } from '../../utils/inputSanitization';
 import SocialAuthButtons from './SocialAuthButtons';
 import BiometricAuthButton from './BiometricAuthButton';
-import { AuthDiagnostics } from '../../utils/authDiagnostics';
-import { AccountVerification, diagnoseAminAccount } from '../../utils/accountVerification';
+
 import {
   AuthContainer,
   AuthTitle,
@@ -188,60 +187,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToSignup, onSwitchToP
     onSwitchToPasswordReset();
   };
 
-  // DIAGNOSTIC: Function to test authentication setup
-  const runDiagnostics = async () => {
-    console.log('🔍 Running comprehensive authentication & storage diagnostics...');
-    try {
-      const results = await AuthDiagnostics.runDiagnostics(email.trim(), password);
 
-      Alert.alert(
-        'Authentication & Storage Diagnostics',
-        `Firebase Init: ${results.firebaseInit.success ? '✅' : '❌'}\n` +
-        `Auth Service: ${results.authService.success ? '✅' : '❌'}\n` +
-        `Storage Status: ${results.storageStatus.success ? '✅' : '❌'}\n` +
-        `${results.credentials ? `Credentials: ${results.credentials.success ? '✅' : '❌'}\n` : ''}` +
-        `Overall: ${results.overall.success ? '✅' : '❌'}\n\n` +
-        `${results.overall.issue || 'System appears healthy'}\n\n` +
-        `${results.overall.recommendation || ''}\n\n` +
-        `${!results.storageStatus.success ? '⚠️ Storage issues may affect auth persistence' : ''}`,
-        [
-          { text: 'OK' },
-          ...(results.overall.recommendation?.includes('simulator reset') ? [{
-            text: 'Reset Simulator',
-            onPress: () => {
-              Alert.alert(
-                'Simulator Reset Instructions',
-                '1. Close iOS Simulator\n2. Run: xcrun simctl shutdown all && xcrun simctl erase all\n3. Restart: npx expo start --clear',
-                [{ text: 'Got it' }]
-              );
-            }
-          }] : [])
-        ]
-      );
-    } catch (error: any) {
-      Alert.alert('Diagnostic Error', error.message);
-    }
-  };
-
-  // DIAGNOSTIC: Specific test for Amin99@live.no account
-  const testAminAccount = async () => {
-    console.log('🔍 Testing Amin99@live.no account specifically...');
-    try {
-      const result = await diagnoseAminAccount(email.toLowerCase().includes('amin99@live.no') ? password : undefined);
-
-      Alert.alert(
-        'Amin99@live.no Account Diagnostic',
-        `${result.summary}\n\n` +
-        `Next Steps:\n${result.nextSteps.map((step, i) => `${i + 1}. ${step}`).join('\n')}\n\n` +
-        `Account Exists: ${result.accountVerification.exists ? '✅' : '❌'}\n` +
-        `Can Sign In: ${result.accountVerification.canSignIn ? '✅' : '❌'}\n` +
-        `Sign-in Methods: ${result.accountVerification.signInMethods.join(', ') || 'None'}`,
-        [{ text: 'OK' }]
-      );
-    } catch (error: any) {
-      Alert.alert('Account Diagnostic Error', error.message);
-    }
-  };
 
   return (
     <View style={styles.discordContainer}>
@@ -335,25 +281,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToSignup, onSwitchToP
                     style={styles.discordBiometricButton}
                   />
 
-                  {/* DIAGNOSTIC: Development-only diagnostic buttons */}
-                  {__DEV__ && (
-                    <View style={styles.diagnosticContainer}>
-                      <AuthButton
-                        title="🔍 Run Full Diagnostics"
-                        variant="link"
-                        onPress={runDiagnostics}
-                        containerStyle={styles.discordDiagnosticButton}
-                        disabled={loadingState.isLoading}
-                      />
-                      <AuthButton
-                        title="👤 Test Amin Account"
-                        variant="link"
-                        onPress={testAminAccount}
-                        containerStyle={styles.discordDiagnosticButton}
-                        disabled={loadingState.isLoading}
-                      />
-                    </View>
-                  )}
+
 
                   <View style={styles.discordSocialContainer}>
                     <SocialAuthButtons
@@ -527,17 +455,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // DIAGNOSTIC: Development-only diagnostic styles
-  diagnosticContainer: {
-    alignItems: 'center',
-    marginTop: 16,
-    opacity: 0.7,
-  },
 
-  discordDiagnosticButton: {
-    alignSelf: 'center',
-    marginTop: 8,
-  },
 
   // Discord-style register link (16px below CTA)
   discordRegisterLink: {

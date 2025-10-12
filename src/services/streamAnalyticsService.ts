@@ -4,6 +4,7 @@
  */
 
 import {
+import { logger } from '../utils/logger';
   collection,
   doc,
   getDoc,
@@ -22,6 +23,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 
 export interface StreamAnalytics {
   streamId: string;
@@ -176,7 +178,7 @@ class StreamAnalyticsService {
       }
 
     } catch (error) {
-      console.warn('Failed to track analytics event:', error);
+      logger.warn('Failed to track analytics event:', error);
     }
   }
 
@@ -199,7 +201,7 @@ class StreamAnalyticsService {
       } as StreamAnalytics;
 
     } catch (error: any) {
-      console.error('Failed to get stream analytics:', error);
+      logger.error('Failed to get stream analytics:', error);
       return null;
     }
   }
@@ -223,7 +225,7 @@ class StreamAnalyticsService {
       } as UserAnalytics;
 
     } catch (error: any) {
-      console.error('Failed to get user analytics:', error);
+      logger.error('Failed to get user analytics:', error);
       return null;
     }
   }
@@ -268,7 +270,7 @@ class StreamAnalyticsService {
       })) as AnalyticsEvent[];
 
     } catch (error: any) {
-      console.error('Failed to get analytics events:', error);
+      logger.error('Failed to get analytics events:', error);
       return [];
     }
   }
@@ -303,7 +305,7 @@ class StreamAnalyticsService {
       };
 
     } catch (error: any) {
-      console.error('Failed to get real-time metrics:', error);
+      logger.error('Failed to get real-time metrics:', error);
       return null;
     }
   }
@@ -355,7 +357,7 @@ class StreamAnalyticsService {
       return report;
 
     } catch (error: any) {
-      console.error('Failed to generate analytics report:', error);
+      logger.error('Failed to generate analytics report:', error);
       return null;
     }
   }
@@ -373,7 +375,7 @@ class StreamAnalyticsService {
       });
 
     } catch (error) {
-      console.warn('Failed to update stream analytics:', error);
+      logger.warn('Failed to update stream analytics:', error);
     }
   }
 
@@ -432,7 +434,7 @@ class StreamAnalyticsService {
       return analytics;
 
     } catch (error: any) {
-      console.error('Failed to generate stream analytics:', error);
+      logger.error('Failed to generate stream analytics:', error);
       throw error;
     }
   }
@@ -484,7 +486,7 @@ class StreamAnalyticsService {
       return analytics;
 
     } catch (error: any) {
-      console.error('Failed to generate user analytics:', error);
+      logger.error('Failed to generate user analytics:', error);
       throw error;
     }
   }
@@ -518,10 +520,10 @@ class StreamAnalyticsService {
       });
 
       await batch.commit();
-      console.log(`✅ Flushed ${eventsToFlush.length} analytics events`);
+      logger.debug(`✅ Flushed ${eventsToFlush.length} analytics events`);
 
     } catch (error) {
-      console.error('Failed to flush analytics buffer:', error);
+      logger.error('Failed to flush analytics buffer:', error);
       // Re-add events to buffer for retry
       this.analyticsBuffer.unshift(...this.analyticsBuffer);
     }
@@ -713,7 +715,7 @@ class StreamAnalyticsService {
     }
 
     this.analyticsBuffer = [];
-    console.log('🧹 Stream Analytics Service destroyed');
+    logger.debug('🧹 Stream Analytics Service destroyed');
   }
 }
 

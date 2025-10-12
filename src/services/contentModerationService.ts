@@ -114,9 +114,9 @@ class ContentModerationService {
     try {
       await this.loadDefaultRules();
       await this.loadUserStatuses();
-      console.log('✅ Content moderation service initialized');
+      logger.debug('✅ Content moderation service initialized');
     } catch (error) {
-      console.error('Error initializing content moderation service:', error);
+      logger.error('Error initializing content moderation service:', error);
     }
   }
 
@@ -232,7 +232,7 @@ class ContentModerationService {
 
       return result;
     } catch (error) {
-      console.error('Error moderating message:', error);
+      logger.error('Error moderating message:', error);
       return {
         isViolation: false,
         severity: 'low',
@@ -277,7 +277,7 @@ class ContentModerationService {
       await this.processReport(reportId);
     }
 
-    console.log(`📋 Message reported: ${reportId}`);
+    logger.debug(`📋 Message reported: ${reportId}`);
     return reportId;
   }
 
@@ -300,7 +300,7 @@ class ContentModerationService {
    */
   updateConfig(newConfig: Partial<ModerationConfig>): void {
     this.config = { ...this.config, ...newConfig };
-    console.log('🔧 Moderation config updated');
+    logger.debug('🔧 Moderation config updated');
   }
 
   /**
@@ -324,7 +324,7 @@ class ContentModerationService {
     };
 
     this.rules.set(ruleId, newRule);
-    console.log(`📝 Custom rule added: ${ruleId}`);
+    logger.debug(`📝 Custom rule added: ${ruleId}`);
     return ruleId;
   }
 
@@ -334,7 +334,7 @@ class ContentModerationService {
   removeCustomRule(ruleId: string): boolean {
     const removed = this.rules.delete(ruleId);
     if (removed) {
-      console.log(`🗑️ Custom rule removed: ${ruleId}`);
+      logger.debug(`🗑️ Custom rule removed: ${ruleId}`);
     }
     return removed;
   }
@@ -480,7 +480,7 @@ class ContentModerationService {
             isMatch = true;
           }
         } catch (error) {
-          console.warn('Invalid regex pattern in rule:', rule.id);
+          logger.warn('Invalid regex pattern in rule:', rule.id);
         }
       }
 
@@ -685,7 +685,7 @@ class ContentModerationService {
    */
   private async loadUserStatuses(): Promise<void> {
     // In a real implementation, load from database
-    console.log('📊 User moderation statuses loaded');
+    logger.debug('📊 User moderation statuses loaded');
   }
 }
 

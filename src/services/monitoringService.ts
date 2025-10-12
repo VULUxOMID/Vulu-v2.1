@@ -65,7 +65,7 @@ export class MonitoringService {
     this.startAlertProcessing();
     this.isInitialized = true;
 
-    console.log('🔍 Monitoring service initialized');
+    logger.debug('🔍 Monitoring service initialized');
   }
 
   // Record a metric
@@ -115,7 +115,7 @@ export class MonitoringService {
     // Monitor app lifecycle events
     this.monitorAppLifecycle();
 
-    console.log('📊 Performance monitoring started');
+    logger.debug('📊 Performance monitoring started');
   }
 
   private monitorNetworkRequests(): void {
@@ -245,11 +245,11 @@ export class MonitoringService {
         });
 
       } catch (error) {
-        console.error('Security monitoring error:', error);
+        logger.error('Security monitoring error:', error);
       }
     }, config.securityConfig.auditInterval);
 
-    console.log('🔒 Security monitoring started');
+    logger.debug('🔒 Security monitoring started');
   }
 
   // Alert management
@@ -341,7 +341,7 @@ export class MonitoringService {
 
   private createAlert(alert: Alert): void {
     this.alerts.push(alert);
-    console.warn(`🚨 Alert: ${alert.message}`);
+    logger.warn(`🚨 Alert: ${alert.message}`);
     
     // In a real implementation, you would send this to your alerting system
     // (e.g., PagerDuty, Slack, email, etc.)
@@ -370,7 +370,7 @@ export class MonitoringService {
       if (!stillTriggering) {
         alert.resolved = true;
         alert.resolvedAt = Date.now();
-        console.log(`✅ Alert resolved: ${alert.message}`);
+        logger.debug(`✅ Alert resolved: ${alert.message}`);
       }
     });
   }

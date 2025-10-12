@@ -41,7 +41,7 @@ class SafeAsyncStorage {
   }
 
   private async performInitialization(): Promise<boolean> {
-    console.log('🔧 Initializing SafeAsyncStorage with patched AsyncStorage...');
+    logger.debug('🔧 Initializing SafeAsyncStorage with patched AsyncStorage...');
 
     try {
       // Check crash history first (using basic try-catch)
@@ -89,7 +89,7 @@ class SafeAsyncStorage {
         new Promise((_, reject) => setTimeout(() => reject(new Error('multiRemove timeout')), 5000))
       ]);
 
-      console.log('✅ AsyncStorage initialization successful with patched native module');
+      logger.debug('✅ AsyncStorage initialization successful with patched native module');
       this.status.isAvailable = true;
       this.status.fallbackMode = false;
       this.status.lastError = null;
@@ -100,7 +100,7 @@ class SafeAsyncStorage {
       return true;
 
     } catch (error: any) {
-      console.error('❌ AsyncStorage initialization failed (falling back to memory):', error);
+      logger.error('❌ AsyncStorage initialization failed (falling back to memory):', error);
 
       this.status.isAvailable = false;
       this.status.fallbackMode = true;
@@ -125,7 +125,7 @@ class SafeAsyncStorage {
     await this.initialize();
 
     if (!this.status.isAvailable) {
-      console.warn('[SafeStorage] Using memory fallback for multiSet');
+      logger.warn('[SafeStorage] Using memory fallback for multiSet');
       keyValuePairs.forEach(([key, value]) => {
         this.memoryCache.set(key, value);
       });
@@ -135,7 +135,7 @@ class SafeAsyncStorage {
     try {
       await AsyncStorage.multiSet(keyValuePairs);
     } catch (error: any) {
-      console.error('[SafeStorage] multiSet failed, using memory fallback:', error);
+      logger.error('[SafeStorage] multiSet failed, using memory fallback:', error);
       this.handleStorageError(error);
       
       // Fallback to memory
@@ -165,7 +165,7 @@ class SafeAsyncStorage {
       
       return value;
     } catch (error: any) {
-      console.error('[SafeStorage] getItem failed, using memory fallback:', error);
+      logger.error('[SafeStorage] getItem failed, using memory fallback:', error);
       this.handleStorageError(error);
       return this.memoryCache.get(key) || null;
     }
@@ -181,14 +181,14 @@ class SafeAsyncStorage {
     this.memoryCache.set(key, value);
 
     if (!this.status.isAvailable) {
-      console.warn('[SafeStorage] Using memory fallback for setItem');
+      logger.warn('[SafeStorage] Using memory fallback for setItem');
       return;
     }
 
     try {
       await AsyncStorage.setItem(key, value);
     } catch (error: any) {
-      console.error('[SafeStorage] setItem failed, using memory fallback:', error);
+      logger.error('[SafeStorage] setItem failed, using memory fallback:', error);
       this.handleStorageError(error);
       // Value already cached in memory above
     }
@@ -204,14 +204,14 @@ class SafeAsyncStorage {
     this.memoryCache.delete(key);
 
     if (!this.status.isAvailable) {
-      console.warn('[SafeStorage] Using memory fallback for removeItem');
+      logger.warn('[SafeStorage] Using memory fallback for removeItem');
       return;
     }
 
     try {
       await AsyncStorage.removeItem(key);
     } catch (error: any) {
-      console.error('[SafeStorage] removeItem failed:', error);
+      logger.error('[SafeStorage] removeItem failed:', error);
       this.handleStorageError(error);
       // Already removed from memory above
     }
@@ -231,7 +231,7 @@ class SafeAsyncStorage {
       const keys = await AsyncStorage.getAllKeys();
       return keys;
     } catch (error: any) {
-      console.error('[SafeStorage] getAllKeys failed, using memory fallback:', error);
+      logger.error('[SafeStorage] getAllKeys failed, using memory fallback:', error);
       this.handleStorageError(error);
       return Array.from(this.memoryCache.keys());
     }
@@ -247,14 +247,14 @@ class SafeAsyncStorage {
     this.memoryCache.clear();
 
     if (!this.status.isAvailable) {
-      console.warn('[SafeStorage] Using memory fallback for clear');
+      logger.warn('[SafeStorage] Using memory fallback for clear');
       return;
     }
 
     try {
       await AsyncStorage.clear();
     } catch (error: any) {
-      console.error('[SafeStorage] clear failed:', error);
+      logger.error('[SafeStorage] clear failed:', error);
       this.handleStorageError(error);
       // Memory already cleared above
     }
@@ -284,7 +284,7 @@ class SafeAsyncStorage {
     this.status.lastError = error.message;
 
     if (this.isCriticalError(error)) {
-      console.error('🚨 Critical AsyncStorage error detected:', error.message);
+      logger.error('🚨 Critical AsyncStorage error detected:', error.message);
     }
   }
 
@@ -335,14 +335,14 @@ class SafeAsyncStorage {
       this.status.crashCount = crashCount;
 
       if (crashCount >= this.MAX_CRASHES) {
-        console.warn(`🔄 Detected ${crashCount} previous crashes, clearing AsyncStorage...`);
+        logger.warn(`🔄 Detected ${crashCount} previous crashes, clearing AsyncStorage...`);
         await AsyncStorage.clear();
         await AsyncStorage.setItem(this.CRASH_COUNT_KEY, '0');
         this.status.crashCount = 0;
       }
     } catch (error) {
       // If we can't even read crash count, storage is definitely broken
-      console.error('Cannot read crash history, storage severely compromised:', error);
+      logger.error('Cannot read crash history, storage severely compromised:', error);
       this.status.crashCount = this.MAX_CRASHES; // Assume worst case
     }
   }
@@ -357,7 +357,7 @@ class SafeAsyncStorage {
       this.status.crashCount = newCount;
     } catch (error) {
       // Can't even write crash count - storage is completely broken
-      console.error('Cannot increment crash count:', error);
+      logger.error('Cannot increment crash count:', error);
     }
   }
 
@@ -371,7 +371,7 @@ class SafeAsyncStorage {
         this.status.crashCount = 0;
       }
     } catch (error) {
-      console.error('Cannot reset crash count:', error);
+      logger.error('Cannot reset crash count:', error);
     }
   }
 
@@ -403,9 +403,9 @@ class SafeAsyncStorage {
       await AsyncStorage.clear();
       this.memoryCache.clear();
       // Note: In a real app, you might want to restart or reload
-      console.log('Cache cleared, please restart the app');
+      logger.debug('Cache cleared, please restart the app');
     } catch (error) {
-      console.error('Failed to clear cache:', error);
+      logger.error('Failed to clear cache:', error);
     }
   }
 }

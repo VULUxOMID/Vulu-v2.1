@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { logger } from '../utils/logger';
 // Import GoogleSignin dynamically to avoid errors in Expo Go
 let GoogleSignin: any = null;
 let statusCodes: any = null;
@@ -7,13 +8,18 @@ try {
   GoogleSignin = googleSigninModule.GoogleSignin;
   statusCodes = googleSigninModule.statusCodes;
 } catch (error) {
-  console.warn('Google Sign-In module not available (expected in Expo Go)');
+  logger.warn('Google Sign-In module not available (expected in Expo Go)');
 }
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { logger } from '../utils/logger';
 import { signInWithCredential, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+import { logger } from '../utils/logger';
 import { auth } from './firebase';
+import { logger } from '../utils/logger';
 import { firestoreService } from './firestoreService';
+import { logger } from '../utils/logger';
 import { authService } from './authService';
+import { logger } from '../utils/logger';
 
 export interface SocialAuthUser {
   uid: string;
@@ -36,7 +42,8 @@ class SocialAuthService {
     try {
       // Check if GoogleSignin is available (development build required)
       if (!GoogleSignin || typeof GoogleSignin.configure !== 'function') {
-        console.warn('Google Sign-In native module not available. Development build required for Google Sign-In functionality.');
+        logger.debug('ℹ️ Google Sign-In native module not available. This is expected in Expo Go.');
+        logger.debug('📱 To enable Google Sign-In, create a development build with: npx expo run:ios');
         this.isGoogleConfigured = false;
         return;
       }
@@ -45,23 +52,30 @@ class SocialAuthService {
       const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
       const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
-      if (!webClientId || !iosClientId) {
-        console.warn('Google OAuth client IDs not configured. Please set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID and EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID environment variables.');
+      if (!webClientId) {
+        logger.warn('❌ EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID not configured');
         this.isGoogleConfigured = false;
         return;
       }
 
+      if (!iosClientId) {
+        logger.warn('❌ EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID not configured');
+        this.isGoogleConfigured = false;
+        return;
+      }
+
+      logger.debug('🔧 Configuring Google Sign-In...');
       GoogleSignin.configure({
         webClientId,
-        iosClientId,
+        iosClientId: Platform.OS === 'ios' ? iosClientId : undefined,
         offlineAccess: true,
         hostedDomain: '',
         forceCodeForRefreshToken: true,
       });
       this.isGoogleConfigured = true;
-      console.log('Google Sign-In configured successfully');
+      logger.debug('✅ Google Sign-In configured successfully');
     } catch (error) {
-      console.warn('Google Sign-In configuration failed (this is expected in Expo Go):', error);
+      logger.warn('⚠️ Google Sign-In configuration failed (this is expected in Expo Go):', error);
       this.isGoogleConfigured = false;
     }
 
@@ -69,31 +83,46 @@ class SocialAuthService {
     if (Platform.OS === 'ios') {
       try {
         this.isAppleAvailable = await AppleAuthentication.isAvailableAsync();
+        if (this.isAppleAvailable) {
+          logger.debug('✅ Apple Sign-In is available');
+        } else {
+          logger.debug('ℹ️ Apple Sign-In is not available on this device');
+        }
       } catch (error) {
-        console.warn('Apple Authentication not available:', error);
+        logger.warn('⚠️ Apple Authentication not available:', error);
         this.isAppleAvailable = false;
       }
+    } else {
+      logger.debug('ℹ️ Apple Sign-In is only available on iOS');
+      this.isAppleAvailable = false;
     }
   }
 
   // Google Sign-In
   async signInWithGoogle(): Promise<SocialAuthUser> {
     if (!this.isGoogleConfigured) {
-      throw new Error('Google Sign-In is not available. Please use a development build to enable Google Sign-In functionality.');
+      throw new Error('Google Sign-In is not available in Expo Go. Please create a development build with "npx expo run:ios" to enable Google Sign-In functionality.');
     }
 
     try {
+      logger.debug('🔄 Starting Google Sign-In process...');
+
       // Check if GoogleSignin methods are available
       if (!GoogleSignin.hasPlayServices || !GoogleSignin.signIn) {
         throw new Error('Google Sign-In native module not available. Development build required.');
       }
 
-      // Check if device supports Google Play Services
-      await GoogleSignin.hasPlayServices();
+      // Check if device supports Google Play Services (Android only)
+      if (Platform.OS === 'android') {
+        await GoogleSignin.hasPlayServices();
+      }
 
       // Get user info from Google
+      logger.debug('🔄 Requesting Google user info...');
       const userInfo = await GoogleSignin.signIn();
-      
+
+      logger.debug('✅ Google Sign-In successful, processing user data...');
+
       if (!userInfo.data?.idToken) {
         throw new Error('No ID token received from Google');
       }
@@ -102,6 +131,7 @@ class SocialAuthService {
       const googleCredential = GoogleAuthProvider.credential(userInfo.data.idToken);
 
       // Sign in to Firebase
+      logger.debug('🔄 Signing in to Firebase...');
       const userCredential = await signInWithCredential(auth, googleCredential);
       const firebaseUser = userCredential.user;
 
@@ -189,16 +219,20 @@ class SocialAuthService {
   // Apple Sign-In
   async signInWithApple(): Promise<SocialAuthUser> {
     if (!this.isAppleAvailable) {
-      throw new Error('Apple Sign-In is not available on this device');
+      throw new Error('Apple Sign-In is not available on this device. Please ensure you are running on iOS 13+ and have Apple Sign-In enabled.');
     }
 
     try {
+      logger.debug('🔄 Starting Apple Sign-In process...');
+
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
+
+      logger.debug('✅ Apple Sign-In successful, processing user data...');
 
       if (!credential.identityToken) {
         throw new Error('No identity token received from Apple');
@@ -212,6 +246,7 @@ class SocialAuthService {
       });
 
       // Sign in to Firebase
+      logger.debug('🔄 Signing in to Firebase...');
       const userCredential = await signInWithCredential(auth, appleCredential);
       const firebaseUser = userCredential.user;
 
@@ -309,7 +344,7 @@ class SocialAuthService {
       // Note: Apple doesn't require explicit sign-out
       // The Firebase sign-out will handle the session
     } catch (error) {
-      console.warn('Error signing out from social providers:', error);
+      logger.warn('Error signing out from social providers:', error);
       // Don't throw error as Firebase sign-out is more important
     }
   }
@@ -333,7 +368,7 @@ class SocialAuthService {
       }
       return null;
     } catch (error) {
-      console.warn('Error getting current Google user:', error);
+      logger.warn('Error getting current Google user:', error);
       return null;
     }
   }

@@ -39,7 +39,7 @@ export class StreamValidator {
         // If valid, return immediately
         if (validation.valid) {
           if (attempt > 1) {
-            console.log(`✅ Stream validation succeeded on attempt ${attempt}`);
+            logger.debug(`✅ Stream validation succeeded on attempt ${attempt}`);
           }
           return validation;
         }
@@ -61,7 +61,7 @@ export class StreamValidator {
         return validation;
 
       } catch (error) {
-        console.error(`❌ Stream validation failed on attempt ${attempt}:`, error);
+        logger.error(`❌ Stream validation failed on attempt ${attempt}:`, error);
         lastValidation = {
           valid: false,
           exists: false,
@@ -76,7 +76,7 @@ export class StreamValidator {
       }
     }
 
-    console.error(`❌ Stream validation failed after ${maxRetries} attempts`);
+    logger.error(`❌ Stream validation failed after ${maxRetries} attempts`);
     return lastValidation;
   }
 
@@ -106,8 +106,8 @@ export class StreamValidator {
       const streamData = streamDoc.data();
 
       if (!streamData.isActive) {
-        console.log(`⚠️ Stream ${streamId} validation failed: isActive = ${streamData.isActive}`);
-        console.log(`🔍 Stream data:`, {
+        logger.debug(`⚠️ Stream ${streamId} validation failed: isActive = ${streamData.isActive}`);
+        logger.debug(`🔍 Stream data:`, {
           id: streamData.id,
           hostId: streamData.hostId,
           isActive: streamData.isActive,
@@ -153,7 +153,7 @@ export class StreamValidator {
       };
       
     } catch (error) {
-      console.error(`❌ Error validating stream ${streamId}:`, error);
+      logger.error(`❌ Error validating stream ${streamId}:`, error);
       return {
         valid: false,
         exists: false,
@@ -199,7 +199,7 @@ export class StreamValidator {
       return this.handleInvalidStream(validation, operationType);
       
     } catch (error) {
-      console.error(`❌ Error validating stream for ${operationType}:`, error);
+      logger.error(`❌ Error validating stream for ${operationType}:`, error);
       return {
         valid: false,
         canProceed: false,
@@ -344,35 +344,35 @@ export class StreamValidator {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 Executing ${operationName} (attempt ${attempt}/${maxRetries})`);
+        logger.debug(`🔄 Executing ${operationName} (attempt ${attempt}/${maxRetries})`);
         const result = await operation();
         
         if (attempt > 1) {
-          console.log(`✅ ${operationName} succeeded on attempt ${attempt}`);
+          logger.debug(`✅ ${operationName} succeeded on attempt ${attempt}`);
         }
         
         return result;
         
       } catch (error) {
         lastError = error as Error;
-        console.warn(`⚠️ ${operationName} failed on attempt ${attempt}:`, error);
+        logger.warn(`⚠️ ${operationName} failed on attempt ${attempt}:`, error);
         
         // Don't retry on certain types of errors
         if (this.isNonRetryableError(error)) {
-          console.log(`❌ Non-retryable error for ${operationName}, not retrying`);
+          logger.debug(`❌ Non-retryable error for ${operationName}, not retrying`);
           throw error;
         }
         
         // Don't wait after the last attempt
         if (attempt < maxRetries) {
           const delay = this.calculateRetryDelay(attempt);
-          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          logger.debug(`⏳ Waiting ${delay}ms before retry...`);
           await this.sleep(delay);
         }
       }
     }
     
-    console.error(`❌ ${operationName} failed after ${maxRetries} attempts`);
+    logger.error(`❌ ${operationName} failed after ${maxRetries} attempts`);
     throw lastError || new Error(`Operation failed after ${maxRetries} attempts`);
   }
   
@@ -426,11 +426,11 @@ export class StreamValidator {
     try {
       switch (action) {
         case 'clear_local_state':
-          console.log(`🧹 Clearing local state for invalid stream ${streamId}`);
+          logger.debug(`🧹 Clearing local state for invalid stream ${streamId}`);
           return { success: true, message: 'Local state cleared' };
           
         case 'update_local_state':
-          console.log(`🔄 Updating local state for stream ${streamId}`);
+          logger.debug(`🔄 Updating local state for stream ${streamId}`);
           return { success: true, message: 'Local state updated' };
           
         case 'show_not_found':
@@ -449,7 +449,7 @@ export class StreamValidator {
           return { success: false, message: 'Unknown fallback action' };
       }
     } catch (error) {
-      console.error(`❌ Error executing fallback action ${action}:`, error);
+      logger.error(`❌ Error executing fallback action ${action}:`, error);
       return { success: false, message: 'Fallback action failed' };
     }
   }

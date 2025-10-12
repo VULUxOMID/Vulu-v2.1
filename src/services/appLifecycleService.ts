@@ -43,14 +43,14 @@ class AppLifecycleService {
       this.handleAppStateChange.bind(this)
     );
     
-    console.log('📱 [LIFECYCLE] App state listener initialized');
+    logger.debug('📱 [LIFECYCLE] App state listener initialized');
   }
 
   /**
    * Handle app state changes
    */
   private async handleAppStateChange(nextAppState: AppStateStatus): Promise<void> {
-    console.log(`📱 [LIFECYCLE] App state changed: ${this.currentAppState} -> ${nextAppState}`);
+    logger.debug(`📱 [LIFECYCLE] App state changed: ${this.currentAppState} -> ${nextAppState}`);
 
     const previousAppState = this.currentAppState;
     this.currentAppState = nextAppState;
@@ -65,7 +65,7 @@ class AppLifecycleService {
         await this.handleForegroundTransition(previousAppState);
       }
     } catch (error) {
-      console.error('❌ [LIFECYCLE] Error handling app state change:', error);
+      logger.error('❌ [LIFECYCLE] Error handling app state change:', error);
     }
   }
 
@@ -73,14 +73,14 @@ class AppLifecycleService {
    * Handle app going to background
    */
   private async handleBackgroundTransition(previousState: AppStateStatus): Promise<void> {
-    console.log('📱 [LIFECYCLE] App going to background');
+    logger.debug('📱 [LIFECYCLE] App going to background');
 
     // Check if stream is currently active
     const streamState = agoraService.getStreamState();
     this.wasStreamActiveBeforeBackground = streamState.isJoined;
 
     if (this.wasStreamActiveBeforeBackground) {
-      console.log('🔄 [LIFECYCLE] Stream active during background transition');
+      logger.debug('🔄 [LIFECYCLE] Stream active during background transition');
       
       // Notify about stream interruption
       this.callbacks.onStreamInterrupted?.();
@@ -97,10 +97,10 @@ class AppLifecycleService {
    * Handle app coming to foreground
    */
   private async handleForegroundTransition(previousState: AppStateStatus): Promise<void> {
-    console.log('📱 [LIFECYCLE] App coming to foreground');
+    logger.debug('📱 [LIFECYCLE] App coming to foreground');
 
     if (this.wasStreamActiveBeforeBackground) {
-      console.log('🔄 [LIFECYCLE] Resuming stream after background');
+      logger.debug('🔄 [LIFECYCLE] Resuming stream after background');
       
       // Handle audio session restoration
       await this.handleForegroundAudioSession();
@@ -121,7 +121,7 @@ class AppLifecycleService {
    */
   private async handleBackgroundAudioSession(): Promise<void> {
     try {
-      console.log('🔊 [LIFECYCLE] Configuring audio session for background');
+      logger.debug('🔊 [LIFECYCLE] Configuring audio session for background');
 
       // Notify Agora service about app state change
       await agoraService.handleAppStateChange('background');
@@ -135,16 +135,16 @@ class AppLifecycleService {
         .some(p => p.isHost && p.uid === streamState.localUid);
 
       if (isHost) {
-        console.log('🎤 [LIFECYCLE] Keeping audio active for host');
+        logger.debug('🎤 [LIFECYCLE] Keeping audio active for host');
         // Keep microphone active for hosts
       } else {
-        console.log('🔇 [LIFECYCLE] Muting audio for participant');
+        logger.debug('🔇 [LIFECYCLE] Muting audio for participant');
         // Mute audio for participants to save battery
         await agoraService.muteLocalAudio(true);
       }
 
     } catch (error) {
-      console.error('❌ [LIFECYCLE] Error configuring background audio session:', error);
+      logger.error('❌ [LIFECYCLE] Error configuring background audio session:', error);
     }
   }
 
@@ -153,7 +153,7 @@ class AppLifecycleService {
    */
   private async handleForegroundAudioSession(): Promise<void> {
     try {
-      console.log('🔊 [LIFECYCLE] Restoring audio session for foreground');
+      logger.debug('🔊 [LIFECYCLE] Restoring audio session for foreground');
 
       // Notify Agora service about app state change
       await agoraService.handleAppStateChange('active');
@@ -163,12 +163,12 @@ class AppLifecycleService {
       
       // Check if we need to reconnect or restore audio
       if (!streamState.isConnected) {
-        console.log('🔄 [LIFECYCLE] Attempting to reconnect stream');
+        logger.debug('🔄 [LIFECYCLE] Attempting to reconnect stream');
         // The AgoraStreamView component should handle reconnection
       }
 
     } catch (error) {
-      console.error('❌ [LIFECYCLE] Error restoring foreground audio session:', error);
+      logger.error('❌ [LIFECYCLE] Error restoring foreground audio session:', error);
     }
   }
 
@@ -177,7 +177,7 @@ class AppLifecycleService {
    */
   setCallbacks(callbacks: AppLifecycleCallbacks): void {
     this.callbacks = { ...this.callbacks, ...callbacks };
-    console.log('📱 [LIFECYCLE] Callbacks updated');
+    logger.debug('📱 [LIFECYCLE] Callbacks updated');
   }
 
   /**
@@ -185,7 +185,7 @@ class AppLifecycleService {
    */
   setStreamActive(isActive: boolean): void {
     this.isStreamActive = isActive;
-    console.log(`📱 [LIFECYCLE] Stream active status: ${isActive}`);
+    logger.debug(`📱 [LIFECYCLE] Stream active status: ${isActive}`);
   }
 
   /**
@@ -213,7 +213,7 @@ class AppLifecycleService {
    * Handle audio interruptions (calls, notifications, etc.)
    */
   handleAudioInterruption(type: 'began' | 'ended'): void {
-    console.log(`🔊 [LIFECYCLE] Audio interruption ${type}`);
+    logger.debug(`🔊 [LIFECYCLE] Audio interruption ${type}`);
 
     if (type === 'began') {
       // Audio interruption began (incoming call, etc.)
@@ -234,14 +234,14 @@ class AppLifecycleService {
     }
 
     this.callbacks = {};
-    console.log('📱 [LIFECYCLE] App lifecycle service destroyed');
+    logger.debug('📱 [LIFECYCLE] App lifecycle service destroyed');
   }
 
   /**
    * Handle memory warnings
    */
   handleMemoryWarning(): void {
-    console.warn('⚠️ [LIFECYCLE] Memory warning received');
+    logger.warn('⚠️ [LIFECYCLE] Memory warning received');
     
     // Could implement memory cleanup here
     // For example, clearing caches, reducing quality, etc.
@@ -255,10 +255,10 @@ class AppLifecycleService {
     throttledNetworkLog(`🌐 [LIFECYCLE] Network state changed: ${isConnected ? 'connected' : 'disconnected'}`);
 
     if (!isConnected && this.isStreamActive) {
-      console.log('📡 [LIFECYCLE] Network disconnected during active stream');
+      logger.debug('📡 [LIFECYCLE] Network disconnected during active stream');
       this.callbacks.onStreamInterrupted?.();
     } else if (isConnected && this.wasStreamActiveBeforeBackground) {
-      console.log('📡 [LIFECYCLE] Network reconnected, attempting stream resume');
+      logger.debug('📡 [LIFECYCLE] Network reconnected, attempting stream resume');
       this.callbacks.onStreamResumed?.();
     }
   }

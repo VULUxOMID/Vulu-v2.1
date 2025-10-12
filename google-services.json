@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "876918371895",
+    "project_id": "vulugo",
+    "storage_bucket": "vulugo.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:876918371895:android:49d57bd00939d49889b1b2",
+        "android_client_info": {
+          "package_name": "com.vulu.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "176096572047-saokihc7oia244st68eral7qui0uilbf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHL5BpkQRDe-03hE5-7TYcbr2aad1ezqg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "176096572047-saokihc7oia244st68eral7qui0uilbf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

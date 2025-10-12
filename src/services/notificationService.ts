@@ -1,4 +1,5 @@
 import {
+import { logger } from '../utils/logger';
   collection,
   doc,
   addDoc,
@@ -17,12 +18,19 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { db, auth, functions } from './firebase';
+import { logger } from '../utils/logger';
 import { httpsCallable } from 'firebase/functions';
+import { logger } from '../utils/logger';
 import * as Notifications from 'expo-notifications';
+import { logger } from '../utils/logger';
 import * as Device from 'expo-device';
+import { logger } from '../utils/logger';
 import { Platform } from 'react-native';
+import { logger } from '../utils/logger';
 import Constants from 'expo-constants';
+import { logger } from '../utils/logger';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
+import { logger } from '../utils/logger';
 
 // Notification types
 export interface BaseNotification {
@@ -157,9 +165,9 @@ class NotificationService {
       await this.registerForPushNotifications();
       this.setupNotificationListeners();
 
-      console.log('✅ Push notifications initialized');
+      logger.debug('✅ Push notifications initialized');
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
+      logger.error('Failed to initialize push notifications:', error);
     }
   }
 
@@ -169,7 +177,7 @@ class NotificationService {
   async requestPermissions(): Promise<boolean> {
     try {
       if (!Device.isDevice) {
-        console.warn('Push notifications only work on physical devices');
+        logger.warn('Push notifications only work on physical devices');
         return false;
       }
 
@@ -182,13 +190,13 @@ class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        console.warn('Push notification permissions not granted');
+        logger.warn('Push notification permissions not granted');
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Failed to request notification permissions:', error);
+      logger.error('Failed to request notification permissions:', error);
       return false;
     }
   }
@@ -220,10 +228,10 @@ class NotificationService {
         await this.saveNotificationToken(this.expoPushToken);
       }
 
-      console.log('✅ Push token registered:', this.expoPushToken);
+      logger.debug('✅ Push token registered:', this.expoPushToken);
       return this.expoPushToken;
     } catch (error) {
-      console.error('Failed to register for push notifications:', error);
+      logger.error('Failed to register for push notifications:', error);
       return null;
     }
   }
@@ -272,9 +280,9 @@ class NotificationService {
         });
       }
 
-      console.log('✅ Notification token saved');
+      logger.debug('✅ Notification token saved');
     } catch (error) {
-      console.error('Failed to save notification token:', error);
+      logger.error('Failed to save notification token:', error);
     }
   }
 
@@ -284,13 +292,13 @@ class NotificationService {
   setupNotificationListeners(): void {
     // Listen for notifications received while app is foregrounded
     this.notificationListener = Notifications.addNotificationReceivedListener(notification => {
-      console.log('📱 Notification received:', notification);
+      logger.debug('📱 Notification received:', notification);
       this.handleNotificationReceived(notification);
     });
 
     // Listen for user interactions with notifications
     this.responseListener = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notification tapped:', response);
+      logger.debug('👆 Notification tapped:', response);
       this.handleNotificationResponse(response);
     });
   }
@@ -323,10 +331,10 @@ class NotificationService {
 
     if (data?.streamId) {
       // Navigate to stream
-      console.log('Navigate to stream:', data.streamId);
+      logger.debug('Navigate to stream:', data.streamId);
     } else if (data?.userId) {
       // Navigate to user profile
-      console.log('Navigate to user:', data.userId);
+      logger.debug('Navigate to user:', data.userId);
     }
   }
 
@@ -458,12 +466,12 @@ class NotificationService {
       }, (error) => {
         // Handle permission errors gracefully for guest users
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          console.warn('Permission denied for onNotifications - returning empty array for guest user');
+          logger.warn('Permission denied for onNotifications - returning empty array for guest user');
           callback([]);
           return;
         }
 
-        console.error('Notifications listener error:', error);
+        logger.error('Notifications listener error:', error);
         FirebaseErrorHandler.logError('onNotifications', error);
         callback([]);
       });
@@ -609,7 +617,7 @@ class NotificationService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getNotificationCounts - returning zero counts for guest user');
+        logger.warn('Permission denied for getNotificationCounts - returning zero counts for guest user');
         return {
           total: 0,
           unread: 0,
@@ -639,7 +647,7 @@ class NotificationService {
       });
     } catch (error: any) {
       // Don't throw error for count updates to avoid blocking main operations
-      console.warn('Failed to update notification counts:', error);
+      logger.warn('Failed to update notification counts:', error);
     }
   }
 
@@ -779,11 +787,11 @@ class NotificationService {
       });
 
       const { notificationId } = result.data as any;
-      console.log(`✅ Push notification sent: ${notificationId}`);
+      logger.debug(`✅ Push notification sent: ${notificationId}`);
 
       return notificationId;
     } catch (error: any) {
-      console.error('Failed to send push notification:', error);
+      logger.error('Failed to send push notification:', error);
       return null;
     }
   }
@@ -823,9 +831,9 @@ class NotificationService {
         { streamId, hostName }
       );
 
-      console.log(`✅ Stream start notifications sent to ${followers.length} followers`);
+      logger.debug(`✅ Stream start notifications sent to ${followers.length} followers`);
     } catch (error) {
-      console.error('Failed to notify stream started:', error);
+      logger.error('Failed to notify stream started:', error);
     }
   }
 
@@ -850,9 +858,9 @@ class NotificationService {
         { followerName, followerId }
       );
 
-      console.log(`✅ New follower notification sent to ${userId}`);
+      logger.debug(`✅ New follower notification sent to ${userId}`);
     } catch (error) {
-      console.error('Failed to notify new follower:', error);
+      logger.error('Failed to notify new follower:', error);
     }
   }
 
@@ -883,9 +891,9 @@ class NotificationService {
         { giftName, senderName, value, streamId }
       );
 
-      console.log(`✅ Gift received notification sent to ${userId}`);
+      logger.debug(`✅ Gift received notification sent to ${userId}`);
     } catch (error) {
-      console.error('Failed to notify gift received:', error);
+      logger.error('Failed to notify gift received:', error);
     }
   }
 
@@ -915,9 +923,9 @@ class NotificationService {
         { mentionerName, streamId, messagePreview }
       );
 
-      console.log(`✅ Chat mention notification sent to ${userId}`);
+      logger.debug(`✅ Chat mention notification sent to ${userId}`);
     } catch (error) {
-      console.error('Failed to notify chat mention:', error);
+      logger.error('Failed to notify chat mention:', error);
     }
   }
 
@@ -943,11 +951,11 @@ class NotificationService {
       });
 
       const { notificationIds } = result.data as any;
-      console.log(`✅ Bulk push notifications sent: ${notificationIds.length}`);
+      logger.debug(`✅ Bulk push notifications sent: ${notificationIds.length}`);
 
       return notificationIds;
     } catch (error: any) {
-      console.error('Failed to send bulk push notifications:', error);
+      logger.error('Failed to send bulk push notifications:', error);
       return [];
     }
   }
@@ -977,7 +985,7 @@ class NotificationService {
         updatedAt: data.updatedAt?.toDate() || new Date()
       } as NotificationPreferences;
     } catch (error: any) {
-      console.error('Failed to get notification preferences:', error);
+      logger.error('Failed to get notification preferences:', error);
       return null;
     }
   }
@@ -1000,9 +1008,9 @@ class NotificationService {
         updatedAt: serverTimestamp()
       });
 
-      console.log('✅ Notification preferences updated');
+      logger.debug('✅ Notification preferences updated');
     } catch (error: any) {
-      console.error('Failed to update notification preferences:', error);
+      logger.error('Failed to update notification preferences:', error);
       throw error;
     }
   }
@@ -1039,7 +1047,7 @@ class NotificationService {
         updatedAt: new Date()
       } as NotificationPreferences;
     } catch (error: any) {
-      console.error('Failed to create default preferences:', error);
+      logger.error('Failed to create default preferences:', error);
       throw error;
     }
   }
@@ -1051,7 +1059,7 @@ class NotificationService {
     try {
       await Notifications.setBadgeCountAsync(0);
     } catch (error) {
-      console.warn('Failed to clear badge:', error);
+      logger.warn('Failed to clear badge:', error);
     }
   }
 
@@ -1075,7 +1083,7 @@ class NotificationService {
     }
 
     this.expoPushToken = null;
-    console.log('🧹 Notification Service cleaned up');
+    logger.debug('🧹 Notification Service cleaned up');
   }
 }
 

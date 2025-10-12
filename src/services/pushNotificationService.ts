@@ -4,11 +4,17 @@
  */
 
 import * as Notifications from 'expo-notifications';
+import { logger } from '../utils/logger';
 import * as Device from 'expo-device';
+import { logger } from '../utils/logger';
 import { Platform } from 'react-native';
+import { logger } from '../utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logger } from '../utils/logger';
 import { DirectMessage, AppUser } from './types';
+import { logger } from '../utils/logger';
 import { messagingService } from './messagingService';
+import { logger } from '../utils/logger';
 
 // Permission status types
 export type PermissionStatus = 'unknown' | 'granted' | 'denied' | 'provisional' | 'undetermined' | 'device_not_supported' | 'token_error';
@@ -106,9 +112,9 @@ class PushNotificationService {
       // Set up notification listeners
       this.setupNotificationListeners();
 
-      console.log('✅ Push notification service initialized');
+      logger.debug('✅ Push notification service initialized');
     } catch (error) {
-      console.error('Error initializing push notification service:', error);
+      logger.error('Error initializing push notification service:', error);
       // Don't rethrow - allow app to continue without notifications
     }
   }
@@ -119,7 +125,7 @@ class PushNotificationService {
   private async checkExistingPermissions(): Promise<void> {
     try {
       if (!Device.isDevice) {
-        console.warn('Push notifications only work on physical devices');
+        logger.warn('Push notifications only work on physical devices');
         this.permissionStatus = 'device_not_supported';
         return;
       }
@@ -138,19 +144,19 @@ class PushNotificationService {
             await this.setupAndroidChannels();
           }
           
-          console.log('✅ Push notification token obtained:', token);
+          logger.debug('✅ Push notification token obtained:', token);
         } catch (tokenError) {
           // Token retrieval failed - log error and set status, but continue initialization
-          console.warn('Could not get push token:', tokenError);
+          logger.warn('Could not get push token:', tokenError);
           this.permissionStatus = 'token_error';
           // Don't throw - allow app to continue without push token
           return;
         }
       } else {
-        console.log(`📵 Push notifications not yet authorized (status: ${status})`);
+        logger.debug(`📵 Push notifications not yet authorized (status: ${status})`);
       }
     } catch (error) {
-      console.error('Error checking notification permissions:', error);
+      logger.error('Error checking notification permissions:', error);
       // Don't rethrow - allow app to continue without notifications
     }
   }
@@ -177,7 +183,7 @@ class PushNotificationService {
   async registerForPushNotifications(): Promise<string | null> {
     try {
       if (!Device.isDevice) {
-        console.warn('Push notifications only work on physical devices');
+        logger.warn('Push notifications only work on physical devices');
         this.permissionStatus = 'device_not_supported';
         throw new NotificationPermissionError('device_not_supported');
       }
@@ -194,7 +200,7 @@ class PushNotificationService {
       this.permissionStatus = this.mapPermissionStatus(status);
 
       if (status !== 'granted') {
-        console.warn(`Push notification permission not granted (status: ${status})`);
+        logger.warn(`Push notification permission not granted (status: ${status})`);
         throw new NotificationPermissionError('denied');
       }
 
@@ -207,14 +213,14 @@ class PushNotificationService {
         await this.setupAndroidChannels();
       }
 
-      console.log('✅ Push notification token obtained:', token);
+      logger.debug('✅ Push notification token obtained:', token);
       return token;
     } catch (error) {
       if (error instanceof NotificationPermissionError) {
-        console.error('Notification permission error:', error.reason);
+        logger.error('Notification permission error:', error.reason);
         throw error;
       }
-      console.error('Error registering for push notifications:', error);
+      logger.error('Error registering for push notifications:', error);
       throw new NotificationPermissionError('network_error');
     }
   }
@@ -227,25 +233,25 @@ class PushNotificationService {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔄 Attempting to get push token (attempt ${attempt}/${maxRetries})...`);
+        logger.debug(`🔄 Attempting to get push token (attempt ${attempt}/${maxRetries})...`);
         const token = (await Notifications.getExpoPushTokenAsync()).data;
-        console.log(`✅ Token obtained on attempt ${attempt}`);
+        logger.debug(`✅ Token obtained on attempt ${attempt}`);
         return token;
       } catch (error: any) {
         lastError = error;
-        console.warn(`⚠️ Token request failed (attempt ${attempt}/${maxRetries}):`, error.message);
+        logger.warn(`⚠️ Token request failed (attempt ${attempt}/${maxRetries}):`, error.message);
         
         if (attempt < maxRetries) {
           // Exponential backoff: 1s, 2s, 4s
           const delayMs = 1000 * Math.pow(2, attempt - 1);
-          console.log(`⏳ Retrying in ${delayMs}ms...`);
+          logger.debug(`⏳ Retrying in ${delayMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       }
     }
 
     // All retries failed
-    console.error(`❌ Failed to get push token after ${maxRetries} attempts`);
+    logger.error(`❌ Failed to get push token after ${maxRetries} attempts`);
     throw new NotificationPermissionError('token_error');
   }
 
@@ -298,9 +304,9 @@ class PushNotificationService {
         showBadge: true,
       });
 
-      console.log('✅ Android notification channels configured');
+      logger.debug('✅ Android notification channels configured');
     } catch (error) {
-      console.error('Error setting up Android channels:', error);
+      logger.error('Error setting up Android channels:', error);
     }
   }
 
@@ -311,7 +317,7 @@ class PushNotificationService {
     // Listener for notifications received while app is foregrounded
     this.notificationListener = Notifications.addNotificationReceivedListener(
       (notification) => {
-        console.log('📱 Notification received:', notification);
+        logger.debug('📱 Notification received:', notification);
         this.handleNotificationReceived(notification);
       }
     );
@@ -319,7 +325,7 @@ class PushNotificationService {
     // Listener for when user taps on notification
     this.responseListener = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        console.log('👆 Notification tapped:', response);
+        logger.debug('👆 Notification tapped:', response);
         this.handleNotificationResponse(response);
       }
     );
@@ -378,9 +384,9 @@ class PushNotificationService {
         identifier: `message_${message.id}`,
       });
 
-      console.log('📤 Message notification sent');
+      logger.debug('📤 Message notification sent');
     } catch (error) {
-      console.error('Error sending message notification:', error);
+      logger.error('Error sending message notification:', error);
     }
   }
 
@@ -431,9 +437,9 @@ class PushNotificationService {
         identifier: `mention_${message.id}`,
       });
 
-      console.log('📤 Mention notification sent');
+      logger.debug('📤 Mention notification sent');
     } catch (error) {
-      console.error('Error sending mention notification:', error);
+      logger.error('Error sending mention notification:', error);
     }
   }
 
@@ -448,7 +454,7 @@ class PushNotificationService {
     // - Playing custom sounds
     // - Showing in-app notifications
     
-    console.log('Handling received notification:', data);
+    logger.debug('Handling received notification:', data);
   }
 
   /**
@@ -459,7 +465,7 @@ class PushNotificationService {
     
     // Navigate to the conversation
     // This would typically use your navigation service
-    console.log('Navigating to conversation:', data.conversationId);
+    logger.debug('Navigating to conversation:', data.conversationId);
     
     // You can implement navigation logic here
     // For example: NavigationService.navigate('Chat', { conversationId: data.conversationId });
@@ -495,9 +501,9 @@ class PushNotificationService {
     try {
       this.settings = { ...this.settings, ...newSettings };
       await AsyncStorage.setItem('notification_settings', JSON.stringify(this.settings));
-      console.log('✅ Notification settings updated');
+      logger.debug('✅ Notification settings updated');
     } catch (error) {
-      console.error('Error updating notification settings:', error);
+      logger.error('Error updating notification settings:', error);
     }
   }
 
@@ -518,7 +524,7 @@ class PushNotificationService {
         this.settings = { ...this.settings, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.error('Error loading notification settings:', error);
+      logger.error('Error loading notification settings:', error);
     }
   }
 
@@ -549,9 +555,9 @@ class PushNotificationService {
   async clearAllNotifications(): Promise<void> {
     try {
       await Notifications.dismissAllNotificationsAsync();
-      console.log('✅ All notifications cleared');
+      logger.debug('✅ All notifications cleared');
     } catch (error) {
-      console.error('Error clearing notifications:', error);
+      logger.error('Error clearing notifications:', error);
     }
   }
 
@@ -569,9 +575,9 @@ class PushNotificationService {
         }
       }
       
-      console.log(`✅ Notifications cleared for conversation: ${conversationId}`);
+      logger.debug(`✅ Notifications cleared for conversation: ${conversationId}`);
     } catch (error) {
-      console.error('Error clearing conversation notifications:', error);
+      logger.error('Error clearing conversation notifications:', error);
     }
   }
 
@@ -589,7 +595,7 @@ class PushNotificationService {
       this.responseListener = null;
     }
 
-    console.log('✅ Push notification service cleaned up');
+    logger.debug('✅ Push notification service cleaned up');
   }
 }
 
@@ -631,8 +637,8 @@ export const setupQuickReplyActions = async (): Promise<void> => {
       },
     ]);
 
-    console.log('✅ Quick reply actions configured');
+    logger.debug('✅ Quick reply actions configured');
   } catch (error) {
-    console.error('Error setting up quick reply actions:', error);
+    logger.error('Error setting up quick reply actions:', error);
   }
 };

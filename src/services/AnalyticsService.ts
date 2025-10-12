@@ -1,9 +1,24 @@
 /**
  * AnalyticsService.ts
  * 
- * A unified analytics and crash reporting service for the application.
- * This service provides a wrapper around different analytics and crash
- * reporting providers, allowing easy integration and switching.
+ * APP-WIDE Analytics Service - For general application events and behavior tracking.
+ * 
+ * Responsibilities:
+ * - Track app-wide user events (navigation, feature usage, interactions)
+ * - Crash and error reporting
+ * - Performance monitoring
+ * - Session tracking and user properties
+ * - Screen view tracking
+ * 
+ * NOT Responsible For:
+ * - Profile view tracking (see profileAnalyticsService.ts)
+ * - User-to-user interaction analytics (handled by specific feature services)
+ * 
+ * Use this service when:
+ * - Logging general app events (e.g., "user_opened_settings", "feature_used")
+ * - Tracking crashes or errors
+ * - Monitoring performance metrics
+ * - Setting user properties (e.g., subscription tier, preferences)
  */
 
 // Types for analytics events and user properties
@@ -87,7 +102,7 @@ class AnalyticsService {
       // Set up session timeout monitoring
       this.setupSessionMonitoring();
     } catch (error) {
-      console.error('Failed to initialize analytics service:', error);
+      logger.error('Failed to initialize analytics service:', error);
     }
   }
   
@@ -165,7 +180,7 @@ class AnalyticsService {
     };
     
     // Here you would send the error to crash reporting providers like Sentry, Firebase Crashlytics, etc.
-    console.error('Error reported:', enrichedReport);
+    logger.error('Error reported:', enrichedReport);
   }
   
   /**
@@ -204,7 +219,7 @@ class AnalyticsService {
     const startTime = this.performanceData[timerKey];
     
     if (!startTime) {
-      console.warn(`No start time found for performance timer: ${metricName}`);
+      logger.warn(`No start time found for performance timer: ${metricName}`);
       return null;
     }
     

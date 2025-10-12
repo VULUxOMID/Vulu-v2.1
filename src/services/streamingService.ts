@@ -6,6 +6,7 @@ import { ActiveStreamTracker } from './activeStreamTracker';
 import { StreamCleanupService } from './streamCleanupService';
 import UserDataSanitizer from '../utils/userDataSanitizer';
 import { auth } from './firebase';
+import { throttledLog } from '../utils/loggingThrottle';
 
 export interface StreamParticipant {
   id: string;
@@ -43,7 +44,7 @@ class StreamingService {
     if (!this.cleanupServiceStarted) {
       StreamCleanupService.startCleanupService();
       this.cleanupServiceStarted = true;
-      console.log('✅ Stream cleanup service initialized');
+      logger.debug('✅ Stream cleanup service initialized');
     }
   }
 
@@ -71,7 +72,7 @@ class StreamingService {
       const isInAnotherStream = await ActiveStreamTracker.isUserInAnotherStream(hostId, '');
       if (isInAnotherStream) {
         // Clean up any stale active stream records before throwing error
-        console.log(`🧹 User ${hostId} appears to be in another stream, attempting cleanup...`);
+        logger.debug(`🧹 User ${hostId} appears to be in another stream, attempting cleanup...`);
         await ActiveStreamTracker.cleanupOrphanedStreams(hostId);
 
         // Check again after cleanup
@@ -79,7 +80,7 @@ class StreamingService {
         if (stillInAnotherStream) {
           throw new Error('User is already participating in another active stream');
         }
-        console.log(`✅ Cleanup successful, proceeding with stream creation`);
+        logger.debug(`✅ Cleanup successful, proceeding with stream creation`);
       }
 
       streamId = `stream_${Date.now()}_${hostId}`;
@@ -109,11 +110,11 @@ class StreamingService {
       // Sanitize stream data to remove any undefined values before storing
       const sanitizedStreamData = UserDataSanitizer.removeUndefinedValues(streamData);
 
-      console.log('🔧 Sanitized stream data:', sanitizedStreamData);
+      logger.debug('🔧 Sanitized stream data:', sanitizedStreamData);
 
       // Store in Firebase
       await firestoreService.createStream(streamId, sanitizedStreamData);
-      console.log(`✅ Stream ${streamId} created in Firebase with isActive: true`);
+      logger.debug(`✅ Stream ${streamId} created in Firebase with isActive: true`);
 
       // Set user's active stream
       await ActiveStreamTracker.setActiveStream(hostId, streamId);
@@ -123,17 +124,17 @@ class StreamingService {
 
       // Initialize Agora if configured
       if (isAgoraConfigured()) {
-        console.log('🔄 Initializing Agora for new stream...');
+        logger.debug('🔄 Initializing Agora for new stream...');
         const initialized = await agoraService.initialize();
         if (initialized) {
           // Join as host
           await agoraService.joinChannel(streamId, hostId, true);
-          console.log('✅ Host joined Agora channel successfully');
+          logger.debug('✅ Host joined Agora channel successfully');
         } else {
-          console.warn('⚠️ Agora initialization failed, continuing with Firebase-only mode');
+          logger.warn('⚠️ Agora initialization failed, continuing with Firebase-only mode');
         }
       } else {
-        console.log('ℹ️ Agora not configured, using Firebase-only mode');
+        logger.debug('ℹ️ Agora not configured, using Firebase-only mode');
       }
 
       const session: StreamSession = {
@@ -145,14 +146,14 @@ class StreamingService {
       this.currentStreamId = streamId;
       return streamId;
     } catch (error) {
-      console.error('Error creating stream:', error);
+      logger.error('Error creating stream:', error);
 
       // Cleanup partial failure - only if streamId was generated
       if (streamId) {
         try {
           await ActiveStreamTracker.cleanupPartialFailure(hostId, streamId, 'create');
         } catch (cleanupError) {
-          console.error('Error in create stream cleanup:', cleanupError);
+          logger.error('Error in create stream cleanup:', cleanupError);
         }
       }
 
@@ -179,7 +180,7 @@ class StreamingService {
 
       // If not in cache, fetch from Firebase
       if (!session) {
-        console.log(`🔄 Stream ${streamId} not in cache, fetching from Firebase...`);
+        logger.debug(`🔄 Stream ${streamId} not in cache, fetching from Firebase...`);
         const streamData = await firestoreService.getStreamById(streamId);
 
         if (!streamData) {
@@ -198,13 +199,13 @@ class StreamingService {
 
         // Add to local cache
         this.activeStreams.set(streamId, session);
-        console.log(`✅ Loaded stream ${streamId} from Firebase into cache`);
+        logger.debug(`✅ Loaded stream ${streamId} from Firebase into cache`);
       }
 
       // Check if user is already a participant
       const existingParticipant = session.participants.find(p => p.id === userId);
       if (existingParticipant) {
-        console.log(`ℹ️ User ${userId} already in stream ${streamId}`);
+        logger.debug(`ℹ️ User ${userId} already in stream ${streamId}`);
         // Still set active stream in case it wasn't tracked
         await ActiveStreamTracker.setActiveStream(userId, streamId);
         return; // Already joined
@@ -231,11 +232,11 @@ class StreamingService {
       // Set user's active stream
       await ActiveStreamTracker.setActiveStream(userId, streamId);
 
-      console.log(`✅ User ${userName} joined stream ${streamId} (${session.participants.length} total participants)`);
+      logger.debug(`✅ User ${userName} joined stream ${streamId} (${session.participants.length} total participants)`);
 
       // Join Agora channel if configured
       if (isAgoraConfigured()) {
-        console.log(`🔄 Joining Agora channel: ${streamId} as viewer`);
+        logger.debug(`🔄 Joining Agora channel: ${streamId} as viewer`);
 
         // Set up Agora event callbacks for this stream
         this.setupAgoraCallbacks(streamId);
@@ -243,21 +244,21 @@ class StreamingService {
         // Join as audience member
         const joined = await agoraService.joinChannel(streamId, userId, false);
         if (joined) {
-          console.log('✅ Successfully joined Agora channel as viewer');
+          logger.debug('✅ Successfully joined Agora channel as viewer');
           this.currentStreamId = streamId;
         } else {
-          console.warn('⚠️ Failed to join Agora channel, continuing with Firebase-only mode');
+          logger.warn('⚠️ Failed to join Agora channel, continuing with Firebase-only mode');
         }
       }
 
     } catch (error) {
-      console.error('Error joining stream:', error);
+      logger.error('Error joining stream:', error);
 
       // Cleanup partial failure
       try {
         await ActiveStreamTracker.cleanupPartialFailure(userId, streamId, 'join');
       } catch (cleanupError) {
-        console.error('Error in join stream cleanup:', cleanupError);
+        logger.error('Error in join stream cleanup:', cleanupError);
       }
 
       throw error;
@@ -267,22 +268,22 @@ class StreamingService {
   // Leave a stream with Agora integration and automatic ending logic
   async leaveStream(streamId: string, userId: string): Promise<void> {
     try {
-      console.log(`🔄 [STREAMING] User ${userId} leaving stream ${streamId}...`);
+      logger.debug(`🔄 [STREAMING] User ${userId} leaving stream ${streamId}...`);
 
       // First try to get from local cache
       let session = this.activeStreams.get(streamId);
 
       // If not in cache, fetch from Firebase
       if (!session) {
-        console.log(`🔄 [STREAMING] Stream ${streamId} not in cache, fetching from Firebase for leave operation...`);
+        logger.debug(`🔄 [STREAMING] Stream ${streamId} not in cache, fetching from Firebase for leave operation...`);
         const streamData = await firestoreService.getStreamById(streamId);
 
         if (!streamData) {
-          console.log(`ℹ️ [STREAMING] Stream ${streamId} not found in Firebase, assuming already ended`);
+          logger.debug(`ℹ️ [STREAMING] Stream ${streamId} not found in Firebase, assuming already ended`);
           return;
         }
 
-        console.log(`📊 [STREAMING] Fetched stream ${streamId} from Firebase:`, {
+        logger.debug(`📊 [STREAMING] Fetched stream ${streamId} from Firebase:`, {
           participants: streamData.participants?.length || 0,
           isActive: streamData.isActive
         });
@@ -299,13 +300,13 @@ class StreamingService {
 
       // Leave Agora channel if this is the current stream
       if (isAgoraConfigured() && this.currentStreamId === streamId) {
-        console.log('🔄 [STREAMING] Leaving Agora channel...');
+        logger.debug('🔄 [STREAMING] Leaving Agora channel...');
         await agoraService.leaveChannel();
         this.currentStreamId = null;
       }
 
       // Log current participants before removal
-      console.log(`📊 [STREAMING] Current participants before removal:`, session.participants.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
+      logger.debug(`📊 [STREAMING] Current participants before removal:`, session.participants.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
 
       // Remove participant
       const initialParticipantCount = session.participants.length;
@@ -315,27 +316,27 @@ class StreamingService {
       // Clear user's active stream
       await ActiveStreamTracker.clearActiveStream(userId);
 
-      console.log(`📊 [STREAMING] Participant count: ${initialParticipantCount} → ${session.participants.length}`);
-      console.log(`📊 [STREAMING] Remaining participants:`, session.participants.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
+      logger.debug(`📊 [STREAMING] Participant count: ${initialParticipantCount} → ${session.participants.length}`);
+      logger.debug(`📊 [STREAMING] Remaining participants:`, session.participants.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
 
       // Check if stream should end automatically
       const shouldEndStream = this.shouldEndStreamAutomatically(session);
 
-      console.log(`🔍 [STREAMING] Stream ${streamId} auto-end analysis:`);
-      console.log(`  - Participants: ${session.participants.length}`);
-      console.log(`  - Hosts: ${session.participants.filter(p => p.isHost).length}`);
-      console.log(`  - Viewers: ${session.participants.filter(p => !p.isHost).length}`);
-      console.log(`  - Should end: ${shouldEndStream}`);
-      console.log(`  - Participant details:`, session.participants.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
+      logger.debug(`🔍 [STREAMING] Stream ${streamId} auto-end analysis:`);
+      logger.debug(`  - Participants: ${session.participants.length}`);
+      logger.debug(`  - Hosts: ${session.participants.filter(p => p.isHost).length}`);
+      logger.debug(`  - Viewers: ${session.participants.filter(p => !p.isHost).length}`);
+      logger.debug(`  - Should end: ${shouldEndStream}`);
+      logger.debug(`  - Participant details:`, session.participants.map(p => ({ id: p.id, name: p.name, isHost: p.isHost })));
 
       // CRITICAL DEBUG: Log the exact logic check
-      console.log(`🔍 [STREAMING] shouldEndStreamAutomatically() logic check:`);
-      console.log(`  - session.participants.length === 0: ${session.participants.length === 0}`);
-      console.log(`  - hasHosts: ${session.participants.some(p => p.isHost)}`);
-      console.log(`  - Final result: ${shouldEndStream}`);
+      logger.debug(`🔍 [STREAMING] shouldEndStreamAutomatically() logic check:`);
+      logger.debug(`  - session.participants.length === 0: ${session.participants.length === 0}`);
+      logger.debug(`  - hasHosts: ${session.participants.some(p => p.isHost)}`);
+      logger.debug(`  - Final result: ${shouldEndStream}`);
 
       if (shouldEndStream) {
-        console.log(`🔄 [STREAMING] Auto-ending stream ${streamId} - no participants remaining`);
+        logger.debug(`🔄 [STREAMING] Auto-ending stream ${streamId} - no participants remaining`);
 
         // Use lifecycle manager for proper stream ending
         const StreamLifecycleManager = (await import('../utils/streamLifecycleManager')).default;
@@ -344,17 +345,17 @@ class StreamingService {
           : { type: 'host_left' as const };
 
         await StreamLifecycleManager.endStreamWithLifecycle(streamId, reason, userId);
-        console.log(`✅ [STREAMING] Stream ${streamId} ended successfully with lifecycle management`);
+        logger.debug(`✅ [STREAMING] Stream ${streamId} ended successfully with lifecycle management`);
       } else {
         // Update Firebase with new participant list
-        console.log(`🔄 [STREAMING] Updating Firebase with new participant list for stream ${streamId}`);
+        throttledLog(`stream-update-${streamId}`, `🔄 [STREAMING] Updating Firebase with new participant list for stream ${streamId}`, 10000);
         await firestoreService.updateStreamParticipants(streamId, session.participants);
         await firestoreService.updateStreamViewerCount(streamId, session.viewerCount);
-        console.log(`✅ [STREAMING] Updated stream ${streamId} - ${session.participants.length} participants remaining`);
+        throttledLog(`stream-update-complete-${streamId}`, `✅ [STREAMING] Updated stream ${streamId} - ${session.participants.length} participants remaining`, 10000);
       }
 
     } catch (error) {
-      console.error('❌ [STREAMING] Error leaving stream:', error);
+      logger.error('❌ [STREAMING] Error leaving stream:', error);
       throw error;
     }
   }
@@ -392,7 +393,7 @@ class StreamingService {
           this.activeStreams.set(streamId, session);
         }
       } catch (error) {
-        console.error('Error fetching stream data:', error);
+        logger.error('Error fetching stream data:', error);
         return false;
       }
     }
@@ -430,11 +431,11 @@ class StreamingService {
       // Check if stream should end after cleanup
       const shouldEnd = this.shouldEndStreamAutomatically(session);
       if (shouldEnd) {
-        console.log(`🧹 Ending stream ${streamId} after ghost participant cleanup`);
+        logger.debug(`🧹 Ending stream ${streamId} after ghost participant cleanup`);
         await this.endStream(streamId);
       }
     } catch (error) {
-      console.error('Error cleaning up ghost participants:', error);
+      logger.error('Error cleaning up ghost participants:', error);
     }
   }
 
@@ -447,87 +448,87 @@ class StreamingService {
       );
 
       for (const session of userStreams) {
-        console.log(`🧹 Cleaning up user ${userId} from stream ${session.id} after app crash`);
+        logger.debug(`🧹 Cleaning up user ${userId} from stream ${session.id} after app crash`);
         await this.leaveStream(session.id, userId);
       }
     } catch (error) {
-      console.error('Error handling app crash cleanup:', error);
+      logger.error('Error handling app crash cleanup:', error);
     }
   }
 
   // End a stream
   async endStream(streamId: string): Promise<void> {
     try {
-      console.log(`🔄 [STREAMING] Ending stream ${streamId}...`);
+      logger.debug(`🔄 [STREAMING] Ending stream ${streamId}...`);
 
       // Check if stream is already ended to avoid duplicate operations
       const session = this.activeStreams.get(streamId);
       if (session && !session.isActive) {
-        console.log(`ℹ️ [STREAMING] Stream ${streamId} already marked as inactive, skipping`);
+        logger.debug(`ℹ️ [STREAMING] Stream ${streamId} already marked as inactive, skipping`);
         return;
       }
 
       if (session) {
-        console.log(`📊 [STREAMING] Stream ${streamId} before ending:`, {
+        logger.debug(`📊 [STREAMING] Stream ${streamId} before ending:`, {
           participants: session.participants?.length || 0,
           isActive: session.isActive,
           viewerCount: session.viewerCount
         });
         session.isActive = false;
       } else {
-        console.log(`⚠️ [STREAMING] Stream ${streamId} not found in local cache, proceeding with Firebase cleanup`);
+        logger.debug(`⚠️ [STREAMING] Stream ${streamId} not found in local cache, proceeding with Firebase cleanup`);
       }
 
       // Prefer server-side end+cleanup to avoid client permission issues
-      console.log(`🔄 [STREAMING] Requesting server to end stream ${streamId} and cleanup participants...`);
+      logger.debug(`🔄 [STREAMING] Requesting server to end stream ${streamId} and cleanup participants...`);
       try {
         const { functions } = await import('./firebase');
         const { httpsCallable } = await import('firebase/functions');
         const endStreamAndCleanup = httpsCallable(functions, 'endStreamAndCleanup');
         await endStreamAndCleanup({ streamId });
-        console.log(`✅ [STREAMING] Server-side endStreamAndCleanup completed for ${streamId}`);
+        logger.debug(`✅ [STREAMING] Server-side endStreamAndCleanup completed for ${streamId}`);
       } catch (fnErr) {
-        console.warn('⚠️ [STREAMING] Server-side cleanup failed or unavailable, falling back to client update:', fnErr);
+        logger.warn('⚠️ [STREAMING] Server-side cleanup failed or unavailable, falling back to client update:', fnErr);
         // Fallback: Update Firestore directly
         await firestoreService.endStream(streamId, 'system_cleanup');
-        console.log(`✅ [STREAMING] Fallback: marked stream ${streamId} as ended in Firestore`);
+        logger.debug(`✅ [STREAMING] Fallback: marked stream ${streamId} as ended in Firestore`);
       }
 
       // Leave Agora channel if this is the current stream
       if (isAgoraConfigured() && this.currentStreamId === streamId) {
-        console.log('🔄 [STREAMING] Leaving Agora channel for ended stream...');
+        logger.debug('🔄 [STREAMING] Leaving Agora channel for ended stream...');
         await agoraService.leaveChannel();
         this.currentStreamId = null;
       }
 
       // Clean up local state
-      console.log(`🧹 [STREAMING] Cleaning up local state for stream ${streamId}`);
+      logger.debug(`🧹 [STREAMING] Cleaning up local state for stream ${streamId}`);
       this.activeStreams.delete(streamId);
 
       // Clean up listeners
       const listener = this.streamListeners.get(streamId);
       if (listener) {
-        console.log(`🧹 [STREAMING] Cleaning up listener for stream ${streamId}`);
+        logger.debug(`🧹 [STREAMING] Cleaning up listener for stream ${streamId}`);
         listener();
         this.streamListeners.delete(streamId);
       }
 
       // CRITICAL FIX: Immediate UI update for instant stream removal
-      console.log(`🔄 [STREAMING] Triggering immediate UI update for stream ${streamId}`);
+      throttledLog(`ui-update-${streamId}`, `🔄 [STREAMING] Triggering immediate UI update for stream ${streamId}`, 5000);
       this.triggerManualUIUpdate();
 
       // Also trigger a delayed update to ensure Firebase changes are reflected
       setTimeout(() => {
-        console.log(`🔄 [STREAMING] Triggering delayed UI update for stream ${streamId}`);
+        throttledLog(`ui-update-delayed-${streamId}`, `🔄 [STREAMING] Triggering delayed UI update for stream ${streamId}`, 5000);
         this.triggerManualUIUpdate();
       }, 1000);
 
-      console.log(`✅ [STREAMING] Stream ${streamId} ended and cleaned up successfully`);
+      logger.debug(`✅ [STREAMING] Stream ${streamId} ended and cleaned up successfully`);
 
     } catch (error) {
-      console.error(`❌ [STREAMING] Error ending stream ${streamId}:`, error);
+      logger.error(`❌ [STREAMING] Error ending stream ${streamId}:`, error);
       // Still clean up local state even if Firebase update fails
-      console.log(`🧹 [STREAMING] Cleaning up local state despite error for stream ${streamId}`);
+      logger.debug(`🧹 [STREAMING] Cleaning up local state despite error for stream ${streamId}`);
       this.activeStreams.delete(streamId);
       const listener = this.streamListeners.get(streamId);
       if (listener) {
@@ -536,7 +537,7 @@ class StreamingService {
       }
 
       // Still trigger immediate UI update even on error
-      console.log(`🔄 [STREAMING] Triggering immediate UI update after error for stream ${streamId}`);
+      throttledLog(`ui-update-error-${streamId}`, `🔄 [STREAMING] Triggering immediate UI update after error for stream ${streamId}`, 5000);
       this.triggerManualUIUpdate();
       throw error;
     }
@@ -544,15 +545,15 @@ class StreamingService {
 
   // Debug function to manually test cleanup
   async debugCleanupTest(): Promise<void> {
-    console.log('🔧 [DEBUG] Starting manual cleanup test...');
+    logger.debug('🔧 [DEBUG] Starting manual cleanup test...');
 
     try {
       // Get all streams and log detailed info
       const allStreams = await firestoreService.getActiveStreams();
-      console.log(`🔧 [DEBUG] Found ${allStreams.length} active streams in Firebase`);
+      logger.debug(`🔧 [DEBUG] Found ${allStreams.length} active streams in Firebase`);
 
       for (const stream of allStreams) {
-        console.log(`🔧 [DEBUG] Stream ${stream.id} detailed analysis:`, {
+        logger.debug(`🔧 [DEBUG] Stream ${stream.id} detailed analysis:`, {
           id: stream.id,
           title: stream.title,
           isActive: stream.isActive,
@@ -570,44 +571,44 @@ class StreamingService {
         const hasHosts = participants.some((p: any) => p.isHost);
 
         if (!hasParticipants || !hasHosts) {
-          console.log(`🔧 [DEBUG] Stream ${stream.id} SHOULD BE CLEANED UP - attempting cleanup now...`);
+          logger.debug(`🔧 [DEBUG] Stream ${stream.id} SHOULD BE CLEANED UP - attempting cleanup now...`);
 
           try {
             await this.endStream(stream.id);
-            console.log(`🔧 [DEBUG] Successfully ended stream ${stream.id}`);
+            logger.debug(`🔧 [DEBUG] Successfully ended stream ${stream.id}`);
 
             // Verify it was actually ended
             const updatedStream = await firestoreService.getStreamById(stream.id);
-            console.log(`🔧 [DEBUG] Stream ${stream.id} after cleanup:`, {
+            logger.debug(`🔧 [DEBUG] Stream ${stream.id} after cleanup:`, {
               exists: !!updatedStream,
               isActive: updatedStream?.isActive,
               endedAt: updatedStream?.endedAt
             });
 
           } catch (error) {
-            console.error(`🔧 [DEBUG] Failed to end stream ${stream.id}:`, error);
+            logger.error(`🔧 [DEBUG] Failed to end stream ${stream.id}:`, error);
           }
         } else {
-          console.log(`🔧 [DEBUG] Stream ${stream.id} is valid - keeping`);
+          logger.debug(`🔧 [DEBUG] Stream ${stream.id} is valid - keeping`);
         }
       }
 
     } catch (error) {
-      console.error('🔧 [DEBUG] Error during debug cleanup test:', error);
+      logger.error('🔧 [DEBUG] Error during debug cleanup test:', error);
     }
   }
 
   // Force cleanup of all phantom/empty streams
   async forceCleanupPhantomStreams(): Promise<void> {
     try {
-      console.log('🧹 [STREAMING] Starting force cleanup of phantom streams...');
+      logger.debug('🧹 [STREAMING] Starting force cleanup of phantom streams...');
 
       const allStreams = await firestoreService.getActiveStreams();
-      console.log(`📊 [STREAMING] Found ${allStreams.length} streams in Firebase for cleanup check`);
+      logger.debug(`📊 [STREAMING] Found ${allStreams.length} streams in Firebase for cleanup check`);
 
       // Log detailed info about each stream
       for (const stream of allStreams) {
-        console.log(`🔍 [STREAMING] Stream ${stream.id} analysis:`, {
+        logger.debug(`🔍 [STREAMING] Stream ${stream.id} analysis:`, {
           participants: stream.participants?.length || 0,
           hasHosts: stream.participants?.some((p: any) => p.isHost) || false,
           isActive: stream.isActive,
@@ -622,42 +623,42 @@ class StreamingService {
         const hasParticipants = participants.length > 0;
         const hasHosts = participants.some((p: any) => p.isHost);
 
-        console.log(`🔍 [STREAMING] Cleanup check for stream ${streamData.id}: ${participants.length} participants, hasHosts=${hasHosts}`);
+        logger.debug(`🔍 [STREAMING] Cleanup check for stream ${streamData.id}: ${participants.length} participants, hasHosts=${hasHosts}`);
 
         if (!hasParticipants || !hasHosts) {
-          console.log(`🚨 [STREAMING] Marking phantom stream ${streamData.id} for immediate cleanup`);
+          logger.debug(`🚨 [STREAMING] Marking phantom stream ${streamData.id} for immediate cleanup`);
           streamsToEnd.push(streamData.id);
         }
       }
 
       if (streamsToEnd.length > 0) {
-        console.log(`🧹 [STREAMING] Force ending ${streamsToEnd.length} phantom streams: ${streamsToEnd.join(', ')}`);
+        logger.debug(`🧹 [STREAMING] Force ending ${streamsToEnd.length} phantom streams: ${streamsToEnd.join(', ')}`);
 
         // End all phantom streams synchronously to ensure they're cleaned up
         for (const streamId of streamsToEnd) {
           try {
-            console.log(`🧹 [STREAMING] Attempting to end phantom stream ${streamId}...`);
+            logger.debug(`🧹 [STREAMING] Attempting to end phantom stream ${streamId}...`);
             await this.endStream(streamId);
-            console.log(`✅ [STREAMING] Successfully ended phantom stream ${streamId}`);
+            logger.debug(`✅ [STREAMING] Successfully ended phantom stream ${streamId}`);
 
             // Verify the stream was actually ended
             const verifyStream = await firestoreService.getStreamById(streamId);
-            console.log(`🔍 [STREAMING] Verification for stream ${streamId}:`, {
+            logger.debug(`🔍 [STREAMING] Verification for stream ${streamId}:`, {
               exists: !!verifyStream,
               isActive: verifyStream?.isActive,
               endedAt: verifyStream?.endedAt
             });
 
           } catch (error) {
-            console.error(`❌ [STREAMING] Failed to end phantom stream ${streamId}:`, error);
+            logger.error(`❌ [STREAMING] Failed to end phantom stream ${streamId}:`, error);
           }
         }
       } else {
-        console.log('✅ [STREAMING] No phantom streams found during force cleanup');
+        logger.debug('✅ [STREAMING] No phantom streams found during force cleanup');
       }
 
     } catch (error) {
-      console.error('❌ [STREAMING] Error during force cleanup:', error);
+      logger.error('❌ [STREAMING] Error during force cleanup:', error);
     }
   }
 
@@ -665,10 +666,10 @@ class StreamingService {
   async getActiveStreams(): Promise<LiveStream[]> {
     try {
       const streams = await firestoreService.getActiveStreams();
-      console.log(`📊 [STREAMING] Fetched ${streams.length} streams from Firebase`);
+      logger.debug(`📊 [STREAMING] Fetched ${streams.length} streams from Firebase`);
 
       // Log raw Firebase data for debugging
-      console.log(`🔍 [STREAMING] Raw Firebase stream data:`, streams.map(s => ({
+      logger.debug(`🔍 [STREAMING] Raw Firebase stream data:`, streams.map(s => ({
         id: s.id,
         title: s.title,
         isActive: s.isActive,
@@ -682,7 +683,7 @@ class StreamingService {
       const streamsToEnd = [];
 
       for (const streamData of streams) {
-        console.log(`🔍 [STREAMING] Analyzing stream ${streamData.id}:`, {
+        logger.debug(`🔍 [STREAMING] Analyzing stream ${streamData.id}:`, {
           title: streamData.title,
           hostId: streamData.hostId,
           isActive: streamData.isActive,
@@ -692,7 +693,7 @@ class StreamingService {
 
         // Ensure participants array exists
         if (!streamData.participants) {
-          console.log(`⚠️ [STREAMING] Stream ${streamData.id} has no participants array, initializing empty array`);
+          logger.debug(`⚠️ [STREAMING] Stream ${streamData.id} has no participants array, initializing empty array`);
           streamData.participants = [];
         }
 
@@ -700,22 +701,22 @@ class StreamingService {
         const hasParticipants = streamData.participants.length > 0;
         const hasHosts = streamData.participants.some((p: any) => p.isHost);
 
-        console.log(`🔍 [STREAMING] Stream ${streamData.id} validation: hasParticipants=${hasParticipants}, hasHosts=${hasHosts}`);
+        logger.debug(`🔍 [STREAMING] Stream ${streamData.id} validation: hasParticipants=${hasParticipants}, hasHosts=${hasHosts}`);
 
         if (!hasParticipants || !hasHosts) {
-          console.log(`🚨 [STREAMING] Stream ${streamData.id} has no participants or hosts, marking for cleanup`);
+          logger.debug(`🚨 [STREAMING] Stream ${streamData.id} has no participants or hosts, marking for cleanup`);
           streamsToEnd.push(streamData.id);
         } else {
-          console.log(`✅ [STREAMING] Stream ${streamData.id} is valid, keeping in list`);
+          logger.debug(`✅ [STREAMING] Stream ${streamData.id} is valid, keeping in list`);
           validStreams.push(streamData);
         }
       }
 
       // End streams that should be cleaned up (async, don't wait)
       streamsToEnd.forEach(streamId => {
-        console.log(`🧹 Auto-ending empty stream ${streamId} during fetch`);
+        logger.debug(`🧹 Auto-ending empty stream ${streamId} during fetch`);
         this.endStream(streamId).catch(error => {
-          console.error(`Failed to end empty stream ${streamId}:`, error);
+          logger.error(`Failed to end empty stream ${streamId}:`, error);
         });
       });
 
@@ -728,10 +729,10 @@ class StreamingService {
         this.activeStreams.set(streamData.id, session);
       });
 
-      console.log(`✅ Loaded ${validStreams.length} valid streams, ended ${streamsToEnd.length} empty streams`);
+      logger.debug(`✅ Loaded ${validStreams.length} valid streams, ended ${streamsToEnd.length} empty streams`);
       return validStreams.map(StreamingService.convertToLiveStream);
     } catch (error) {
-      console.error('Error getting active streams:', error);
+      logger.error('Error getting active streams:', error);
       return [];
     }
   }
@@ -754,21 +755,21 @@ class StreamingService {
 
   // Listen to all active streams (for global updates)
   onActiveStreamsUpdate(callback: (streams: LiveStream[]) => void): () => void {
-    console.log(`🔄 [STREAMING] Setting up real-time listener for active streams`);
+    logger.debug(`🔄 [STREAMING] Setting up real-time listener for active streams`);
 
     // Store the callback for manual UI updates
     this.uiUpdateCallback = callback;
 
     // Set up Firebase listener for active streams collection
     const unsubscribe = firestoreService.onActiveStreamsUpdate((streamsData) => {
-      console.log(`🔄 [STREAMING] Real-time update: ${streamsData.length} active streams received from Firebase`);
+      logger.debug(`🔄 [STREAMING] Real-time update: ${streamsData.length} active streams received from Firebase`);
 
       // Log details of each stream received
       streamsData.forEach((stream, index) => {
         const participants = stream.participants || [];
         const hosts = participants.filter((p: any) => p.isHost);
         const viewers = participants.filter((p: any) => !p.isHost);
-        console.log(`📊 [STREAMING] Stream ${index + 1}: ${stream.id} - ${participants.length} participants (${hosts.length} hosts, ${viewers.length} viewers)`);
+        logger.debug(`📊 [STREAMING] Stream ${index + 1}: ${stream.id} - ${participants.length} participants (${hosts.length} hosts, ${viewers.length} viewers)`);
       });
 
       // Filter and validate streams before processing
@@ -778,7 +779,7 @@ class StreamingService {
       for (const streamData of streamsData) {
         // Ensure participants array exists
         if (!streamData.participants) {
-          console.log(`⚠️ [STREAMING] Stream ${streamData.id} has no participants array, initializing empty array`);
+          logger.debug(`⚠️ [STREAMING] Stream ${streamData.id} has no participants array, initializing empty array`);
           streamData.participants = [];
         }
 
@@ -786,23 +787,23 @@ class StreamingService {
         const hasParticipants = streamData.participants.length > 0;
         const hasHosts = streamData.participants.some((p: any) => p.isHost);
 
-        console.log(`🔍 [STREAMING] Stream ${streamData.id} validation: hasParticipants=${hasParticipants}, hasHosts=${hasHosts}`);
+        logger.debug(`🔍 [STREAMING] Stream ${streamData.id} validation: hasParticipants=${hasParticipants}, hasHosts=${hasHosts}`);
 
         if (!hasParticipants || !hasHosts) {
-          console.log(`🚨 [STREAMING] Stream ${streamData.id} has no participants or hosts, marking for cleanup`);
+          logger.debug(`🚨 [STREAMING] Stream ${streamData.id} has no participants or hosts, marking for cleanup`);
           streamsToEnd.push(streamData.id);
         } else {
-          console.log(`✅ [STREAMING] Stream ${streamData.id} is valid, keeping in list`);
+          logger.debug(`✅ [STREAMING] Stream ${streamData.id} is valid, keeping in list`);
           validStreams.push(streamData);
         }
       }
 
       // End streams that should be cleaned up (async, don't wait)
       if (streamsToEnd.length > 0) {
-        console.log(`🧹 [STREAMING] Auto-ending ${streamsToEnd.length} empty streams: ${streamsToEnd.join(', ')}`);
+        logger.debug(`🧹 [STREAMING] Auto-ending ${streamsToEnd.length} empty streams: ${streamsToEnd.join(', ')}`);
         streamsToEnd.forEach(streamId => {
           this.endStream(streamId).catch(error => {
-            console.error(`❌ [STREAMING] Failed to end empty stream ${streamId}:`, error);
+            logger.error(`❌ [STREAMING] Failed to end empty stream ${streamId}:`, error);
           });
         });
       }
@@ -814,7 +815,7 @@ class StreamingService {
       // Remove streams that are no longer active
       currentStreamIds.forEach(streamId => {
         if (!newStreamIds.has(streamId)) {
-          console.log(`🗑️ [STREAMING] Removing inactive stream ${streamId} from cache`);
+          logger.debug(`🗑️ [STREAMING] Removing inactive stream ${streamId} from cache`);
           this.activeStreams.delete(streamId);
 
           // Clean up listener if exists
@@ -835,8 +836,8 @@ class StreamingService {
         this.activeStreams.set(streamData.id, session);
       });
 
-      console.log(`✅ [STREAMING] Processed ${validStreams.length} valid streams, ended ${streamsToEnd.length} empty streams`);
-      console.log(`📤 [STREAMING] Sending ${validStreams.length} streams to UI callback`);
+      logger.debug(`✅ [STREAMING] Processed ${validStreams.length} valid streams, ended ${streamsToEnd.length} empty streams`);
+      logger.debug(`📤 [STREAMING] Sending ${validStreams.length} streams to UI callback`);
 
       const liveStreams = validStreams.map(StreamingService.convertToLiveStream);
       callback(liveStreams);
@@ -848,23 +849,23 @@ class StreamingService {
   // Manually trigger UI update (used when Firebase listener doesn't catch changes)
   private async triggerManualUIUpdate(): Promise<void> {
     try {
-      console.log(`🔄 [STREAMING] Triggering manual UI update...`);
+      logger.debug(`🔄 [STREAMING] Triggering manual UI update...`);
 
       if (!this.uiUpdateCallback) {
-        console.log(`⚠️ [STREAMING] No UI callback available for manual update`);
+        logger.debug(`⚠️ [STREAMING] No UI callback available for manual update`);
         return;
       }
 
       // Fetch fresh data from Firebase and apply validation
       const freshStreams = await this.getActiveStreams();
-      console.log(`📊 [STREAMING] Manual update: sending ${freshStreams.length} streams to UI`);
+      logger.debug(`📊 [STREAMING] Manual update: sending ${freshStreams.length} streams to UI`);
 
       // Call the UI callback with fresh data
       this.uiUpdateCallback(freshStreams);
 
-      console.log(`✅ [STREAMING] Manual UI update completed`);
+      logger.debug(`✅ [STREAMING] Manual UI update completed`);
     } catch (error) {
-      console.error(`❌ [STREAMING] Error in manual UI update:`, error);
+      logger.error(`❌ [STREAMING] Error in manual UI update:`, error);
     }
   }
 
@@ -900,7 +901,7 @@ class StreamingService {
 
       return 'invalid-timestamp';
     } catch (error) {
-      console.warn('⚠️ Error converting timestamp:', timestamp, error);
+      logger.warn('⚠️ Error converting timestamp:', timestamp, error);
       return 'conversion-error';
     }
   }
@@ -938,7 +939,7 @@ class StreamingService {
       // Fallback to current time
       return Date.now();
     } catch (error) {
-      console.warn('⚠️ Error converting timestamp to number:', timestamp, error);
+      logger.warn('⚠️ Error converting timestamp to number:', timestamp, error);
       return Date.now();
     }
   }
@@ -949,7 +950,7 @@ class StreamingService {
     const participants = session.participants || [];
 
     // Log conversion for debugging
-    console.log(`🔄 Converting stream ${session.id}: ${participants.length} participants, isActive: ${session.isActive}`);
+    logger.debug(`🔄 Converting stream ${session.id}: ${participants.length} participants, isActive: ${session.isActive}`);
 
     const hosts: StreamHost[] = participants
       .filter(p => p.isHost)
@@ -975,7 +976,7 @@ class StreamingService {
 
     // Log if there's a discrepancy
     if (session.viewerCount !== actualViewerCount) {
-      console.warn(`⚠️ Viewer count mismatch for stream ${session.id}: stored=${session.viewerCount}, actual=${actualViewerCount}`);
+      logger.warn(`⚠️ Viewer count mismatch for stream ${session.id}: stored=${session.viewerCount}, actual=${actualViewerCount}`);
     }
 
     return {
@@ -1001,7 +1002,7 @@ class StreamingService {
         await firestoreService.updateStreamParticipants(streamId, session.participants);
       }
     } catch (error) {
-      console.error('Error updating speaking status:', error);
+      logger.error('Error updating speaking status:', error);
     }
   }
 
@@ -1009,12 +1010,12 @@ class StreamingService {
   private setupAgoraCallbacks(streamId: string): void {
     const callbacks: AgoraEventCallbacks = {
       onUserJoined: (uid: number, elapsed: number) => {
-        console.log(`👤 User ${uid} joined Agora channel`);
+        logger.debug(`👤 User ${uid} joined Agora channel`);
         // Note: User info will be updated via Firebase listeners
       },
 
       onUserOffline: (uid: number, reason: number) => {
-        console.log(`👤 User ${uid} left Agora channel (reason: ${reason})`);
+        logger.debug(`👤 User ${uid} left Agora channel (reason: ${reason})`);
         // Note: User removal will be handled via Firebase listeners
       },
 
@@ -1024,21 +1025,21 @@ class StreamingService {
           if (speaker.volume > 10) { // Speaking threshold
             // Find user by UID and update speaking status
             // This would require mapping Agora UIDs to user IDs
-            console.log(`🎤 User ${speaker.uid} is speaking (volume: ${speaker.volume})`);
+            logger.debug(`🎤 User ${speaker.uid} is speaking (volume: ${speaker.volume})`);
           }
         });
       },
 
       onConnectionStateChanged: (state, reason) => {
-        console.log(`🔗 Agora connection state: ${state} (reason: ${reason})`);
+        logger.debug(`🔗 Agora connection state: ${state} (reason: ${reason})`);
       },
 
       onError: (errorCode) => {
-        console.error(`❌ Agora error: ${errorCode}`);
+        logger.error(`❌ Agora error: ${errorCode}`);
       },
 
       onWarning: (warningCode) => {
-        console.warn(`⚠️ Agora warning: ${warningCode}`);
+        logger.warn(`⚠️ Agora warning: ${warningCode}`);
       }
     };
 
@@ -1086,7 +1087,7 @@ class StreamingService {
         await firestoreService.updateStreamParticipants(streamId, session.participants);
       }
     } catch (error) {
-      console.error('Error toggling mute:', error);
+      logger.error('Error toggling mute:', error);
     }
   }
 
@@ -1117,7 +1118,7 @@ class StreamingService {
       await firestoreService.updateStreamViewerCount(streamId, session.viewerCount);
 
     } catch (error) {
-      console.error('Error kicking participant:', error);
+      logger.error('Error kicking participant:', error);
       throw error;
     }
   }
@@ -1150,7 +1151,7 @@ class StreamingService {
       await firestoreService.updateStreamViewerCount(streamId, session.viewerCount);
 
     } catch (error) {
-      console.error('Error banning participant:', error);
+      logger.error('Error banning participant:', error);
       throw error;
     }
   }
@@ -1163,10 +1164,10 @@ if (typeof window !== 'undefined' && __DEV__) {
   try {
     (window as any).debugStreamCleanup = () => streamingService.debugCleanupTest();
     (window as any).forceStreamCleanup = () => streamingService.forceCleanupPhantomStreams();
-    console.log('🔧 [DEBUG] Global debug functions available:');
-    console.log('  - debugStreamCleanup() - Run detailed cleanup test');
-    console.log('  - forceStreamCleanup() - Force cleanup phantom streams');
+    logger.debug('🔧 [DEBUG] Global debug functions available:');
+    logger.debug('  - debugStreamCleanup() - Run detailed cleanup test');
+    logger.debug('  - forceStreamCleanup() - Force cleanup phantom streams');
   } catch (error) {
-    console.warn('⚠️ Failed to attach streaming debug functions:', error);
+    logger.warn('⚠️ Failed to attach streaming debug functions:', error);
   }
 }

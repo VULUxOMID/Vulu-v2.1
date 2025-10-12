@@ -136,11 +136,11 @@ class ViewerInteractionService {
       // Update user engagement
       await this.updateUserEngagement(streamId, user.uid, 'reaction');
 
-      console.log(`✨ Reaction sent: ${emoji} to stream ${streamId}`);
+      logger.debug(`✨ Reaction sent: ${emoji} to stream ${streamId}`);
       return reactionRef.id;
 
     } catch (error: any) {
-      console.error('Failed to send reaction:', error);
+      logger.error('Failed to send reaction:', error);
       throw new Error(`Failed to send reaction: ${error.message}`);
     }
   }
@@ -183,11 +183,11 @@ class ViewerInteractionService {
       // Update user engagement
       await this.updateUserEngagement(streamId, user.uid, 'applause', intensity);
 
-      console.log(`👏 Applause sent: intensity ${intensity} to stream ${streamId}`);
+      logger.debug(`👏 Applause sent: intensity ${intensity} to stream ${streamId}`);
       return applauseRef.id;
 
     } catch (error: any) {
-      console.error('Failed to send applause:', error);
+      logger.error('Failed to send applause:', error);
       throw new Error(`Failed to send applause: ${error.message}`);
     }
   }
@@ -240,11 +240,11 @@ class ViewerInteractionService {
       // Update user engagement
       await this.updateUserEngagement(streamId, user.uid, 'gift', value);
 
-      console.log(`🎁 Gift sent: ${giftType} (${value}) to stream ${streamId}`);
+      logger.debug(`🎁 Gift sent: ${giftType} (${value}) to stream ${streamId}`);
       return giftRef.id;
 
     } catch (error: any) {
-      console.error('Failed to send gift:', error);
+      logger.error('Failed to send gift:', error);
       throw new Error(`Failed to send gift: ${error.message}`);
     }
   }
@@ -256,7 +256,7 @@ class ViewerInteractionService {
     streamId: string,
     callbacks: InteractionCallbacks
   ): () => void {
-    console.log(`✨ Starting reaction listener for stream: ${streamId}`);
+    logger.debug(`✨ Starting reaction listener for stream: ${streamId}`);
 
     // Stop existing listener
     this.stopReactionListener(streamId);
@@ -291,7 +291,7 @@ class ViewerInteractionService {
         });
       },
       (error) => {
-        console.error(`Error in reaction listener for ${streamId}:`, error);
+        logger.error(`Error in reaction listener for ${streamId}:`, error);
       }
     );
 
@@ -306,7 +306,7 @@ class ViewerInteractionService {
     streamId: string,
     callbacks: InteractionCallbacks
   ): () => void {
-    console.log(`👏 Starting applause listener for stream: ${streamId}`);
+    logger.debug(`👏 Starting applause listener for stream: ${streamId}`);
 
     // Stop existing listener
     this.stopApplauseListener(streamId);
@@ -337,7 +337,7 @@ class ViewerInteractionService {
         });
       },
       (error) => {
-        console.error(`Error in applause listener for ${streamId}:`, error);
+        logger.error(`Error in applause listener for ${streamId}:`, error);
       }
     );
 
@@ -353,7 +353,7 @@ class ViewerInteractionService {
     if (unsubscribe) {
       unsubscribe();
       this.reactionListeners.delete(streamId);
-      console.log(`✨ Stopped reaction listener for stream: ${streamId}`);
+      logger.debug(`✨ Stopped reaction listener for stream: ${streamId}`);
     }
   }
 
@@ -365,7 +365,7 @@ class ViewerInteractionService {
     if (unsubscribe) {
       unsubscribe();
       this.applauseListeners.delete(streamId);
-      console.log(`👏 Stopped applause listener for stream: ${streamId}`);
+      logger.debug(`👏 Stopped applause listener for stream: ${streamId}`);
     }
   }
 
@@ -406,7 +406,7 @@ class ViewerInteractionService {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (error) {
-      console.warn('Haptic feedback not available:', error);
+      logger.warn('Haptic feedback not available:', error);
     }
   }
 
@@ -423,7 +423,7 @@ class ViewerInteractionService {
 
       await Haptics.impactAsync(hapticIntensity);
     } catch (error) {
-      console.warn('Haptic feedback not available:', error);
+      logger.warn('Haptic feedback not available:', error);
     }
   }
 
@@ -478,7 +478,7 @@ class ViewerInteractionService {
       await updateDoc(engagementRef, updateData);
 
     } catch (error) {
-      console.warn('Failed to update user engagement:', error);
+      logger.warn('Failed to update user engagement:', error);
     }
   }
 
@@ -489,12 +489,12 @@ class ViewerInteractionService {
     this.processingInterval = setInterval(() => {
       // Process reaction queue for animations
       if (this.reactionQueue.length > 0) {
-        console.log(`Processing ${this.reactionQueue.length} reactions for animation`);
+        logger.debug(`Processing ${this.reactionQueue.length} reactions for animation`);
       }
 
       // Process applause queue for animations
       if (this.applauseQueue.length > 0) {
-        console.log(`Processing ${this.applauseQueue.length} applause events for animation`);
+        logger.debug(`Processing ${this.applauseQueue.length} applause events for animation`);
       }
     }, 100); // Process every 100ms for smooth animations
   }
@@ -523,7 +523,7 @@ class ViewerInteractionService {
     this.reactionQueue = [];
     this.applauseQueue = [];
 
-    console.log('✨ Viewer Interaction Service destroyed');
+    logger.debug('✨ Viewer Interaction Service destroyed');
   }
 }
 

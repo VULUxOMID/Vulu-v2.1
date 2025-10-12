@@ -52,12 +52,12 @@ class PermissionService {
       const isWorking = retrievedValue === testValue;
 
       if (!isWorking && this.isSimulator) {
-        console.warn('⚠️ AsyncStorage not working in iOS simulator - using in-memory fallback');
+        logger.warn('⚠️ AsyncStorage not working in iOS simulator - using in-memory fallback');
       }
 
       return isWorking;
     } catch (error) {
-      console.warn('⚠️ AsyncStorage availability check failed:', error);
+      logger.warn('⚠️ AsyncStorage availability check failed:', error);
 
       // Check for specific iOS simulator errors
       if (error instanceof Error) {
@@ -66,7 +66,7 @@ class PermissionService {
                                  error.message.includes('Failed to create storage directory');
 
         if (isIOSStorageError && this.isSimulator) {
-          console.warn('🔧 Detected iOS simulator storage issue - enabling fallback mode');
+          logger.warn('🔧 Detected iOS simulator storage issue - enabling fallback mode');
         }
       }
 
@@ -90,23 +90,23 @@ class PermissionService {
             // Check if stored permissions are still valid (within session timeout)
             if (now - parsed.lastRequestTime < this.SESSION_TIMEOUT) {
               this.permissionState = parsed;
-              console.log('✅ Loaded stored permission state from AsyncStorage');
+              logger.debug('✅ Loaded stored permission state from AsyncStorage');
             } else {
-              console.log('ℹ️ Stored permissions expired, will request fresh permissions');
+              logger.debug('ℹ️ Stored permissions expired, will request fresh permissions');
             }
           }
         } catch (storageError) {
-          console.warn('⚠️ Failed to load stored permissions, continuing with defaults:', storageError);
+          logger.warn('⚠️ Failed to load stored permissions, continuing with defaults:', storageError);
           this.storageAvailable = false;
         }
       } else {
-        console.log('ℹ️ Storage not available - using session-only permission management');
+        logger.debug('ℹ️ Storage not available - using session-only permission management');
       }
 
       // Check current system permissions
       await this.checkCurrentPermissions();
     } catch (error) {
-      console.error('❌ Error initializing permissions:', error);
+      logger.error('❌ Error initializing permissions:', error);
       // Continue with default state - don't fail the entire initialization
     }
   }
@@ -120,7 +120,7 @@ class PermissionService {
       this.permissionState.microphone = audioStatus.status === 'granted';
     } catch (error) {
       const safeMessage = error instanceof Error ? error.message : String(error);
-      console.warn('⚠️ Error checking current permissions (likely Expo Go):', safeMessage);
+      logger.warn('⚠️ Error checking current permissions (likely Expo Go):', safeMessage);
       this.permissionState.microphone = false;
     }
   }
@@ -149,7 +149,7 @@ class PermissionService {
       return this.permissionState;
     } catch (error) {
       const safeMessage = error instanceof Error ? error.message : String(error);
-      console.warn('⚠️ Error requesting permissions (likely Expo Go):', safeMessage);
+      logger.warn('⚠️ Error requesting permissions (likely Expo Go):', safeMessage);
       this.permissionState.microphone = false;
       this.permissionState.hasRequestedThisSession = true;
       this.permissionState.lastRequestTime = Date.now();
@@ -159,7 +159,7 @@ class PermissionService {
 
   private async storePermissionState(): Promise<void> {
     if (!this.storageAvailable) {
-      console.log('ℹ️ Storage not available - permission state will not persist');
+      logger.debug('ℹ️ Storage not available - permission state will not persist');
       return;
     }
 
@@ -168,9 +168,9 @@ class PermissionService {
         this.PERMISSION_STORAGE_KEY,
         JSON.stringify(this.permissionState)
       );
-      console.log('✅ Permission state stored successfully');
+      logger.debug('✅ Permission state stored successfully');
     } catch (error) {
-      console.warn('⚠️ Failed to store permission state:', error);
+      logger.warn('⚠️ Failed to store permission state:', error);
 
       // Mark storage as unavailable for future operations
       this.storageAvailable = false;
@@ -182,7 +182,7 @@ class PermissionService {
                                  error.message.includes('Failed to create storage directory');
 
         if (isIOSStorageError && this.isSimulator) {
-          console.warn('🔧 iOS simulator storage issue detected - continuing without persistence');
+          logger.warn('🔧 iOS simulator storage issue detected - continuing without persistence');
         }
       }
     }
@@ -208,13 +208,13 @@ class PermissionService {
     if (this.storageAvailable) {
       try {
         await AsyncStorage.removeItem(this.PERMISSION_STORAGE_KEY);
-        console.log('✅ Permission state cleared from storage');
+        logger.debug('✅ Permission state cleared from storage');
       } catch (error) {
-        console.warn('⚠️ Failed to clear permission state from storage:', error);
+        logger.warn('⚠️ Failed to clear permission state from storage:', error);
         // Don't fail the reset operation due to storage issues
       }
     } else {
-      console.log('ℹ️ Storage not available - only cleared in-memory permission state');
+      logger.debug('ℹ️ Storage not available - only cleared in-memory permission state');
     }
   }
 

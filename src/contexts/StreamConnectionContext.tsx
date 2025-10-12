@@ -472,14 +472,29 @@ export function StreamConnectionProvider({ children }: { children: React.ReactNo
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Clear all timers
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (networkMonitorRef.current) {
         clearInterval(networkMonitorRef.current);
       }
+
+      // Cleanup stream connections and tracking
+      if (state.streamId) {
+        participantTrackingService.stopTracking(state.streamId);
+      }
+
+      // Leave Agora channel if still connected
+      if (state.isConnected) {
+        agoraService.leaveChannel().catch((error) => {
+          console.warn('Error leaving channel during cleanup:', error);
+        });
+      }
+
+      console.log('🧹 StreamConnectionContext cleaned up');
     };
-  }, []);
+  }, [state.streamId, state.isConnected]);
 
   const contextValue: StreamConnectionContextType = {
     state,

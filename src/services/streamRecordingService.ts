@@ -143,11 +143,11 @@ class StreamRecordingService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Recording started for stream ${streamId}: ${recordingRef.id}`);
+      logger.debug(`✅ Recording started for stream ${streamId}: ${recordingRef.id}`);
       return recordingRef.id;
 
     } catch (error: any) {
-      console.error('Failed to start recording:', error);
+      logger.error('Failed to start recording:', error);
       throw new Error(`Failed to start recording: ${error.message}`);
     }
   }
@@ -192,10 +192,10 @@ class StreamRecordingService {
       this.currentRecording = null;
       this.recordingStartTime = 0;
 
-      console.log(`✅ Recording stopped: ${recording.id}`);
+      logger.debug(`✅ Recording stopped: ${recording.id}`);
 
     } catch (error: any) {
-      console.error('Failed to stop recording:', error);
+      logger.error('Failed to stop recording:', error);
       throw new Error(`Failed to stop recording: ${error.message}`);
     }
   }
@@ -218,7 +218,7 @@ class StreamRecordingService {
       } as StreamRecording;
 
     } catch (error: any) {
-      console.error('Failed to get recording:', error);
+      logger.error('Failed to get recording:', error);
       return null;
     }
   }
@@ -245,7 +245,7 @@ class StreamRecordingService {
       })) as StreamRecording[];
 
     } catch (error: any) {
-      console.error('Failed to get user recordings:', error);
+      logger.error('Failed to get user recordings:', error);
       return [];
     }
   }
@@ -270,7 +270,7 @@ class StreamRecordingService {
       })) as StreamRecording[];
 
     } catch (error: any) {
-      console.error('Failed to get public recordings:', error);
+      logger.error('Failed to get public recordings:', error);
       return [];
     }
   }
@@ -325,11 +325,11 @@ class StreamRecordingService {
       // Process highlight video (would be done by cloud function)
       await this.processHighlight(recordingId, highlightRef.id, startTime, endTime);
 
-      console.log(`✅ Highlight created: ${highlightRef.id}`);
+      logger.debug(`✅ Highlight created: ${highlightRef.id}`);
       return highlightRef.id;
 
     } catch (error: any) {
-      console.error('Failed to create highlight:', error);
+      logger.error('Failed to create highlight:', error);
       throw new Error(`Failed to create highlight: ${error.message}`);
     }
   }
@@ -366,11 +366,11 @@ class StreamRecordingService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Playback session started: ${sessionRef.id}`);
+      logger.debug(`✅ Playback session started: ${sessionRef.id}`);
       return sessionRef.id;
 
     } catch (error: any) {
-      console.error('Failed to start playback session:', error);
+      logger.error('Failed to start playback session:', error);
       throw new Error(`Failed to start playback session: ${error.message}`);
     }
   }
@@ -393,7 +393,7 @@ class StreamRecordingService {
       });
 
     } catch (error: any) {
-      console.error('Failed to update playback progress:', error);
+      logger.error('Failed to update playback progress:', error);
     }
   }
 
@@ -417,10 +417,10 @@ class StreamRecordingService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Playback session ended: ${sessionId}`);
+      logger.debug(`✅ Playback session ended: ${sessionId}`);
 
     } catch (error: any) {
-      console.error('Failed to end playback session:', error);
+      logger.error('Failed to end playback session:', error);
     }
   }
 
@@ -459,10 +459,10 @@ class StreamRecordingService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Recording deleted: ${recordingId}`);
+      logger.debug(`✅ Recording deleted: ${recordingId}`);
 
     } catch (error: any) {
-      console.error('Failed to delete recording:', error);
+      logger.error('Failed to delete recording:', error);
       throw new Error(`Failed to delete recording: ${error.message}`);
     }
   }
@@ -484,10 +484,10 @@ class StreamRecordingService {
         quality
       });
 
-      console.log(`✅ Agora cloud recording started for ${streamId}`);
+      logger.debug(`✅ Agora cloud recording started for ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to start Agora cloud recording:', error);
+      logger.error('Failed to start Agora cloud recording:', error);
       throw error;
     }
   }
@@ -507,10 +507,10 @@ class StreamRecordingService {
         recordingId
       });
 
-      console.log(`✅ Agora cloud recording stopped for ${streamId}`);
+      logger.debug(`✅ Agora cloud recording stopped for ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to stop Agora cloud recording:', error);
+      logger.error('Failed to stop Agora cloud recording:', error);
       throw error;
     }
   }
@@ -534,10 +534,10 @@ class StreamRecordingService {
         endTime
       });
 
-      console.log(`✅ Highlight processing started: ${highlightId}`);
+      logger.debug(`✅ Highlight processing started: ${highlightId}`);
 
     } catch (error: any) {
-      console.error('Failed to process highlight:', error);
+      logger.error('Failed to process highlight:', error);
       throw error;
     }
   }
@@ -573,7 +573,7 @@ class StreamRecordingService {
   destroy(): void {
     this.currentRecording = null;
     this.recordingStartTime = 0;
-    console.log('🧹 Stream Recording Service destroyed');
+    logger.debug('🧹 Stream Recording Service destroyed');
   }
 }
 

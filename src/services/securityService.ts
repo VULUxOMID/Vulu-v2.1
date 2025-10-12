@@ -74,7 +74,7 @@ export class SecurityService {
         await this.storeDeviceFingerprint(fingerprint);
       }
     } catch (error) {
-      console.warn('Error initializing device fingerprint:', error);
+      logger.warn('Error initializing device fingerprint:', error);
     }
   }
 
@@ -105,7 +105,7 @@ export class SecurityService {
           await SecureStore.setItemAsync('device_id', deviceId);
         }
       } catch (error) {
-        console.warn('Failed to use secure storage for device ID, using fallback:', error);
+        logger.warn('Failed to use secure storage for device ID, using fallback:', error);
         // Try to read from both locations and sync them
         const fallbackResult = await safeGetItem('device_id_fallback');
 
@@ -141,13 +141,13 @@ export class SecurityService {
         language: 'en', // You might want to get this from device settings
       };
     } catch (error) {
-      console.warn('Error generating device fingerprint:', error);
+      logger.warn('Error generating device fingerprint:', error);
       const fallbackId = `error-fallback-${Date.now()}`;
 
       // Try to store the fallback ID
       const storeResult = await safeSetItem('device_id_fallback', fallbackId);
       if (!storeResult.success && !storeResult.error?.includes('Development environment')) {
-        console.warn('Failed to store fallback device ID:', storeResult.error);
+        logger.warn('Failed to store fallback device ID:', storeResult.error);
       }
 
       return {
@@ -162,10 +162,10 @@ export class SecurityService {
     try {
       const result = await safeSetItem(this.DEVICE_FINGERPRINT_KEY, JSON.stringify(fingerprint));
       if (!result.success && !result.error?.includes('Development environment')) {
-        console.warn('Error storing device fingerprint:', result.error);
+        logger.warn('Error storing device fingerprint:', result.error);
       }
     } catch (error) {
-      console.warn('Error storing device fingerprint:', error);
+      logger.warn('Error storing device fingerprint:', error);
     }
   }
 
@@ -176,7 +176,7 @@ export class SecurityService {
       const result = await safeGetJSON<DeviceFingerprint>(this.DEVICE_FINGERPRINT_KEY);
       return result.success ? result.data : null;
     } catch (error) {
-      console.warn('Error getting device fingerprint:', error);
+      logger.warn('Error getting device fingerprint:', error);
       return null;
     }
   }
@@ -201,7 +201,7 @@ export class SecurityService {
       if (!result.success) {
         // In development environment, this is expected - just continue silently
         if (!result.error?.includes('Development environment')) {
-          console.warn('Error logging security event:', result.error);
+          logger.warn('Error logging security event:', result.error);
         }
         return;
       }
@@ -209,7 +209,7 @@ export class SecurityService {
       // Check for suspicious activity
       await this.analyzeSuspiciousActivity(event.userIdentifier);
     } catch (error) {
-      console.warn('Error logging security event:', error);
+      logger.warn('Error logging security event:', error);
     }
   }
 
@@ -230,7 +230,7 @@ export class SecurityService {
 
       return events;
     } catch (error) {
-      console.warn('Error getting security events:', error);
+      logger.warn('Error getting security events:', error);
       return [];
     }
   }
@@ -261,7 +261,7 @@ export class SecurityService {
 
       return lockInfo;
     } catch (error) {
-      console.warn('Error checking account lock:', error);
+      logger.warn('Error checking account lock:', error);
       return { isLocked: false, attemptCount: 0, lastAttempt: 0 };
     }
   }
@@ -282,7 +282,7 @@ export class SecurityService {
 
       const storeResult = await safeSetItem(this.ACCOUNT_LOCKS_KEY, JSON.stringify(locks));
       if (!storeResult.success && !storeResult.error?.includes('Development environment')) {
-        console.warn('Error storing account lock:', storeResult.error);
+        logger.warn('Error storing account lock:', storeResult.error);
         return;
       }
 
@@ -293,7 +293,7 @@ export class SecurityService {
         details: { reason, lockDuration: this.ACCOUNT_LOCK_DURATION },
       });
     } catch (error) {
-      console.warn('Error locking account:', error);
+      logger.warn('Error locking account:', error);
     }
   }
 
@@ -341,7 +341,7 @@ export class SecurityService {
 
       if (!storeResult.success) {
         if (!storeResult.error?.includes('Development environment')) {
-          console.warn('Error storing failed attempt:', storeResult.error);
+          logger.warn('Error storing failed attempt:', storeResult.error);
         }
         // In development, still return the lock status even if storage fails
         return lockInfo.isLocked;
@@ -358,7 +358,7 @@ export class SecurityService {
 
       return lockInfo.isLocked;
     } catch (error) {
-      console.warn('Error recording failed attempt:', error);
+      logger.warn('Error recording failed attempt:', error);
       return false;
     }
   }
@@ -380,7 +380,7 @@ export class SecurityService {
         await safeSetJSON(this.ACCOUNT_LOCKS_KEY, locks);
       }
     } catch (error) {
-      console.warn('Error clearing failed attempts:', error);
+      logger.warn('Error clearing failed attempts:', error);
     }
   }
 
@@ -400,7 +400,7 @@ export class SecurityService {
         });
       }
     } catch (error) {
-      console.warn('Error analyzing suspicious activity:', error);
+      logger.warn('Error analyzing suspicious activity:', error);
     }
   }
 
@@ -533,7 +533,7 @@ export class SecurityService {
         await safeSetJSON(this.ACCOUNT_LOCKS_KEY, locks);
       }
     } catch (error) {
-      console.warn('Error during security cleanup:', error);
+      logger.warn('Error during security cleanup:', error);
     }
   }
 }

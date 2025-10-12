@@ -31,8 +31,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GuestModeIndicator from '../components/GuestModeIndicator';
 
-// Import debug utilities for testing
-import '../utils/debugStreamTest';
+// Debug utilities removed for production
 import { firestoreService, GlobalChatMessage } from '../services/firestoreService';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
@@ -588,8 +587,8 @@ const HomeScreen = () => {
       title: track.title,
       subtitle: `${track.artist} • ${recentMusicActivity.platform}`,
       friendName: recentMusicActivity.userName,
-      friendAvatar: recentMusicActivity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U',
-      avatars: [recentMusicActivity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U'],
+      friendAvatar: recentMusicActivity.userAvatar || null,
+      avatars: [recentMusicActivity.userAvatar || null],
       streamId: recentMusicActivity.id,
       musicData: {
         songTitle: track.title,
@@ -608,7 +607,7 @@ const HomeScreen = () => {
         <View style={styles.musicContentContainer}>
           <View style={styles.albumArtContainer}>
             <Image
-              source={{ uri: track.albumArt || 'https://via.placeholder.com/60/6E69F4/FFFFFF?text=♪' }}
+              source={{ uri: track.albumArt || null }}
               style={styles.albumArt}
             />
           </View>
@@ -622,7 +621,7 @@ const HomeScreen = () => {
         <View style={styles.musicFriendContainer}>
           <View style={styles.musicAvatarContainer}>
             <Image
-              source={{ uri: recentMusicActivity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: recentMusicActivity.userAvatar || null }}
               style={styles.musicAvatar}
             />
             <View style={styles.musicIndicator}></View>
@@ -693,7 +692,7 @@ const HomeScreen = () => {
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.gridAvatar}
             />
           </View>
@@ -712,7 +711,7 @@ const HomeScreen = () => {
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>
@@ -732,7 +731,7 @@ const HomeScreen = () => {
         <View style={styles.musicContentContainer}>
           <View style={styles.albumArtContainer}>
             <Image
-              source={{ uri: musicData.albumArt || 'https://via.placeholder.com/60/6E69F4/FFFFFF?text=♪' }}
+              source={{ uri: musicData.albumArt || null }}
               style={styles.albumArt}
             />
           </View>
@@ -745,7 +744,7 @@ const HomeScreen = () => {
         <View style={styles.musicFriendContainer}>
           <View style={styles.musicAvatarContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.musicAvatar}
             />
             <View style={styles.musicIndicator}></View>
@@ -765,13 +764,13 @@ const HomeScreen = () => {
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: gamingData.gameIcon || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=🎮' }}
+              source={{ uri: gamingData.gameIcon || null }}
               style={styles.gridAvatar}
             />
           </View>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.gridAvatar}
             />
           </View>
@@ -792,7 +791,7 @@ const HomeScreen = () => {
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>
@@ -809,7 +808,7 @@ const HomeScreen = () => {
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.gridAvatar}
             />
           </View>
@@ -828,7 +827,7 @@ const HomeScreen = () => {
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>
@@ -1083,7 +1082,7 @@ const HomeScreen = () => {
       setSpotlightQueuePosition(1); // placeholder for queue logic
 
       // Simulate other viewers seeing your spotlight
-      setViewersCount(Math.floor(Math.random() * 50) + 20);
+      setViewersCount(0); // Real viewer count from Firebase
 
       closeSpotlightModal();
 

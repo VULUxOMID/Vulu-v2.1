@@ -377,7 +377,7 @@ class GamingService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getActiveMiningSession - returning null for guest user');
+        logger.warn('Permission denied for getActiveMiningSession - returning null for guest user');
         return null;
       }
 
@@ -430,7 +430,7 @@ class GamingService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getMiningStats - returning null for guest user');
+        logger.warn('Permission denied for getMiningStats - returning null for guest user');
         return null;
       }
 
@@ -780,7 +780,7 @@ class GamingService {
 
       await batch.commit();
     } catch (error) {
-      console.warn('Failed to end active mining sessions:', error);
+      logger.warn('Failed to end active mining sessions:', error);
     }
   }
 
@@ -817,7 +817,7 @@ class GamingService {
         });
       }
     } catch (error) {
-      console.warn('Failed to update mining stats:', error);
+      logger.warn('Failed to update mining stats:', error);
     }
   }
 
@@ -854,7 +854,7 @@ class GamingService {
         }
       }
     } catch (error) {
-      console.warn('Failed to check mining achievements:', error);
+      logger.warn('Failed to check mining achievements:', error);
     }
   }
 
@@ -902,7 +902,7 @@ class GamingService {
         await setDoc(statsRef, initialStats);
       }
     } catch (error) {
-      console.warn('Failed to update slots stats:', error);
+      logger.warn('Failed to update slots stats:', error);
     }
   }
 
@@ -955,7 +955,7 @@ class GamingService {
         await setDoc(statsRef, initialStats);
       }
     } catch (error) {
-      console.warn('Failed to update gold miner stats:', error);
+      logger.warn('Failed to update gold miner stats:', error);
     }
   }
 
@@ -1000,7 +1000,7 @@ class GamingService {
         );
       }
     } catch (error) {
-      console.warn('Failed to award achievement reward:', error);
+      logger.warn('Failed to award achievement reward:', error);
     }
   }
 
@@ -1027,7 +1027,7 @@ class GamingService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getSlotsStats - returning null for guest user');
+        logger.warn('Permission denied for getSlotsStats - returning null for guest user');
         return null;
       }
 
@@ -1057,7 +1057,7 @@ class GamingService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getGoldMinerStats - returning null for guest user');
+        logger.warn('Permission denied for getGoldMinerStats - returning null for guest user');
         return null;
       }
 
@@ -1114,7 +1114,7 @@ class GamingService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getUserGameProfile - returning null for guest user');
+        logger.warn('Permission denied for getUserGameProfile - returning null for guest user');
         return null;
       }
 

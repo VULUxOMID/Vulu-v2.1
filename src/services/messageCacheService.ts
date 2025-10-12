@@ -86,9 +86,9 @@ class MessageCacheService {
       // Perform cleanup if needed
       await this.performMaintenanceIfNeeded();
 
-      console.log('✅ Message cache service initialized');
+      logger.debug('✅ Message cache service initialized');
     } catch (error) {
-      console.error('Error initializing message cache service:', error);
+      logger.error('Error initializing message cache service:', error);
     }
   }
 
@@ -128,9 +128,9 @@ class MessageCacheService {
       // Update metadata
       await this.updateCacheMetadata();
 
-      console.log(`📦 Cached ${messages.length} messages for conversation ${conversationId}`);
+      logger.debug(`📦 Cached ${messages.length} messages for conversation ${conversationId}`);
     } catch (error) {
-      console.error('Error caching messages:', error);
+      logger.error('Error caching messages:', error);
     }
   }
 
@@ -173,10 +173,10 @@ class MessageCacheService {
       // Deserialize messages
       const messages = cacheEntry.data.map(msg => this.deserializeMessage(msg));
 
-      console.log(`📦 Retrieved ${messages.length} cached messages for conversation ${conversationId}`);
+      logger.debug(`📦 Retrieved ${messages.length} cached messages for conversation ${conversationId}`);
       return messages;
     } catch (error) {
-      console.error('Error getting cached messages:', error);
+      logger.error('Error getting cached messages:', error);
       return null;
     }
   }
@@ -209,9 +209,9 @@ class MessageCacheService {
       await AsyncStorage.setItem(cacheKey, cacheData);
       await this.updateCacheMetadata();
 
-      console.log(`📦 Cached conversation ${conversation.id}`);
+      logger.debug(`📦 Cached conversation ${conversation.id}`);
     } catch (error) {
-      console.error('Error caching conversation:', error);
+      logger.error('Error caching conversation:', error);
     }
   }
 
@@ -248,10 +248,10 @@ class MessageCacheService {
       }
 
       const conversation = this.deserializeConversation(cacheEntry.data);
-      console.log(`📦 Retrieved cached conversation ${conversationId}`);
+      logger.debug(`📦 Retrieved cached conversation ${conversationId}`);
       return conversation;
     } catch (error) {
-      console.error('Error getting cached conversation:', error);
+      logger.error('Error getting cached conversation:', error);
       return null;
     }
   }
@@ -264,9 +264,9 @@ class MessageCacheService {
       const cacheKey = `${this.CACHE_PREFIX}${conversationId}`;
       await AsyncStorage.removeItem(cacheKey);
       await this.updateCacheMetadata();
-      console.log(`🗑️ Invalidated cache for conversation ${conversationId}`);
+      logger.debug(`🗑️ Invalidated cache for conversation ${conversationId}`);
     } catch (error) {
-      console.error('Error invalidating cache:', error);
+      logger.error('Error invalidating cache:', error);
     }
   }
 
@@ -278,9 +278,9 @@ class MessageCacheService {
       const cacheKey = `${this.CONVERSATION_CACHE_PREFIX}${conversationId}`;
       await AsyncStorage.removeItem(cacheKey);
       await this.updateCacheMetadata();
-      console.log(`🗑️ Invalidated conversation cache for ${conversationId}`);
+      logger.debug(`🗑️ Invalidated conversation cache for ${conversationId}`);
     } catch (error) {
-      console.error('Error invalidating conversation cache:', error);
+      logger.error('Error invalidating conversation cache:', error);
     }
   }
 
@@ -297,9 +297,9 @@ class MessageCacheService {
       await AsyncStorage.multiRemove(cacheKeys);
       await this.resetCacheMetadata();
 
-      console.log(`🗑️ Cleared all cache (${cacheKeys.length} entries)`);
+      logger.debug(`🗑️ Cleared all cache (${cacheKeys.length} entries)`);
     } catch (error) {
-      console.error('Error clearing all cache:', error);
+      logger.error('Error clearing all cache:', error);
     }
   }
 
@@ -311,7 +311,7 @@ class MessageCacheService {
       const metadata = await this.getCacheMetadata();
       return metadata;
     } catch (error) {
-      console.error('Error getting cache stats:', error);
+      logger.error('Error getting cache stats:', error);
       return {
         totalSize: 0,
         entryCount: 0,
@@ -326,7 +326,7 @@ class MessageCacheService {
    */
   async performMaintenance(): Promise<void> {
     try {
-      console.log('🧹 Starting cache maintenance...');
+      logger.debug('🧹 Starting cache maintenance...');
 
       const keys = await AsyncStorage.getAllKeys();
       const cacheKeys = keys.filter(
@@ -367,9 +367,9 @@ class MessageCacheService {
       // Update metadata
       await this.updateCacheMetadata();
 
-      console.log(`🧹 Cache maintenance completed. Removed ${removedCount} entries.`);
+      logger.debug(`🧹 Cache maintenance completed. Removed ${removedCount} entries.`);
     } catch (error) {
-      console.error('Error performing cache maintenance:', error);
+      logger.error('Error performing cache maintenance:', error);
     }
   }
 
@@ -381,7 +381,7 @@ class MessageCacheService {
       this.syncStatus = { ...this.syncStatus, ...status };
       await AsyncStorage.setItem(this.SYNC_STATUS_KEY, JSON.stringify(this.syncStatus));
     } catch (error) {
-      console.error('Error updating sync status:', error);
+      logger.error('Error updating sync status:', error);
     }
   }
 
@@ -402,7 +402,7 @@ class MessageCacheService {
         await this.updateSyncStatus({ pendingSync: this.syncStatus.pendingSync });
       }
     } catch (error) {
-      console.error('Error marking for sync:', error);
+      logger.error('Error marking for sync:', error);
     }
   }
 
@@ -421,7 +421,7 @@ class MessageCacheService {
         lastSync: this.syncStatus.lastSync,
       });
     } catch (error) {
-      console.error('Error marking sync completed:', error);
+      logger.error('Error marking sync completed:', error);
     }
   }
 
@@ -441,7 +441,7 @@ class MessageCacheService {
         failedSync: this.syncStatus.failedSync,
       });
     } catch (error) {
-      console.error('Error marking sync failed:', error);
+      logger.error('Error marking sync failed:', error);
     }
   }
 
@@ -532,7 +532,7 @@ class MessageCacheService {
         this.syncStatus = JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Error loading sync status:', error);
+      logger.error('Error loading sync status:', error);
     }
   }
 
@@ -546,7 +546,7 @@ class MessageCacheService {
         return JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Error getting cache metadata:', error);
+      logger.error('Error getting cache metadata:', error);
     }
 
     return {
@@ -605,7 +605,7 @@ class MessageCacheService {
 
       await AsyncStorage.setItem(this.METADATA_KEY, JSON.stringify(metadata));
     } catch (error) {
-      console.error('Error updating cache metadata:', error);
+      logger.error('Error updating cache metadata:', error);
     }
   }
 
@@ -636,7 +636,7 @@ class MessageCacheService {
         await this.performMaintenance();
       }
     } catch (error) {
-      console.error('Error checking maintenance:', error);
+      logger.error('Error checking maintenance:', error);
     }
   }
 }

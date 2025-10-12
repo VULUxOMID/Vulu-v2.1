@@ -262,7 +262,7 @@ const AddFriendsScreen = () => {
   const renderSearchResult = ({ item }: { item: User }) => (
     <View style={styles.userItem}>
       <Image
-        source={{ uri: item.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.displayName || item.username || 'User') + '&background=6E69F4&color=FFFFFF&size=150' }}
+        source={{ uri: item.photoURL || null }}
         style={styles.avatar}
       />
       <View style={styles.userInfo}>
@@ -294,7 +294,7 @@ const AddFriendsScreen = () => {
   const renderFriendRequest = ({ item }: { item: FriendRequest }) => (
     <View style={styles.requestItem}>
       <Image 
-        source={{ uri: item.fromUserAvatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.fromUserName || 'User') + '&background=6E69F4&color=FFFFFF&size=150' }}
+        source={{ uri: item.fromUserAvatar || null }}
         style={styles.avatar} 
       />
       <View style={styles.requestInfo}>

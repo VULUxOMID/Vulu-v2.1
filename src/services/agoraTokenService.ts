@@ -53,11 +53,11 @@ class AgoraTokenService {
       // Check cache first
       const cached = this.tokenCache.get(cacheKey);
       if (cached && this.isTokenValid(cached.expiresAt)) {
-        console.log('🔑 Using cached Agora token');
+        logger.debug('🔑 Using cached Agora token');
         return cached.token;
       }
 
-      console.log(`🔑 Generating new Agora token for channel: ${request.channelName}`);
+      logger.debug(`🔑 Generating new Agora token for channel: ${request.channelName}`);
 
       if (!functions) {
         throw new Error('Firebase Functions not initialized');
@@ -79,11 +79,11 @@ class AgoraTokenService {
         expiresAt: tokenData.expiresAt
       });
 
-      console.log('✅ Agora token generated and cached successfully');
+      logger.debug('✅ Agora token generated and cached successfully');
       return tokenData;
 
     } catch (error: any) {
-      console.error('❌ Failed to generate Agora token:', error);
+      logger.error('❌ Failed to generate Agora token:', error);
       throw new Error(`Token generation failed: ${error.message}`);
     }
   }
@@ -93,7 +93,7 @@ class AgoraTokenService {
    */
   async validateStreamAccess(streamId: string): Promise<StreamAccessValidation> {
     try {
-      console.log(`🔍 Validating access to stream: ${streamId}`);
+      logger.debug(`🔍 Validating access to stream: ${streamId}`);
 
       if (!functions) {
         throw new Error('Firebase Functions not initialized');
@@ -105,15 +105,15 @@ class AgoraTokenService {
       const validation = result.data as StreamAccessValidation;
       
       if (validation.canJoin) {
-        console.log('✅ Stream access validated successfully');
+        logger.debug('✅ Stream access validated successfully');
       } else {
-        console.warn('⚠️ Stream access denied:', validation.error);
+        logger.warn('⚠️ Stream access denied:', validation.error);
       }
 
       return validation;
 
     } catch (error: any) {
-      console.error('❌ Failed to validate stream access:', error);
+      logger.error('❌ Failed to validate stream access:', error);
       return {
         canJoin: false,
         error: `Access validation failed: ${error.message}`
@@ -135,7 +135,7 @@ class AgoraTokenService {
         return null; // Token is still valid
       }
 
-      console.log('🔄 Token expiring soon, renewing...');
+      logger.debug('🔄 Token expiring soon, renewing...');
       
       return await this.generateToken({
         channelName,
@@ -145,7 +145,7 @@ class AgoraTokenService {
       });
 
     } catch (error: any) {
-      console.error('❌ Failed to renew token:', error);
+      logger.error('❌ Failed to renew token:', error);
       throw error;
     }
   }
@@ -163,7 +163,7 @@ class AgoraTokenService {
    */
   clearCache(): void {
     this.tokenCache.clear();
-    console.log('🗑️ Token cache cleared');
+    logger.debug('🗑️ Token cache cleared');
   }
 
   /**
@@ -207,11 +207,11 @@ class AgoraTokenService {
       // Reschedule renewal
       this.scheduleTokenRenewal(cacheKey, tokenData);
 
-      console.log(`✅ Token renewed for ${cacheKey}`);
+      logger.debug(`✅ Token renewed for ${cacheKey}`);
       return tokenData;
 
     } catch (error: any) {
-      console.error('❌ Failed to renew Agora token:', error);
+      logger.error('❌ Failed to renew Agora token:', error);
       throw new Error(`Token renewal failed: ${error.message}`);
     }
   }
@@ -232,7 +232,7 @@ class AgoraTokenService {
     if (renewalTime > 0) {
       const timer = setTimeout(async () => {
         try {
-          console.log(`🔄 Auto-renewing token for ${cacheKey}`);
+          logger.debug(`🔄 Auto-renewing token for ${cacheKey}`);
 
           const [channelName, uid, role] = cacheKey.split('_');
           await this.renewToken({
@@ -242,12 +242,12 @@ class AgoraTokenService {
           });
 
         } catch (error) {
-          console.error(`Failed to auto-renew token for ${cacheKey}:`, error);
+          logger.error(`Failed to auto-renew token for ${cacheKey}:`, error);
         }
       }, renewalTime);
 
       this.renewalTimers.set(cacheKey, timer);
-      console.log(`⏰ Scheduled token renewal for ${cacheKey} in ${Math.floor(renewalTime / 1000)}s`);
+      logger.debug(`⏰ Scheduled token renewal for ${cacheKey} in ${Math.floor(renewalTime / 1000)}s`);
     }
   }
 
@@ -266,7 +266,7 @@ class AgoraTokenService {
     });
 
     if (cleanedCount > 0) {
-      console.log(`🧹 Cleaned up ${cleanedCount} expired tokens from cache`);
+      logger.debug(`🧹 Cleaned up ${cleanedCount} expired tokens from cache`);
     }
   }
 
@@ -279,7 +279,7 @@ class AgoraTokenService {
       this.cleanupExpiredTokens();
     }, 10 * 60 * 1000);
 
-    console.log('🔄 Started periodic token cache cleanup');
+    logger.debug('🔄 Started periodic token cache cleanup');
   }
 }
 

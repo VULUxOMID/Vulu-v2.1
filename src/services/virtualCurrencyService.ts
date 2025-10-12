@@ -56,12 +56,52 @@ export interface CurrencyReward {
 }
 
 class VirtualCurrencyService {
+  // Constants for invariant checks
+  private readonly MAX_BALANCE = 999999999; // Maximum balance to prevent overflow
+  private readonly MIN_BALANCE = 0; // Minimum balance (no negatives)
+  private readonly MAX_TRANSACTION = 1000000; // Maximum single transaction amount
+
   private getCurrentUserId(): string | null {
     return auth?.currentUser?.uid || null;
   }
 
   private isAuthenticated(): boolean {
     return auth?.currentUser !== null;
+  }
+
+  /**
+   * Validate currency amount invariants
+   * Throws if amount violates constraints
+   */
+  private validateAmount(amount: number, operation: string): void {
+    if (!Number.isFinite(amount)) {
+      throw new Error(`${operation}: Amount must be a finite number`);
+    }
+    if (amount < 0) {
+      throw new Error(`${operation}: Amount cannot be negative`);
+    }
+    if (amount > this.MAX_TRANSACTION) {
+      throw new Error(`${operation}: Amount exceeds maximum transaction limit (${this.MAX_TRANSACTION})`);
+    }
+    if (amount !== Math.floor(amount)) {
+      throw new Error(`${operation}: Amount must be an integer`);
+    }
+  }
+
+  /**
+   * Validate balance invariants
+   * Throws if balance violates constraints
+   */
+  private validateBalance(balance: number, operation: string, currencyType: CurrencyType): void {
+    if (!Number.isFinite(balance)) {
+      throw new Error(`${operation}: ${currencyType} balance is not a finite number: ${balance}`);
+    }
+    if (balance < this.MIN_BALANCE) {
+      throw new Error(`${operation}: ${currencyType} balance cannot be negative: ${balance}`);
+    }
+    if (balance > this.MAX_BALANCE) {
+      throw new Error(`${operation}: ${currencyType} balance exceeds maximum: ${balance}`);
+    }
   }
 
   /**
@@ -76,7 +116,7 @@ class VirtualCurrencyService {
       try {
         return timestamp.toDate();
       } catch (error) {
-        console.warn('Failed to convert timestamp to date:', error);
+        logger.warn('Failed to convert timestamp to date:', error);
         return new Date();
       }
     }
@@ -150,7 +190,7 @@ class VirtualCurrencyService {
         // If any balance was negative or invalid, fix it in Firestore
         if (balances.gold < 0 || balances.gems < 0 || balances.tokens < 0 || 
             isNaN(balances.gold) || isNaN(balances.gems) || isNaN(balances.tokens)) {
-          console.warn('🔧 Detected invalid currency balance, fixing...', {
+          logger.warn('🔧 Detected invalid currency balance, fixing...', {
             userId,
             old: balances,
             new: sanitizedBalances
@@ -210,7 +250,7 @@ class VirtualCurrencyService {
         }
 
         // Log non-permission errors
-        console.error('Currency balances listener error:', error);
+        logger.error('Currency balances listener error:', error);
         FirebaseErrorHandler.logError('onCurrencyBalances', error);
       });
     } catch (error: any) {
@@ -230,6 +270,9 @@ class VirtualCurrencyService {
     metadata?: any
   ): Promise<Transaction> {
     try {
+      // Validate amount invariants
+      this.validateAmount(amount, 'addCurrency');
+      
       if (amount <= 0) {
         throw new Error('Amount must be positive');
       }
@@ -243,9 +286,14 @@ class VirtualCurrencyService {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           currentBalance = userData.currencyBalances?.[currencyType] || 0;
+          // Validate current balance
+          this.validateBalance(currentBalance, 'addCurrency-current', currencyType);
         }
 
         const newBalance = currentBalance + amount;
+        
+        // Validate new balance before committing
+        this.validateBalance(newBalance, 'addCurrency-new', currencyType);
 
         // Update user balance within transaction
         transaction.update(userRef, {
@@ -291,21 +339,31 @@ class VirtualCurrencyService {
     metadata?: any
   ): Promise<Transaction> {
     try {
+      // Validate amount invariants
+      this.validateAmount(amount, 'spendCurrency');
+      
       if (amount <= 0) {
         throw new Error('Amount must be positive');
       }
 
       // Get current balance (already sanitized by getCurrencyBalances)
       const currentBalances = await this.getCurrencyBalances(userId);
+      const currentBalance = currentBalances[currencyType];
+      
+      // Validate current balance
+      this.validateBalance(currentBalance, 'spendCurrency-current', currencyType);
       
       // Use safe balance check
-      if (!hasEnoughBalance(currentBalances[currencyType], amount)) {
-        throw new Error(`Insufficient ${currencyType} balance. Required: ${amount}, Available: ${currentBalances[currencyType]}`);
+      if (!hasEnoughBalance(currentBalance, amount)) {
+        throw new Error(`Insufficient ${currencyType} balance. Required: ${amount}, Available: ${currentBalance}`);
       }
 
       const userRef = doc(db, 'users', userId);
       // Calculate new balance safely (will never be negative)
-      const newBalance = calculateNewBalance(currentBalances[currencyType], amount);
+      const newBalance = calculateNewBalance(currentBalance, amount);
+      
+      // Validate new balance invariants
+      this.validateBalance(newBalance, 'spendCurrency-new', currencyType);
 
       // Update user balance - set to exact value to prevent any negative scenarios
       await updateDoc(userRef, {

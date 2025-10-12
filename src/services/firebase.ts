@@ -39,11 +39,11 @@ const initializeFirebase = (): { success: boolean; error?: Error } => {
   initializationAttempted = true;
 
   try {
-    console.log('🔥 Initializing Firebase services...');
+    logger.debug('🔥 Initializing Firebase services...');
 
     // Initialize Firebase app
     app = initializeApp(firebaseConfig);
-    console.log('✅ Firebase app initialized');
+    logger.debug('✅ Firebase app initialized');
 
     // Initialize Auth with AsyncStorage persistence (fallback-safe)
     try {
@@ -51,57 +51,57 @@ const initializeFirebase = (): { success: boolean; error?: Error } => {
       auth = initializeAuth(app, {
         persistence: getReactNativePersistence(AsyncStorage)
       });
-      console.log('✅ Firebase Auth initialized with AsyncStorage persistence');
+      logger.debug('✅ Firebase Auth initialized with AsyncStorage persistence');
 
       // Verify persistence is working
-      console.log('🔄 Checking Firebase Auth persistence...');
+      logger.debug('🔄 Checking Firebase Auth persistence...');
       const currentUser = auth.currentUser;
       if (currentUser) {
-        console.log('✅ Auth state restored from persistence:', {
+        logger.debug('✅ Auth state restored from persistence:', {
           uid: currentUser.uid,
           email: currentUser.email
         });
       } else {
-        console.log('ℹ️ No persisted auth state found (user not signed in)');
+        logger.debug('ℹ️ No persisted auth state found (user not signed in)');
       }
     } catch (authError: any) {
-      console.error('❌ Firebase Auth initialization failed:', authError);
+      logger.error('❌ Firebase Auth initialization failed:', authError);
 
       // Try fallback initialization without explicit persistence
       try {
-        console.log('🔄 Attempting fallback auth initialization...');
+        logger.debug('🔄 Attempting fallback auth initialization...');
         auth = getAuth(app);
-        console.log('✅ Firebase Auth initialized with fallback method');
+        logger.debug('✅ Firebase Auth initialized with fallback method');
       } catch (fallbackError) {
-        console.error('❌ Fallback auth initialization also failed:', fallbackError);
+        logger.error('❌ Fallback auth initialization also failed:', fallbackError);
         throw authError; // Throw original error
       }
     }
 
     // Initialize Firestore
     db = getFirestore(app);
-    console.log('✅ Firestore initialized');
+    logger.debug('✅ Firestore initialized');
 
     // Initialize Storage
     storage = getStorage(app);
-    console.log('✅ Firebase Storage initialized');
+    logger.debug('✅ Firebase Storage initialized');
 
     // Initialize Functions
     functions = getFunctions(app);
-    console.log('✅ Firebase Functions initialized');
+    logger.debug('✅ Firebase Functions initialized');
 
     // Development environment setup
     if (__DEV__) {
-      console.log('🔧 Development mode: Firebase services ready');
+      logger.debug('🔧 Development mode: Firebase services ready');
       // Note: Emulator connection would go here if needed
       // connectFirestoreEmulator(db, 'localhost', 8080);
     }
 
-    console.log('🎉 All Firebase services initialized successfully');
+    logger.debug('🎉 All Firebase services initialized successfully');
     return { success: true };
 
   } catch (error: any) {
-    console.error('❌ Firebase initialization failed:', error);
+    logger.error('❌ Firebase initialization failed:', error);
     initializationError = error;
 
     // Keep service variables uninitialized; accessors will guard usage
@@ -117,7 +117,7 @@ export const getFirebaseServices = () => {
   const result = initializeFirebase();
 
   if (!result.success) {
-    console.warn('⚠️ Firebase services not available:', result.error?.message);
+    logger.warn('⚠️ Firebase services not available:', result.error?.message);
   }
 
   return {
@@ -166,12 +166,12 @@ if (initResult.success) {
     import('../utils/firebaseOperationWrapper').then(({ default: FirebaseOperationWrapper }) => {
       try {
         FirebaseOperationWrapper.initialize();
-        console.log('✅ Firebase utilities initialized successfully');
+        logger.debug('✅ Firebase utilities initialized successfully');
       } catch (error) {
-        console.warn('⚠️ Failed to initialize Firebase utilities:', error);
+        logger.warn('⚠️ Failed to initialize Firebase utilities:', error);
       }
     }).catch(error => {
-      console.warn('⚠️ Failed to import Firebase utilities:', error);
+      logger.warn('⚠️ Failed to import Firebase utilities:', error);
     });
   }, 100); // Small delay to ensure Firebase is fully initialized
 }

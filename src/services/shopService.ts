@@ -203,7 +203,7 @@ class ShopService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getProducts - returning empty array for guest user');
+        logger.warn('Permission denied for getProducts - returning empty array for guest user');
         return [];
       }
 
@@ -274,12 +274,12 @@ class ShopService {
       }, (error) => {
         // Handle permission errors gracefully for guest users
         if (FirebaseErrorHandler.isPermissionError(error)) {
-          console.warn('Permission denied for onProducts - returning empty array for guest user');
+          logger.warn('Permission denied for onProducts - returning empty array for guest user');
           callback([]);
           return;
         }
 
-        console.error('Products listener error:', error);
+        logger.error('Products listener error:', error);
         FirebaseErrorHandler.logError('onProducts', error);
         callback([]);
       });
@@ -509,7 +509,7 @@ class ShopService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getPurchaseHistory - returning empty array for guest user');
+        logger.warn('Permission denied for getPurchaseHistory - returning empty array for guest user');
         return [];
       }
 
@@ -549,7 +549,7 @@ class ShopService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getUserInventory - returning empty inventory for guest user');
+        logger.warn('Permission denied for getUserInventory - returning empty inventory for guest user');
         return {
           userId,
           items: [],
@@ -595,7 +595,7 @@ class ShopService {
       }
 
     } catch (error: any) {
-      console.warn('Failed to add to inventory:', error);
+      logger.warn('Failed to add to inventory:', error);
     }
   }
 
@@ -652,7 +652,7 @@ class ShopService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getShopStats - returning null for guest user');
+        logger.warn('Permission denied for getShopStats - returning null for guest user');
         return null;
       }
 
@@ -693,7 +693,7 @@ class ShopService {
     } catch (error: any) {
       // Handle permission errors gracefully for guest users
       if (FirebaseErrorHandler.isPermissionError(error)) {
-        console.warn('Permission denied for getActivePromotions - returning empty array for guest user');
+        logger.warn('Permission denied for getActivePromotions - returning empty array for guest user');
         return [];
       }
 

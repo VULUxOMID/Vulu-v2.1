@@ -66,7 +66,7 @@ export class UserSearchService {
       // Sort by relevance
       return enrichedResults.sort((a, b) => b.relevanceScore - a.relevanceScore);
     } catch (error: any) {
-      console.error('Error searching users:', error);
+      logger.error('Error searching users:', error);
       return [];
     }
   }
@@ -102,7 +102,7 @@ export class UserSearchService {
 
       return results;
     } catch (error: any) {
-      console.error('Error searching by username:', error);
+      logger.error('Error searching by username:', error);
       return [];
     }
   }
@@ -138,7 +138,7 @@ export class UserSearchService {
 
       return results;
     } catch (error: any) {
-      console.error('Error searching by display name:', error);
+      logger.error('Error searching by display name:', error);
       return [];
     }
   }
@@ -187,7 +187,7 @@ export class UserSearchService {
         };
       });
     } catch (error: any) {
-      console.error('Error enriching with relationship status:', error);
+      logger.error('Error enriching with relationship status:', error);
       return users.map(user => ({
         ...user,
         isFriend: false,
@@ -222,7 +222,7 @@ export class UserSearchService {
         ...doc.data()
       })) as FriendRequest[];
     } catch (error: any) {
-      console.error(`Error getting ${type} requests:`, error);
+      logger.error(`Error getting ${type} requests:`, error);
       return [];
     }
   }
@@ -243,7 +243,7 @@ export class UserSearchService {
         relevanceScore: 0 // Will be calculated separately
       };
     } catch (error) {
-      console.error('Error enriching user with friend status:', error);
+      logger.error('Error enriching user with friend status:', error);
       return {
         ...user,
         isFriend: false,
@@ -327,7 +327,7 @@ export class UserSearchService {
       // Enrich with relationship status
       return await this.enrichWithRelationshipStatus(suggestions, currentUserId, '');
     } catch (error: any) {
-      console.error('Error getting user suggestions:', error);
+      logger.error('Error getting user suggestions:', error);
       return [];
     }
   }
@@ -343,7 +343,7 @@ export class UserSearchService {
       }
       return null;
     } catch (error: any) {
-      console.error('Error getting user by ID:', error);
+      logger.error('Error getting user by ID:', error);
       return null;
     }
   }
