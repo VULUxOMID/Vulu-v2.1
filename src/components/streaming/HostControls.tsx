@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { AgoraParticipant } from '../../services/agoraService';
-import { hostControlsService } from '../../services/hostControlsService';
+import { hostControlsService } from '../../services/hostControlService';
 
 interface HostControlsProps {
   streamId: string;

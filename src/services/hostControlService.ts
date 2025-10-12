@@ -4,6 +4,7 @@
  */
 
 import {
+import { logger } from '../utils/logger';
   doc,
   updateDoc,
   deleteDoc,
@@ -17,7 +18,9 @@ import {
   increment
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 import { Stream, StreamParticipant, ChatSettings } from './firestoreService';
+import { logger } from '../utils/logger';
 
 export interface StreamSettings {
   title: string;
@@ -88,10 +91,10 @@ class HostControlService {
 
       await updateDoc(doc(db, 'streams', streamId), updateData);
 
-      console.log(`✅ Stream settings updated for ${streamId}:`, settings);
+      logger.debug(`✅ Stream settings updated for ${streamId}:`, settings);
 
     } catch (error: any) {
-      console.error('Failed to update stream settings:', error);
+      logger.error('Failed to update stream settings:', error);
       throw new Error(`Failed to update stream settings: ${error.message}`);
     }
   }
@@ -118,10 +121,10 @@ class HostControlService {
 
       await updateDoc(doc(db, 'streams', streamId), updateData);
 
-      console.log(`✅ Chat settings updated for ${streamId}:`, chatSettings);
+      logger.debug(`✅ Chat settings updated for ${streamId}:`, chatSettings);
 
     } catch (error: any) {
-      console.error('Failed to update chat settings:', error);
+      logger.error('Failed to update chat settings:', error);
       throw new Error(`Failed to update chat settings: ${error.message}`);
     }
   }
@@ -223,10 +226,10 @@ class HostControlService {
         });
       });
 
-      console.log(`✅ Moderation action ${type} performed on user ${targetUserId}`);
+      logger.debug(`✅ Moderation action ${type} performed on user ${targetUserId}`);
 
     } catch (error: any) {
-      console.error('Failed to perform moderation action:', error);
+      logger.error('Failed to perform moderation action:', error);
       throw new Error(`Failed to perform moderation action: ${error.message}`);
     }
   }
@@ -299,7 +302,7 @@ class HostControlService {
       };
 
     } catch (error: any) {
-      console.error('Failed to get stream analytics:', error);
+      logger.error('Failed to get stream analytics:', error);
       throw new Error(`Failed to get stream analytics: ${error.message}`);
     }
   }
@@ -324,7 +327,7 @@ class HostControlService {
       return streamData.participants || [];
 
     } catch (error: any) {
-      console.error('Failed to get participant list:', error);
+      logger.error('Failed to get participant list:', error);
       throw new Error(`Failed to get participant list: ${error.message}`);
     }
   }
@@ -360,10 +363,10 @@ class HostControlService {
 
       await batch.commit();
 
-      console.log(`✅ All chat messages cleared for stream ${streamId}`);
+      logger.debug(`✅ All chat messages cleared for stream ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to clear chat:', error);
+      logger.error('Failed to clear chat:', error);
       throw new Error(`Failed to clear chat: ${error.message}`);
     }
   }
@@ -385,10 +388,10 @@ class HostControlService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Stream ${streamId} ended by host`);
+      logger.debug(`✅ Stream ${streamId} ended by host`);
 
     } catch (error: any) {
-      console.error('Failed to end stream:', error);
+      logger.error('Failed to end stream:', error);
       throw new Error(`Failed to end stream: ${error.message}`);
     }
   }
@@ -417,11 +420,11 @@ class HostControlService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Stream privacy toggled to ${newPrivacy ? 'public' : 'private'}`);
+      logger.debug(`✅ Stream privacy toggled to ${newPrivacy ? 'public' : 'private'}`);
       return newPrivacy;
 
     } catch (error: any) {
-      console.error('Failed to toggle stream privacy:', error);
+      logger.error('Failed to toggle stream privacy:', error);
       throw new Error(`Failed to toggle stream privacy: ${error.message}`);
     }
   }
@@ -445,10 +448,10 @@ class HostControlService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Stream quality updated to ${quality}`);
+      logger.debug(`✅ Stream quality updated to ${quality}`);
 
     } catch (error: any) {
-      console.error('Failed to update stream quality:', error);
+      logger.error('Failed to update stream quality:', error);
       throw new Error(`Failed to update stream quality: ${error.message}`);
     }
   }
@@ -478,7 +481,7 @@ class HostControlService {
       }));
 
     } catch (error: any) {
-      console.error('Failed to get moderation logs:', error);
+      logger.error('Failed to get moderation logs:', error);
       throw new Error(`Failed to get moderation logs: ${error.message}`);
     }
   }
@@ -497,6 +500,234 @@ class HostControlService {
       throw new Error('Only the host can perform this action');
     }
   }
+
+  // ===== Participant Control Methods (from hostControlsService) =====
+
+  /**
+   * Mute a participant (host only)
+   */
+  async muteParticipant(
+    streamId: string,
+    targetUserId: string,
+    targetUid: number,
+    hostId: string,
+    reason?: string
+  ): Promise<boolean> {
+    try {
+      logger.debug(`🔇 Muting participant ${targetUserId} in stream ${streamId}`);
+
+      const streamRef = doc(db, 'streams', streamId);
+      const streamDoc = await streamRef.get();
+      
+      if (!streamDoc.exists()) {
+        throw new Error('Stream not found');
+      }
+
+      const streamData = streamDoc.data();
+      const participants = streamData.participants || [];
+      
+      const updatedParticipants = participants.map((p: any) => {
+        if (p.userId === targetUserId) {
+          return {
+            ...p,
+            isMuted: true,
+            mutedBy: hostId,
+            mutedAt: Date.now()
+          };
+        }
+        return p;
+      });
+
+      await updateDoc(streamRef, {
+        participants: updatedParticipants,
+        lastActivity: new Date()
+      });
+
+      logger.debug(`✅ Successfully muted participant ${targetUserId}`);
+      return true;
+
+    } catch (error: any) {
+      logger.error('Failed to mute participant:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Unmute a participant (host only)
+   */
+  async unmuteParticipant(
+    streamId: string,
+    targetUserId: string,
+    targetUid: number,
+    hostId: string
+  ): Promise<boolean> {
+    try {
+      logger.debug(`🔊 Unmuting participant ${targetUserId} in stream ${streamId}`);
+
+      const streamRef = doc(db, 'streams', streamId);
+      const streamDoc = await streamRef.get();
+      
+      if (!streamDoc.exists()) {
+        throw new Error('Stream not found');
+      }
+
+      const streamData = streamDoc.data();
+      const participants = streamData.participants || [];
+      
+      const updatedParticipants = participants.map((p: any) => {
+        if (p.userId === targetUserId) {
+          const { mutedBy, mutedAt, ...rest } = p;
+          return {
+            ...rest,
+            isMuted: false
+          };
+        }
+        return p;
+      });
+
+      await updateDoc(streamRef, {
+        participants: updatedParticipants,
+        lastActivity: new Date()
+      });
+
+      logger.debug(`✅ Successfully unmuted participant ${targetUserId}`);
+      return true;
+
+    } catch (error: any) {
+      logger.error('Failed to unmute participant:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Kick a participant from the stream (host only)
+   */
+  async kickParticipant(
+    streamId: string,
+    targetUserId: string,
+    targetUid: number,
+    hostId: string,
+    reason?: string
+  ): Promise<boolean> {
+    try {
+      logger.debug(`👢 Kicking participant ${targetUserId} from stream ${streamId}`);
+
+      const streamRef = doc(db, 'streams', streamId);
+      const streamDoc = await streamRef.get();
+      
+      if (!streamDoc.exists()) {
+        throw new Error('Stream not found');
+      }
+
+      const streamData = streamDoc.data();
+      const participants = streamData.participants || [];
+      
+      const updatedParticipants = participants.filter((p: any) => p.userId !== targetUserId);
+
+      await updateDoc(streamRef, {
+        participants: updatedParticipants,
+        lastActivity: new Date()
+      });
+
+      logger.debug(`✅ Successfully kicked participant ${targetUserId}`);
+      return true;
+
+    } catch (error: any) {
+      logger.error('Failed to kick participant:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Ban a participant from the stream (host only)
+   */
+  async banParticipant(
+    streamId: string,
+    targetUserId: string,
+    targetUid: number,
+    hostId: string,
+    reason?: string
+  ): Promise<boolean> {
+    try {
+      logger.debug(`🚫 Banning participant ${targetUserId} from stream ${streamId}`);
+
+      const streamRef = doc(db, 'streams', streamId);
+      const streamDoc = await streamRef.get();
+      
+      if (!streamDoc.exists()) {
+        throw new Error('Stream not found');
+      }
+
+      const streamData = streamDoc.data();
+      const participants = streamData.participants || [];
+      
+      const updatedParticipants = participants.filter((p: any) => p.userId !== targetUserId);
+
+      await updateDoc(streamRef, {
+        participants: updatedParticipants,
+        bannedUsers: arrayUnion({
+          userId: targetUserId,
+          bannedBy: hostId,
+          bannedAt: Date.now(),
+          reason
+        }),
+        lastActivity: new Date()
+      });
+
+      logger.debug(`✅ Successfully banned participant ${targetUserId}`);
+      return true;
+
+    } catch (error: any) {
+      logger.error('Failed to ban participant:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Unban a participant (host only)
+   */
+  async unbanParticipant(
+    streamId: string,
+    targetUserId: string,
+    hostId: string
+  ): Promise<boolean> {
+    try {
+      logger.debug(`✅ Unbanning participant ${targetUserId} from stream ${streamId}`);
+
+      const streamRef = doc(db, 'streams', streamId);
+      const streamDoc = await streamRef.get();
+      
+      if (!streamDoc.exists()) {
+        throw new Error('Stream not found');
+      }
+
+      const streamData = streamDoc.data();
+      const bannedUsers = streamData.bannedUsers || [];
+      
+      const userToUnban = bannedUsers.find((u: any) => u.userId === targetUserId);
+      if (!userToUnban) {
+        throw new Error('User not found in banned list');
+      }
+
+      await updateDoc(streamRef, {
+        bannedUsers: arrayRemove(userToUnban),
+        lastActivity: new Date()
+      });
+
+      logger.debug(`✅ Successfully unbanned participant ${targetUserId}`);
+      return true;
+
+    } catch (error: any) {
+      logger.error('Failed to unban participant:', error);
+      return false;
+    }
+  }
 }
 
-export default HostControlService.getInstance();
+const hostControlServiceInstance = HostControlService.getInstance();
+
+// Export as default
+export default hostControlServiceInstance;
+
+// Also export as named export for backward compatibility
+export const hostControlsService = hostControlServiceInstance;

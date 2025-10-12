@@ -11,14 +11,15 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLiveStreams } from '../context/LiveStreamContext';
 import { useAuth } from '../context/AuthContext';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
+import { StreamErrorBoundary } from '../components/StreamErrorBoundary';
 
 const LiveScreen: React.FC = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { user, isGuest } = useAuth();
   const {
     streams,
@@ -61,7 +62,7 @@ const LiveScreen: React.FC = () => {
         'You need to sign in to join live streams.',
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Sign In', onPress: () => router.push('/auth/selection') }
+          { text: 'Sign In', onPress: () => navigation.navigate('/auth/selection') }
         ]
       );
       return;
@@ -70,7 +71,7 @@ const LiveScreen: React.FC = () => {
     // The joinStream function now handles active stream checking and confirmation internally
     try {
       await joinStream(streamId);
-      router.push({
+      navigation.navigate({
         pathname: '/livestream',
         params: {
           streamId,
@@ -104,13 +105,13 @@ const LiveScreen: React.FC = () => {
         stream.id,
         stream.title,
         stream.hosts[0]?.name || 'Host',
-        stream.hosts[0]?.avatar || 'https://via.placeholder.com/150',
+        stream.hosts[0]?.avatar || 'https://null/150',
         stream.views
       )}
     >
       <View style={styles.streamHeader}>
         <Image
-          source={{ uri: stream.hosts[0]?.avatar || 'https://via.placeholder.com/150' }}
+          source={{ uri: stream.hosts[0]?.avatar || 'https://null/150' }}
           style={styles.hostAvatar}
         />
         <View style={styles.streamInfo}>
@@ -362,4 +363,11 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LiveScreen;
+// Wrap with StreamErrorBoundary for crash prevention
+const LiveScreenWithErrorBoundary = () => (
+  <StreamErrorBoundary>
+    <LiveScreen />
+  </StreamErrorBoundary>
+);
+
+export default LiveScreenWithErrorBoundary;

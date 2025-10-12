@@ -142,13 +142,13 @@ if (!isExpoGo) {
   try {
     // Try to import the real Agora SDK
     agoraExports = require('react-native-agora');
-    console.log('✅ Real Agora SDK imported successfully');
+    logger.debug('✅ Real Agora SDK imported successfully');
   } catch (error) {
-    console.warn('⚠️ Agora SDK not available, using mock exports:', error.message);
+    logger.warn('⚠️ Agora SDK not available, using mock exports:', error.message);
     agoraExports = mockAgoraExports;
   }
 } else {
-  console.log('🎭 Using mock Agora exports for Expo Go development');
+  logger.debug('🎭 Using mock Agora exports for Expo Go development');
 }
 
 // Export all Agora types and classes
@@ -171,4 +171,4 @@ export const isAgoraAvailable = () => !isExpoGo && agoraExports.default !== null
 export const isUsingMockAgora = () => isExpoGo || agoraExports.default === null;
 
 // Log the current state
-console.log(`🔧 Agora Import Wrapper: ${isUsingMockAgora() ? 'Using Mock' : 'Using Real SDK'}`);
+logger.debug(`🔧 Agora Import Wrapper: ${isUsingMockAgora() ? 'Using Mock' : 'Using Real SDK'}`);

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../context/AuthContext';
 import { PURPLE_COLOR } from '../utils/defaultAvatars';
 import { messagingService } from '../services/messagingService';
@@ -241,7 +241,7 @@ const FriendRequestsScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Friend Requests</Text>
@@ -249,7 +249,7 @@ const FriendRequestsScreen = () => {
         <ErrorState
           title="Feature Unavailable"
           message="Guest users cannot manage friend requests. Please create an account to use this feature."
-          onRetry={() => router.push('/auth/selection')}
+          onRetry={() => navigation.navigate('/auth/selection')}
           retryText="Sign Up"
         />
       </SafeAreaView>
@@ -261,7 +261,7 @@ const FriendRequestsScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Friend Requests</Text>

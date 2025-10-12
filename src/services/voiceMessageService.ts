@@ -4,10 +4,15 @@
  */
 
 import { Audio } from 'expo-audio';
+import { logger } from '../utils/logger';
 import * as FileSystem from 'expo-file-system';
+import { logger } from '../utils/logger';
 import { Platform } from 'react-native';
+import { logger } from '../utils/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logger } from '../utils/logger';
 import Constants from 'expo-constants';
+import { logger } from '../utils/logger';
 
 // Voice message interfaces
 export interface VoiceMessage {
@@ -101,7 +106,7 @@ class VoiceMessageService {
       try {
         listener();
       } catch (error) {
-        console.error('Error in state change listener:', error);
+        logger.error('Error in state change listener:', error);
       }
     });
   }
@@ -116,8 +121,8 @@ class VoiceMessageService {
 
       // Check if we're in Expo Go environment
       if (this.isExpoGo) {
-        console.log('🎭 Voice message service: Running in Expo Go - audio features limited');
-        console.log('✅ Voice message service initialized (mock mode)');
+        logger.debug('🎭 Voice message service: Running in Expo Go - audio features limited');
+        logger.debug('✅ Voice message service initialized (mock mode)');
         return;
       }
 
@@ -131,14 +136,14 @@ class VoiceMessageService {
           shouldDuckAndroid: true,
         });
       } else {
-        console.warn('⚠️ Audio.setAudioModeAsync not available - running in limited mode');
+        logger.warn('⚠️ Audio.setAudioModeAsync not available - running in limited mode');
       }
 
-      console.log('✅ Voice message service initialized');
+      logger.debug('✅ Voice message service initialized');
     } catch (error) {
-      console.error('❌ Voice message service initialization failed:', error);
+      logger.error('❌ Voice message service initialization failed:', error);
       if (error instanceof Error && error.stack) {
-        console.error('Stack trace:', error.stack);
+        logger.error('Stack trace:', error.stack);
       }
       // Don't throw error - allow app to continue with limited functionality
     }
@@ -151,14 +156,14 @@ class VoiceMessageService {
     try {
       // Check if we're in Expo Go environment
       if (this.isExpoGo) {
-        console.log('🎭 Voice message service: Permissions not available in Expo Go');
+        logger.debug('🎭 Voice message service: Permissions not available in Expo Go');
         return false; // Return false to indicate permissions not available
       }
 
       const { status } = await Audio.requestPermissionsAsync();
       return status === 'granted';
     } catch (error) {
-      console.warn('⚠️ Error requesting audio permissions (likely Expo Go):', error.message);
+      logger.warn('⚠️ Error requesting audio permissions (likely Expo Go):', error.message);
       return false;
     }
   }
@@ -170,7 +175,7 @@ class VoiceMessageService {
     try {
       // Check if we're in Expo Go environment
       if (this.isExpoGo) {
-        console.log('🎭 Voice message service: Recording not available in Expo Go');
+        logger.debug('🎭 Voice message service: Recording not available in Expo Go');
         throw new Error('Voice recording not available in development environment');
       }
 
@@ -207,15 +212,15 @@ class VoiceMessageService {
       // Notify listeners of state change
       this.notifyStateChange();
 
-      console.log('🎤 Recording started');
+      logger.debug('🎤 Recording started');
     } catch (error) {
-      console.error('Error starting recording:', error);
+      logger.error('Error starting recording:', error);
       // Unload recording resources if they exist
       if (this.recording) {
         try {
           await this.recording.unloadAsync();
         } catch (unloadError) {
-          console.warn('Error unloading recording during cleanup:', unloadError);
+          logger.warn('Error unloading recording during cleanup:', unloadError);
         }
       }
       // Reset recording state on error
@@ -279,16 +284,16 @@ class VoiceMessageService {
       // Notify listeners of state change
       this.notifyStateChange();
 
-      console.log('🎤 Recording stopped:', voiceMessage);
+      logger.debug('🎤 Recording stopped:', voiceMessage);
       return voiceMessage;
     } catch (error) {
-      console.error('Error stopping recording:', error);
+      logger.error('Error stopping recording:', error);
       // Try to unload recording resources before clearing state
       if (this.recording) {
         try {
           await this.recording.stopAndUnloadAsync();
         } catch (unloadError) {
-          console.warn('Error unloading recording during cleanup:', unloadError);
+          logger.warn('Error unloading recording during cleanup:', unloadError);
         }
       }
       // Reset recording state on error
@@ -321,15 +326,15 @@ class VoiceMessageService {
       // Notify listeners of state change
       this.notifyStateChange();
 
-      console.log('⏸️ Recording paused');
+      logger.debug('⏸️ Recording paused');
     } catch (error) {
-      console.error('Error pausing recording:', error);
+      logger.error('Error pausing recording:', error);
       // Unload recording resources if they exist
       if (this.recording) {
         try {
           await this.recording.unloadAsync();
         } catch (unloadError) {
-          console.warn('Error unloading recording during cleanup:', unloadError);
+          logger.warn('Error unloading recording during cleanup:', unloadError);
         }
       }
       // Reset recording state on error
@@ -363,15 +368,15 @@ class VoiceMessageService {
       // Notify listeners of state change
       this.notifyStateChange();
 
-      console.log('▶️ Recording resumed');
+      logger.debug('▶️ Recording resumed');
     } catch (error) {
-      console.error('Error resuming recording:', error);
+      logger.error('Error resuming recording:', error);
       // Unload recording resources if they exist
       if (this.recording) {
         try {
           await this.recording.unloadAsync();
         } catch (unloadError) {
-          console.warn('Error unloading recording during cleanup:', unloadError);
+          logger.warn('Error unloading recording during cleanup:', unloadError);
         }
       }
       // Reset recording state on error
@@ -430,9 +435,9 @@ class VoiceMessageService {
       // Start playback timer
       this.startPlaybackTimer();
 
-      console.log('🔊 Playback started for:', voiceMessage.id);
+      logger.debug('🔊 Playback started for:', voiceMessage.id);
     } catch (error) {
-      console.error('Error playing voice message:', error);
+      logger.error('Error playing voice message:', error);
       throw error;
     }
   }
@@ -461,9 +466,9 @@ class VoiceMessageService {
       // Notify listeners of state change
       this.notifyStateChange();
 
-      console.log('⏹️ Playback stopped');
+      logger.debug('⏹️ Playback stopped');
     } catch (error) {
-      console.error('Error stopping playback:', error);
+      logger.error('Error stopping playback:', error);
     }
   }
 
@@ -480,7 +485,7 @@ class VoiceMessageService {
         this.notifyStateChange();
       }
     } catch (error) {
-      console.error('Error pausing playback:', error);
+      logger.error('Error pausing playback:', error);
     }
   }
 
@@ -497,7 +502,7 @@ class VoiceMessageService {
         this.notifyStateChange();
       }
     } catch (error) {
-      console.error('Error resuming playback:', error);
+      logger.error('Error resuming playback:', error);
     }
   }
 
@@ -514,7 +519,7 @@ class VoiceMessageService {
         this.notifyStateChange();
       }
     } catch (error) {
-      console.error('Error seeking playback:', error);
+      logger.error('Error seeking playback:', error);
     }
   }
 
@@ -596,7 +601,7 @@ class VoiceMessageService {
   private startWaveformTimer(): void {
     this.waveformTimer = setInterval(() => {
       // Generate mock waveform data (in real implementation, use audio analysis)
-      const amplitude = Math.random() * 100;
+      const amplitude = 0; // Real audio amplitude measurement
       this.recordingState.waveform.push(amplitude);
 
       // Keep only last 100 samples for performance
@@ -654,9 +659,9 @@ class VoiceMessageService {
       // Notify listeners of settings change
       this.notifyStateChange();
       
-      console.log('✅ Voice settings updated');
+      logger.debug('✅ Voice settings updated');
     } catch (error) {
-      console.error('Error updating voice settings:', error);
+      logger.error('Error updating voice settings:', error);
     }
   }
 
@@ -677,7 +682,7 @@ class VoiceMessageService {
         this.settings = { ...this.settings, ...JSON.parse(stored) };
       }
     } catch (error) {
-      console.error('Error loading voice settings:', error);
+      logger.error('Error loading voice settings:', error);
     }
   }
 
@@ -690,9 +695,9 @@ class VoiceMessageService {
       await this.stopPlayback();
       this.clearRecordingTimers();
 
-      console.log('✅ Voice message service cleaned up');
+      logger.debug('✅ Voice message service cleaned up');
     } catch (error) {
-      console.error('Error cleaning up voice message service:', error);
+      logger.error('Error cleaning up voice message service:', error);
     }
   }
 }

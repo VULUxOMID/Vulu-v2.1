@@ -173,7 +173,7 @@ class StreamModerationService {
       };
 
     } catch (error: any) {
-      console.error('Failed to analyze message:', error);
+      logger.error('Failed to analyze message:', error);
       return {
         isSpam: false,
         confidence: 0,
@@ -233,11 +233,11 @@ class StreamModerationService {
       // Update user moderation status
       await this.updateUserModerationStatus(streamId, targetUserId, action, duration);
 
-      console.log(`✅ Moderation action ${action} applied to user ${targetUserId}`);
+      logger.debug(`✅ Moderation action ${action} applied to user ${targetUserId}`);
       return actionRef.id;
 
     } catch (error: any) {
-      console.error('Failed to execute moderation action:', error);
+      logger.error('Failed to execute moderation action:', error);
       throw new Error(`Failed to execute moderation action: ${error.message}`);
     }
   }
@@ -368,7 +368,7 @@ class StreamModerationService {
       await updateDoc(statusRef, updateData);
 
     } catch (error) {
-      console.warn('Failed to update user moderation status:', error);
+      logger.warn('Failed to update user moderation status:', error);
     }
   }
 
@@ -393,7 +393,7 @@ class StreamModerationService {
       } as UserModerationStatus;
 
     } catch (error: any) {
-      console.error('Failed to get user moderation status:', error);
+      logger.error('Failed to get user moderation status:', error);
       return null;
     }
   }
@@ -420,7 +420,7 @@ class StreamModerationService {
       })) as ModerationAction[];
 
     } catch (error: any) {
-      console.error('Failed to get moderation actions:', error);
+      logger.error('Failed to get moderation actions:', error);
       return [];
     }
   }
@@ -445,11 +445,11 @@ class StreamModerationService {
       // Reload rules
       await this.loadModerationRules();
 
-      console.log(`✅ Moderation rule created: ${ruleRef.id}`);
+      logger.debug(`✅ Moderation rule created: ${ruleRef.id}`);
       return ruleRef.id;
 
     } catch (error: any) {
-      console.error('Failed to create moderation rule:', error);
+      logger.error('Failed to create moderation rule:', error);
       throw new Error(`Failed to create moderation rule: ${error.message}`);
     }
   }
@@ -470,10 +470,10 @@ class StreamModerationService {
         ...doc.data()
       })) as ModerationRule[];
 
-      console.log(`✅ Loaded ${this.moderationRules.length} moderation rules`);
+      logger.debug(`✅ Loaded ${this.moderationRules.length} moderation rules`);
 
     } catch (error) {
-      console.error('Failed to load moderation rules:', error);
+      logger.error('Failed to load moderation rules:', error);
     }
   }
 
@@ -504,7 +504,7 @@ class StreamModerationService {
       return false;
 
     } catch (error) {
-      console.error('Failed to check moderator permissions:', error);
+      logger.error('Failed to check moderator permissions:', error);
       return false;
     }
   }
@@ -541,11 +541,11 @@ class StreamModerationService {
       }
 
       if (snapshot.size > 0) {
-        console.log(`✅ Processed ${snapshot.size} expired timeouts`);
+        logger.debug(`✅ Processed ${snapshot.size} expired timeouts`);
       }
 
     } catch (error) {
-      console.error('Failed to process expired timeouts:', error);
+      logger.error('Failed to process expired timeouts:', error);
     }
   }
 
@@ -576,7 +576,7 @@ class StreamModerationService {
       return stats;
 
     } catch (error: any) {
-      console.error('Failed to get moderation stats:', error);
+      logger.error('Failed to get moderation stats:', error);
       return null;
     }
   }
@@ -588,7 +588,7 @@ class StreamModerationService {
     this.moderationRules = [];
     this.spamPatterns.clear();
     this.bannedWords.clear();
-    console.log('🧹 Stream Moderation Service destroyed');
+    logger.debug('🧹 Stream Moderation Service destroyed');
   }
 }
 

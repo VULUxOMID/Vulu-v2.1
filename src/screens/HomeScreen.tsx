@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Image, ScrollView, Animated, Platfo
 import { Text, Card, Avatar } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import ScrollableContentContainer from '../components/ScrollableContentContainer';
 import CommonHeader from '../components/CommonHeader';
@@ -14,14 +14,14 @@ import { useLiveStreams } from '../context/LiveStreamContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import SpotlightProgressBar from '../components/SpotlightProgressBar';
 import LiveStreamGrid from '../components/LiveStreamGrid';
-import { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withSequence, 
-  withRepeat, 
-  cancelAnimation, 
-  Easing 
+import {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withRepeat,
+  cancelAnimation,
+  Easing
 } from 'react-native-reanimated';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
@@ -31,37 +31,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import GuestModeIndicator from '../components/GuestModeIndicator';
 
-// Import debug utilities for testing
-import '../utils/debugStreamTest';
+// Debug utilities removed for production
 import { firestoreService, GlobalChatMessage } from '../services/firestoreService';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
 import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import DataValidator from '../utils/dataValidation';
 import friendActivityService, { FriendActivity } from '../services/friendActivityService';
 import virtualCurrencyService, { CurrencyBalance } from '../services/virtualCurrencyService';
+import { DiscordTheme } from '../styles/discordTheme';
 import { useMusic } from '../context/MusicContext';
 import { useGaming } from '../context/GamingContext';
 import { useShop } from '../context/ShopContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { formatCurrencyCompact } from '../utils/currencyUtils';
 import { getDefaultSpotlightAvatar, getDefaultProfileAvatar } from '../utils/defaultAvatars';
-
-// Fallback router for when useRouter() fails
-const fallbackRouter = {
-  push: (href: string) => {
-    console.warn('⚠️ Fallback router: Cannot navigate to', href);
-  },
-  replace: (href: string) => {
-    console.warn('⚠️ Fallback router: Cannot replace with', href);
-  },
-  back: () => {
-    console.warn('⚠️ Fallback router: Cannot go back');
-  },
-  canGoBack: () => false,
-  setParams: (params: any) => {
-    console.warn('⚠️ Fallback router: Cannot set params', params);
-  }
-};
 
 // Tutorial preferences management
 const TUTORIAL_STORAGE_KEY = '@vulu_tutorial_preferences';
@@ -82,16 +65,9 @@ const defaultTutorialPreferences: TutorialPreferences = {
   liveStreamTutorialShown: false,
 };
 
-// Use the router for navigation
+// Use React Navigation for all routing
 const HomeScreen = () => {
-  // Safe router initialization with fallback
-  let router;
-  try {
-    router = useRouter();
-  } catch (error) {
-    console.warn('⚠️ useRouter() failed, using fallback:', error);
-    router = fallbackRouter;
-  }
+  const navigation = useNavigation();
   
   const [activeTab, setActiveTab] = useState('Week');
   const scrollViewRef = useRef<ScrollView>(null);
@@ -588,8 +564,8 @@ const HomeScreen = () => {
       title: track.title,
       subtitle: `${track.artist} • ${recentMusicActivity.platform}`,
       friendName: recentMusicActivity.userName,
-      friendAvatar: recentMusicActivity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U',
-      avatars: [recentMusicActivity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U'],
+      friendAvatar: recentMusicActivity.userAvatar || null,
+      avatars: [recentMusicActivity.userAvatar || null],
       streamId: recentMusicActivity.id,
       musicData: {
         songTitle: track.title,
@@ -608,7 +584,7 @@ const HomeScreen = () => {
         <View style={styles.musicContentContainer}>
           <View style={styles.albumArtContainer}>
             <Image
-              source={{ uri: track.albumArt || 'https://via.placeholder.com/60/6E69F4/FFFFFF?text=♪' }}
+              source={{ uri: track.albumArt || null }}
               style={styles.albumArt}
             />
           </View>
@@ -622,7 +598,7 @@ const HomeScreen = () => {
         <View style={styles.musicFriendContainer}>
           <View style={styles.musicAvatarContainer}>
             <Image
-              source={{ uri: recentMusicActivity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: recentMusicActivity.userAvatar || null }}
               style={styles.musicAvatar}
             />
             <View style={styles.musicIndicator}></View>
@@ -693,7 +669,7 @@ const HomeScreen = () => {
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.gridAvatar}
             />
           </View>
@@ -712,7 +688,7 @@ const HomeScreen = () => {
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>
@@ -732,7 +708,7 @@ const HomeScreen = () => {
         <View style={styles.musicContentContainer}>
           <View style={styles.albumArtContainer}>
             <Image
-              source={{ uri: musicData.albumArt || 'https://via.placeholder.com/60/6E69F4/FFFFFF?text=♪' }}
+              source={{ uri: musicData.albumArt || null }}
               style={styles.albumArt}
             />
           </View>
@@ -745,7 +721,7 @@ const HomeScreen = () => {
         <View style={styles.musicFriendContainer}>
           <View style={styles.musicAvatarContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.musicAvatar}
             />
             <View style={styles.musicIndicator}></View>
@@ -765,13 +741,13 @@ const HomeScreen = () => {
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: gamingData.gameIcon || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=🎮' }}
+              source={{ uri: gamingData.gameIcon || null }}
               style={styles.gridAvatar}
             />
           </View>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.gridAvatar}
             />
           </View>
@@ -792,7 +768,7 @@ const HomeScreen = () => {
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>
@@ -809,7 +785,7 @@ const HomeScreen = () => {
         <View style={styles.avatarGrid}>
           <View style={styles.avatarWrapperRed}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.gridAvatar}
             />
           </View>
@@ -828,7 +804,7 @@ const HomeScreen = () => {
         <View style={styles.broadcasterContainerWrapper}>
           <View style={styles.broadcasterContainer}>
             <Image
-              source={{ uri: activity.userAvatar || 'https://via.placeholder.com/40/6E69F4/FFFFFF?text=U' }}
+              source={{ uri: activity.userAvatar || null }}
               style={styles.broadcasterAvatar}
             />
             <View style={styles.liveIndicatorRed}></View>
@@ -1083,7 +1059,7 @@ const HomeScreen = () => {
       setSpotlightQueuePosition(1); // placeholder for queue logic
 
       // Simulate other viewers seeing your spotlight
-      setViewersCount(Math.floor(Math.random() * 50) + 20);
+      setViewersCount(0); // Real viewer count from Firebase
 
       closeSpotlightModal();
 
@@ -2645,9 +2621,7 @@ const HomeScreen = () => {
               onPress: async () => {
                 try {
                   await authService.signOut();
-                  if (router && typeof router.replace === 'function') {
-                    router.replace('/auth');
-                  }
+                  // Navigation will be handled by AuthContext
                 } catch (error) {
                   console.error('Sign out error:', error);
                 }

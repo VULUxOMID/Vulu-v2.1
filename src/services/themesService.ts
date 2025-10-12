@@ -250,7 +250,7 @@ class ThemesService {
    */
   async applyThemeToConversation(conversationId: string, theme: ChatTheme): Promise<void> {
     // In a real implementation, this would save to Firestore
-    console.log(`Applied theme ${theme.name} to conversation ${conversationId}`);
+    logger.debug(`Applied theme ${theme.name} to conversation ${conversationId}`);
     this.setCurrentTheme(theme);
   }
 
@@ -262,7 +262,7 @@ class ThemesService {
     customization: ChatCustomization
   ): Promise<void> {
     // In a real implementation, this would save to Firestore
-    console.log(`Applied customization to conversation ${conversationId}`, customization);
+    logger.debug(`Applied customization to conversation ${conversationId}`, customization);
     this.setCurrentCustomization(customization);
   }
 

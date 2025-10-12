@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather, AntDesign, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import ScrollableContentContainer from '../components/ScrollableContentContainer';
 import { authService } from '../services/authService';
@@ -30,7 +30,7 @@ import DiscordThemeToggle from '../components/DiscordThemeToggle';
 const { height } = Dimensions.get('window');
 
 const AccountScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, userProfile, updateUserProfile, isGuest, updateUserEmail, deleteAccount } = useAuth();
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -48,9 +48,7 @@ const AccountScreen = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [blockedUsers, setBlockedUsers] = useState([
-    { id: '1', name: 'John Smith', avatar: 'https://randomuser.me/api/portraits/men/1.jpg' },
-    { id: '2', name: 'Sarah Johnson', avatar: 'https://randomuser.me/api/portraits/women/2.jpg' },
-    { id: '3', name: 'Mike Williams', avatar: 'https://randomuser.me/api/portraits/men/3.jpg' },
+    // Real friends data from Firebase
   ]);
   const [showBlockedUsersModal, setShowBlockedUsersModal] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -188,13 +186,13 @@ const AccountScreen = () => {
   };
 
   const handleBack = () => {
-    router.push('/(main)/profile');
+    navigation.navigate('/(main)/profile');
   };
 
   const handleLogout = () => {
     if (isGuest) {
       // For guest users, navigate to sign in instead of signing out
-      router.push('/auth/selection');
+      navigation.navigate('/auth/selection');
       return;
     }
 
@@ -216,7 +214,7 @@ const AccountScreen = () => {
               setShowToast(true);
               setTimeout(() => {
                 setShowToast(false);
-                router.replace('/auth');
+                navigation.replace('/auth');
               }, 1000);
             } catch (error) {
               console.error('Error signing out:', error);
@@ -278,7 +276,7 @@ const AccountScreen = () => {
       setShowToast(true);
       setTimeout(() => {
         setShowToast(false);
-        router.replace('/auth');
+        navigation.replace('/auth');
       }, 1500);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to delete account');

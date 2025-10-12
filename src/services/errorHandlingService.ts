@@ -66,10 +66,10 @@ class ErrorHandlingService {
       this.setupGlobalErrorHandlers();
       
       this.isInitialized = true;
-      console.log('✅ Error Handling Service initialized');
+      logger.debug('✅ Error Handling Service initialized');
 
     } catch (error) {
-      console.error('Failed to initialize Error Handling Service:', error);
+      logger.error('Failed to initialize Error Handling Service:', error);
     }
   }
 
@@ -91,7 +91,7 @@ class ErrorHandlingService {
       this.addErrorLog(errorLog);
       
       // Log to console
-      console.error(`[${severity.toUpperCase()}] Error in ${context.component || 'Unknown'}:`, error);
+      logger.error(`[${severity.toUpperCase()}] Error in ${context.component || 'Unknown'}:`, error);
       
       // Add breadcrumb for debugging
       addBreadcrumb({
@@ -111,7 +111,7 @@ class ErrorHandlingService {
       await this.saveErrorLogs();
 
     } catch (handlingError) {
-      console.error('Error in error handling:', handlingError);
+      logger.error('Error in error handling:', handlingError);
     }
   }
 
@@ -138,7 +138,7 @@ class ErrorHandlingService {
       label: 'Refresh App',
       action: () => {
         // Would implement app refresh logic
-        console.log('Refreshing app...');
+        logger.debug('Refreshing app...');
       }
     });
 
@@ -174,7 +174,7 @@ class ErrorHandlingService {
       type: 'fallback',
       label: 'Switch to Audio Only',
       action: () => {
-        console.log('Switching to audio only mode...');
+        logger.debug('Switching to audio only mode...');
       }
     });
 
@@ -209,7 +209,7 @@ class ErrorHandlingService {
       type: 'logout',
       label: 'Sign Out',
       action: () => {
-        console.log('Signing out user...');
+        logger.debug('Signing out user...');
       }
     });
 
@@ -235,7 +235,7 @@ class ErrorHandlingService {
         type: 'redirect',
         label: 'Open Settings',
         action: () => {
-          console.log('Opening device settings...');
+          logger.debug('Opening device settings...');
           // Would implement settings navigation
         }
       }
@@ -449,7 +449,7 @@ class ErrorHandlingService {
       });
 
     } catch (reportingError) {
-      console.error('Failed to report error to analytics:', reportingError);
+      logger.error('Failed to report error to analytics:', reportingError);
     }
   }
 
@@ -460,7 +460,7 @@ class ErrorHandlingService {
     // Handle unhandled promise rejections
     const originalHandler = global.onunhandledrejection;
     global.onunhandledrejection = (event) => {
-      console.error('Unhandled promise rejection:', event.reason);
+      logger.error('Unhandled promise rejection:', event.reason);
       
       this.handleError(
         new Error(`Unhandled Promise Rejection: ${event.reason}`),
@@ -477,7 +477,7 @@ class ErrorHandlingService {
     // Handle JavaScript errors
     const originalErrorHandler = global.ErrorUtils?.getGlobalHandler();
     global.ErrorUtils?.setGlobalHandler((error, isFatal) => {
-      console.error('Global JavaScript error:', error, 'Fatal:', isFatal);
+      logger.error('Global JavaScript error:', error, 'Fatal:', isFatal);
       
       this.handleError(
         error,
@@ -508,7 +508,7 @@ class ErrorHandlingService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load error logs:', error);
+      logger.error('Failed to load error logs:', error);
     }
   }
 
@@ -529,7 +529,7 @@ class ErrorHandlingService {
       const { safeStorage } = await import('./safeAsyncStorage');
       await safeStorage.setItem('error_logs', JSON.stringify(logsToSave));
     } catch (error) {
-      console.error('Failed to save error logs:', error);
+      logger.error('Failed to save error logs:', error);
     }
   }
 
@@ -579,9 +579,9 @@ class ErrorHandlingService {
       this.errorLogs = [];
       const { safeStorage } = await import('./safeAsyncStorage');
       await safeStorage.removeItem('error_logs');
-      console.log('✅ Error logs cleared');
+      logger.debug('✅ Error logs cleared');
     } catch (error) {
-      console.error('Failed to clear error logs:', error);
+      logger.error('Failed to clear error logs:', error);
     }
   }
 
@@ -650,7 +650,7 @@ class ErrorHandlingService {
         type: 'retry',
         label: 'Try Again',
         action: () => {
-          console.log('Retry action triggered for:', context.action);
+          logger.debug('Retry action triggered for:', context.action);
           // The actual retry logic should be implemented by the calling component
         }
       });
@@ -662,7 +662,7 @@ class ErrorHandlingService {
         type: 'refresh',
         label: 'Refresh',
         action: () => {
-          console.log('Refresh action triggered');
+          logger.debug('Refresh action triggered');
           // The actual refresh logic should be implemented by the calling component
         }
       });
@@ -718,7 +718,7 @@ class ErrorHandlingService {
           {
             type: 'retry',
             label: 'Retry',
-            action: () => console.log('Network retry triggered')
+            action: () => logger.debug('Network retry triggered')
           }
         ]
       }
@@ -738,7 +738,7 @@ class ErrorHandlingService {
           {
             type: 'logout',
             label: 'Sign In Again',
-            action: () => console.log('Logout/signin triggered')
+            action: () => logger.debug('Logout/signin triggered')
           }
         ]
       }

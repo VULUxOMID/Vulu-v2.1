@@ -4,6 +4,7 @@
  */
 
 import {
+import { logger } from '../utils/logger';
   collection,
   doc,
   getDoc,
@@ -18,7 +19,9 @@ import {
   runTransaction
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 import { Stream, StreamParticipant } from './firestoreService';
+import { logger } from '../utils/logger';
 
 export interface ParticipantPresence {
   userId: string;
@@ -60,7 +63,7 @@ class ParticipantTrackingService {
    */
   async startTracking(streamId: string, callbacks: ParticipantTrackingCallbacks = {}): Promise<void> {
     try {
-      console.log(`🔄 Starting participant tracking for stream: ${streamId}`);
+      logger.debug(`🔄 Starting participant tracking for stream: ${streamId}`);
       
       // Stop existing tracking if any
       this.stopTracking(streamId);
@@ -76,7 +79,7 @@ class ParticipantTrackingService {
           this.handleParticipantUpdate(streamId, streamData.participants, callbacks);
         }
       }, (error) => {
-        console.error(`❌ Error in participant tracking for ${streamId}:`, error);
+        logger.error(`❌ Error in participant tracking for ${streamId}:`, error);
       });
 
       this.activeStreams.set(streamId, unsubscribe);
@@ -86,9 +89,9 @@ class ParticipantTrackingService {
         this.startHeartbeat(streamId, auth.currentUser.uid);
       }
 
-      console.log(`✅ Participant tracking started for stream: ${streamId}`);
+      logger.debug(`✅ Participant tracking started for stream: ${streamId}`);
     } catch (error: any) {
-      console.error('Failed to start participant tracking:', error);
+      logger.error('Failed to start participant tracking:', error);
       throw error;
     }
   }
@@ -97,7 +100,7 @@ class ParticipantTrackingService {
    * Stop tracking participants for a stream
    */
   stopTracking(streamId: string): void {
-    console.log(`🛑 Stopping participant tracking for stream: ${streamId}`);
+    logger.debug(`🛑 Stopping participant tracking for stream: ${streamId}`);
 
     // Unsubscribe from real-time updates
     const unsubscribe = this.activeStreams.get(streamId);
@@ -129,7 +132,7 @@ class ParticipantTrackingService {
     }, 30000) as unknown as number; // Type assertion for compatibility
 
     this.heartbeatIntervals.set(streamId, interval);
-    console.log(`💓 Heartbeat started for user ${userId} in stream ${streamId}`);
+    logger.debug(`💓 Heartbeat started for user ${userId} in stream ${streamId}`);
   }
 
   /**
@@ -140,7 +143,7 @@ class ParticipantTrackingService {
     if (interval) {
       clearInterval(interval);
       this.heartbeatIntervals.delete(streamId);
-      console.log(`💓 Heartbeat stopped for stream ${streamId}`);
+      logger.debug(`💓 Heartbeat stopped for stream ${streamId}`);
     }
   }
 
@@ -177,9 +180,9 @@ class ParticipantTrackingService {
         }
       });
 
-      console.log(`💓 Heartbeat sent for user ${userId} in stream ${streamId}`);
+      logger.debug(`💓 Heartbeat sent for user ${userId} in stream ${streamId}`);
     } catch (error: any) {
-      console.error('Failed to send heartbeat:', error);
+      logger.error('Failed to send heartbeat:', error);
     }
   }
 
@@ -209,9 +212,9 @@ class ParticipantTrackingService {
         }
       });
 
-      console.log(`👥 Participant update for stream ${streamId}: ${viewerCount} active participants`);
+      logger.debug(`👥 Participant update for stream ${streamId}: ${viewerCount} active participants`);
     } catch (error: any) {
-      console.error('Error handling participant update:', error);
+      logger.error('Error handling participant update:', error);
     }
   }
 
@@ -224,7 +227,7 @@ class ParticipantTrackingService {
       this.cleanupStaleParticipants();
     }, 120000) as unknown as number; // Type assertion for compatibility
 
-    console.log('🧹 Participant cleanup service started');
+    logger.debug('🧹 Participant cleanup service started');
   }
 
   /**
@@ -243,13 +246,13 @@ class ParticipantTrackingService {
 
       // Note: In a real implementation, this would be done via Firebase Functions
       // to avoid client-side cleanup which can be unreliable
-      console.log('🧹 Cleaning up stale participants...');
+      logger.debug('🧹 Cleaning up stale participants...');
       
       // This is a placeholder for the cleanup logic that should be implemented
       // in Firebase Functions for better reliability and security
       
     } catch (error: any) {
-      console.error('Error during participant cleanup:', error);
+      logger.error('Error during participant cleanup:', error);
     }
   }
 
@@ -268,7 +271,7 @@ class ParticipantTrackingService {
       
       return 0;
     } catch (error: any) {
-      console.error('Failed to get participant count:', error);
+      logger.error('Failed to get participant count:', error);
       return 0;
     }
   }
@@ -294,9 +297,9 @@ class ParticipantTrackingService {
         callbacks.onConnectionQualityChanged(userId, quality);
       }
 
-      console.log(`📶 Connection quality updated for ${userId}: ${quality}`);
+      logger.debug(`📶 Connection quality updated for ${userId}: ${quality}`);
     } catch (error: any) {
-      console.error('Failed to update connection quality:', error);
+      logger.error('Failed to update connection quality:', error);
     }
   }
 
@@ -314,7 +317,7 @@ class ParticipantTrackingService {
       clearInterval(this.cleanupInterval);
     }
 
-    console.log('🧹 Participant tracking service destroyed');
+    logger.debug('🧹 Participant tracking service destroyed');
   }
 }
 

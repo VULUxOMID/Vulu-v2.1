@@ -1,7 +1,11 @@
 import { collection, query, where, getDocs, doc, getDoc, writeBatch, Timestamp } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 import { db } from './firebase';
+import { logger } from '../utils/logger';
 import { ActiveStreamTracker } from './activeStreamTracker';
+import { logger } from '../utils/logger';
 import { ICleanupService, CleanupServiceRegistry } from '../interfaces/ICleanupService';
+import { logger } from '../utils/logger';
 
 /**
  * Background service for cleaning up stale stream data and orphaned records
@@ -26,11 +30,11 @@ export class StreamCleanupService implements ICleanupService {
    */
   static startCleanupService(): void {
     if (this.isRunning) {
-      console.log('🧹 Cleanup service already running');
+      logger.debug('🧹 Cleanup service already running');
       return;
     }
 
-    console.log('🧹 Starting stream cleanup service');
+    logger.debug('🧹 Starting stream cleanup service');
     this.isRunning = true;
 
     // Register this service instance
@@ -42,13 +46,13 @@ export class StreamCleanupService implements ICleanupService {
     
     // Run initial cleanup
     this.runCleanupCycle().catch(error => {
-      console.error('❌ Error in initial cleanup cycle:', error);
+      logger.error('❌ Error in initial cleanup cycle:', error);
     });
     
     // Schedule periodic cleanup
     this.cleanupInterval = setInterval(() => {
       this.runCleanupCycle().catch(error => {
-        console.error('❌ Error in cleanup cycle:', error);
+        logger.error('❌ Error in cleanup cycle:', error);
       });
     }, this.CLEANUP_INTERVAL);
   }
@@ -62,7 +66,7 @@ export class StreamCleanupService implements ICleanupService {
       this.cleanupInterval = null;
     }
     this.isRunning = false;
-    console.log('🧹 Stopped stream cleanup service');
+    logger.debug('🧹 Stopped stream cleanup service');
   }
 
   /**
@@ -77,13 +81,13 @@ export class StreamCleanupService implements ICleanupService {
    */
   private static async runCleanupCycle(): Promise<void> {
     try {
-      console.log('🧹 Starting cleanup cycle...');
+      logger.debug('🧹 Starting cleanup cycle...');
 
       const startTime = Date.now();
 
       // Check for Firestore internal errors and skip cleanup if detected
       if (this.isFirestoreInErrorState()) {
-        console.warn('🚨 Firestore appears to be in error state, skipping cleanup cycle');
+        logger.warn('🚨 Firestore appears to be in error state, skipping cleanup cycle');
         return;
       }
 
@@ -98,13 +102,13 @@ export class StreamCleanupService implements ICleanupService {
 
       const duration = Date.now() - startTime;
 
-      console.log(`✅ Cleanup cycle completed in ${duration}ms:`);
-      console.log(`  - Stale streams cleaned: ${staleStreamsCount}`);
-      console.log(`  - Orphaned records cleaned: ${orphanedRecordsCount}`);
-      console.log(`  - Inactive streams cleaned: ${inactiveStreamsCount}`);
+      logger.debug(`✅ Cleanup cycle completed in ${duration}ms:`);
+      logger.debug(`  - Stale streams cleaned: ${staleStreamsCount}`);
+      logger.debug(`  - Orphaned records cleaned: ${orphanedRecordsCount}`);
+      logger.debug(`  - Inactive streams cleaned: ${inactiveStreamsCount}`);
 
     } catch (error: any) {
-      console.error('❌ Error in cleanup cycle:', error);
+      logger.error('❌ Error in cleanup cycle:', error);
 
       // Track errors
       this.errorCount++;
@@ -112,18 +116,18 @@ export class StreamCleanupService implements ICleanupService {
 
       // Check if this is a Firestore internal error
       if (this.isFirestoreInternalError(error)) {
-        console.error('🚨 Firestore internal error detected in cleanup cycle');
+        logger.error('🚨 Firestore internal error detected in cleanup cycle');
 
         // Trigger aggressive recovery
         await this.handleFirestoreInternalError(error);
       } else {
         // Handle other errors
-        console.error('❌ Non-Firestore error in cleanup cycle:', error);
+        logger.error('❌ Non-Firestore error in cleanup cycle:', error);
       }
 
       // Check if we should shut down due to too many errors
       if (this.errorCount >= this.MAX_ERRORS_BEFORE_SHUTDOWN) {
-        console.error(`🚨 Too many errors (${this.errorCount}), shutting down cleanup service`);
+        logger.error(`🚨 Too many errors (${this.errorCount}), shutting down cleanup service`);
         this.isInErrorState = true;
         this.stopCleanupService();
 
@@ -164,7 +168,7 @@ export class StreamCleanupService implements ICleanupService {
    * Handle Firestore internal assertion failures
    */
   private static async handleFirestoreInternalError(error: any): Promise<void> {
-    console.error('🚨 Handling Firestore internal assertion failure');
+    logger.error('🚨 Handling Firestore internal assertion failure');
 
     try {
       // Stop the cleanup service immediately
@@ -173,10 +177,10 @@ export class StreamCleanupService implements ICleanupService {
       // Wait for a bit to let things settle
       await new Promise(resolve => setTimeout(resolve, 5000));
 
-      console.log('✅ Firestore error recovery completed');
+      logger.debug('✅ Firestore error recovery completed');
 
     } catch (recoveryError) {
-      console.error('❌ Error during Firestore recovery:', recoveryError);
+      logger.error('❌ Error during Firestore recovery:', recoveryError);
     }
   }
 
@@ -184,7 +188,7 @@ export class StreamCleanupService implements ICleanupService {
    * Attempt to recover from error state
    */
   private static async attemptRecovery(): Promise<void> {
-    console.log('🔄 Attempting cleanup service recovery...');
+    logger.debug('🔄 Attempting cleanup service recovery...');
 
     try {
       // Reset error state
@@ -198,10 +202,10 @@ export class StreamCleanupService implements ICleanupService {
       // Restart the service
       this.startCleanupService();
 
-      console.log('✅ Cleanup service recovery completed');
+      logger.debug('✅ Cleanup service recovery completed');
 
     } catch (error) {
-      console.error('❌ Error during cleanup service recovery:', error);
+      logger.error('❌ Error during cleanup service recovery:', error);
 
       // Schedule another recovery attempt
       setTimeout(() => {
@@ -231,7 +235,7 @@ export class StreamCleanupService implements ICleanupService {
       } catch (indexError: any) {
         // If composite index is not available, fall back to simpler query
         if (indexError?.code === 'failed-precondition' || indexError?.message?.includes('index')) {
-          console.warn('⚠️ Composite index not available for stale streams cleanup, using fallback query');
+          logger.warn('⚠️ Composite index not available for stale streams cleanup, using fallback query');
 
           const simpleQuery = query(
             collection(db, 'streams'),
@@ -246,17 +250,17 @@ export class StreamCleanupService implements ICleanupService {
       }
 
     } catch (error: any) {
-      console.error('❌ Error cleaning stale streams:', error);
+      logger.error('❌ Error cleaning stale streams:', error);
 
       // Handle Firestore internal errors
       if (this.isFirestoreInternalError(error)) {
-        console.error('🚨 Firestore internal error in stale streams cleanup');
+        logger.error('🚨 Firestore internal error in stale streams cleanup');
         throw error; // Re-throw to trigger main error handling
       }
 
       // Handle permission errors gracefully
       if (error?.code === 'permission-denied') {
-        console.warn('⚠️ Permission denied for stale streams cleanup. Skipping.');
+        logger.warn('⚠️ Permission denied for stale streams cleanup. Skipping.');
         return 0;
       }
 
@@ -286,7 +290,7 @@ export class StreamCleanupService implements ICleanupService {
         });
 
         cleanedCount++;
-        console.log(`🧹 Marking stale stream ${doc.id} as inactive`);
+        logger.debug(`🧹 Marking stale stream ${doc.id} as inactive`);
       }
     });
 
@@ -307,11 +311,11 @@ export class StreamCleanupService implements ICleanupService {
       // For now, we'll implement user-specific cleanup that gets called
       // when users interact with the app
       
-      console.log('🧹 Orphaned active stream records cleanup (user-triggered)');
+      logger.debug('🧹 Orphaned active stream records cleanup (user-triggered)');
       return 0;
       
     } catch (error) {
-      console.error('❌ Error cleaning orphaned active stream records:', error);
+      logger.error('❌ Error cleaning orphaned active stream records:', error);
       return 0;
     }
   }
@@ -324,7 +328,7 @@ export class StreamCleanupService implements ICleanupService {
     try {
       // TEMPORARY: Disable inactive streams cleanup due to permission issues
       // This will be re-enabled once proper service account authentication is implemented
-      console.log('🔧 Inactive streams cleanup temporarily disabled (permission issues)');
+      logger.debug('🔧 Inactive streams cleanup temporarily disabled (permission issues)');
       return 0;
 
       /* DISABLED CODE:
@@ -345,7 +349,7 @@ export class StreamCleanupService implements ICleanupService {
 
       querySnapshot.forEach((doc) => {
         // For now, just log - in production you might move to archive collection
-        console.log(`🧹 Found old inactive stream ${doc.id} for potential archival`);
+        logger.debug(`🧹 Found old inactive stream ${doc.id} for potential archival`);
         cleanedCount++;
       });
 
@@ -353,7 +357,7 @@ export class StreamCleanupService implements ICleanupService {
       */
 
     } catch (error) {
-      console.error('❌ Error cleaning inactive streams:', error);
+      logger.error('❌ Error cleaning inactive streams:', error);
       return 0;
     }
   }
@@ -363,22 +367,22 @@ export class StreamCleanupService implements ICleanupService {
    */
   static async cleanupUserOrphanedRecords(userId: string): Promise<void> {
     try {
-      console.log(`🧹 Cleaning up orphaned records for user ${userId}`);
+      logger.debug(`🧹 Cleaning up orphaned records for user ${userId}`);
       
       // Run ghost state recovery
       const recovery = await ActiveStreamTracker.recoverGhostState(userId);
       
       if (recovery.recovered) {
-        console.log(`✅ User ${userId} ghost state recovery: ${recovery.action}`);
+        logger.debug(`✅ User ${userId} ghost state recovery: ${recovery.action}`);
       } else {
-        console.warn(`⚠️ Failed to recover ghost state for user ${userId}`);
+        logger.warn(`⚠️ Failed to recover ghost state for user ${userId}`);
       }
       
       // Additional user-specific cleanup
       await ActiveStreamTracker.cleanupOrphanedStreams(userId);
       
     } catch (error) {
-      console.error(`❌ Error cleaning up user ${userId} orphaned records:`, error);
+      logger.error(`❌ Error cleaning up user ${userId} orphaned records:`, error);
     }
   }
   
@@ -387,13 +391,13 @@ export class StreamCleanupService implements ICleanupService {
    */
   static async emergencyStreamCleanup(streamId: string): Promise<void> {
     try {
-      console.log(`🚨 Emergency cleanup for stream ${streamId}`);
+      logger.debug(`🚨 Emergency cleanup for stream ${streamId}`);
       
       const streamRef = doc(db, 'streams', streamId);
       const streamDoc = await getDoc(streamRef);
       
       if (!streamDoc.exists()) {
-        console.log(`Stream ${streamId} doesn't exist, nothing to clean`);
+        logger.debug(`Stream ${streamId} doesn't exist, nothing to clean`);
         return;
       }
       
@@ -406,7 +410,7 @@ export class StreamCleanupService implements ICleanupService {
       for (const participant of participants) {
         const activeStreamRef = doc(db, 'users', participant.id, 'activeStream', 'current');
         batch.delete(activeStreamRef);
-        console.log(`🧹 Clearing active stream record for participant ${participant.id}`);
+        logger.debug(`🧹 Clearing active stream record for participant ${participant.id}`);
       }
       
       // Mark stream as inactive
@@ -419,10 +423,10 @@ export class StreamCleanupService implements ICleanupService {
       
       await batch.commit();
       
-      console.log(`✅ Emergency cleanup completed for stream ${streamId}`);
+      logger.debug(`✅ Emergency cleanup completed for stream ${streamId}`);
       
     } catch (error) {
-      console.error(`❌ Error in emergency cleanup for stream ${streamId}:`, error);
+      logger.error(`❌ Error in emergency cleanup for stream ${streamId}:`, error);
     }
   }
 

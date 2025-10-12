@@ -3,7 +3,7 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, ScrollView, Image, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import CommonHeader from '../components/CommonHeader';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import CustomModal from '../components/CustomModal';
 import { useModal } from '../hooks/useModal';
 import { useNotifications } from '../context/NotificationContext';
@@ -225,7 +225,7 @@ const NotificationWidget: React.FC<NotificationWidgetProps> = ({
 
 // Main Notifications Screen Component
 const NotificationsScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { user, isGuest } = useAuth();
   const { notifications, counts, isLoading, markNotificationAsRead, refreshNotifications } = useNotifications();
   const [refreshing, setRefreshing] = useState(false);
@@ -246,7 +246,7 @@ const NotificationsScreen = () => {
       switch (notification.type) {
         case 'announcement':
           if (notification.data.targetRoute) {
-            router.push({
+            navigation.navigate({
               pathname: notification.data.targetRoute,
               params: notification.data.targetParams || {}
             });
@@ -254,21 +254,21 @@ const NotificationsScreen = () => {
           break;
 
         case 'friend_request':
-          router.push({
+          navigation.navigate({
             pathname: '/profile',
             params: { userId: notification.data.fromUserId }
           });
           break;
 
         case 'profile_view':
-          router.push({
+          navigation.navigate({
             pathname: '/profile',
             params: { userId: notification.data.viewerId }
           });
           break;
 
         case 'activity':
-          router.push({
+          navigation.navigate({
             pathname: '/profile',
             params: { userId: notification.data.fromUserId }
           });
@@ -357,7 +357,7 @@ const NotificationsScreen = () => {
             {
               name: 'more-vert',
               color: '#FFFFFF',
-              onPress: () => router.push('/notification-settings')
+              onPress: () => navigation.navigate('/notification-settings')
             }
           ]}
         />
@@ -367,7 +367,7 @@ const NotificationsScreen = () => {
           <Text style={styles.guestText}>Create an account or sign in to receive notifications from friends and the community</Text>
           <TouchableOpacity 
             style={styles.signInButton}
-            onPress={() => router.push('/auth/selection')}
+            onPress={() => navigation.navigate('/auth/selection')}
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>
@@ -384,7 +384,7 @@ const NotificationsScreen = () => {
           {
             name: 'more-vert',
             color: '#FFFFFF',
-            onPress: () => router.push('/notification-settings')
+            onPress: () => navigation.navigate('/notification-settings')
           }
         ]}
       />

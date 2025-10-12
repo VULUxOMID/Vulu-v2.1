@@ -1,4 +1,5 @@
 import {
+import { logger } from '../utils/logger';
   collection,
   doc,
   getDoc,
@@ -20,9 +21,13 @@ import {
   arrayRemove
 } from 'firebase/firestore';
 import { db, auth, isFirebaseInitialized } from './firebase';
+import { logger } from '../utils/logger';
 import type { AppUser, ChatMessage, DirectMessage, Conversation } from './types';
+import { logger } from '../utils/logger';
 import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
+import { logger } from '../utils/logger';
 import UserDataSanitizer from '../utils/userDataSanitizer';
+import { logger } from '../utils/logger';
 
 // Re-export types for backward compatibility
 export type { AppUser as User, ChatMessage, DirectMessage, Conversation };
@@ -211,14 +216,14 @@ class FirestoreService {
     } catch (error: any) {
       // Don't log if we should suppress it
       if (!FirebaseErrorHandler.shouldSuppressErrorLogging(error, 'username-check')) {
-        console.error('Failed to check username availability:', error);
+        logger.error('Failed to check username availability:', error);
       }
 
       // Handle permission errors specifically
       if (FirebaseErrorHandler.isPermissionError(error)) {
         // For permission errors during registration, throw an error instead of returning false
         // This will force proper error handling in the UI
-        console.warn('Permission error during username check - cannot verify availability');
+        logger.warn('Permission error during username check - cannot verify availability');
         throw new Error('Unable to verify username availability due to permissions. Please try again.');
       }
 
@@ -241,7 +246,7 @@ class FirestoreService {
         lastSeen: serverTimestamp()
       });
     } catch (error: any) {
-      console.warn('Failed to create user in Firestore:', error.message);
+      logger.warn('Failed to create user in Firestore:', error.message);
       // Don't throw error, just log it
     }
   }
@@ -256,7 +261,7 @@ class FirestoreService {
       }
       return null;
     } catch (error: any) {
-      console.warn('Failed to get user from Firestore:', error.message);
+      logger.warn('Failed to get user from Firestore:', error.message);
       return null;
     }
   }
@@ -271,13 +276,13 @@ class FirestoreService {
           callback(null);
         }
       }, (error) => {
-        console.error('Error listening to user profile changes:', error);
+        logger.error('Error listening to user profile changes:', error);
         callback(null);
       });
 
       return unsubscribe;
     } catch (error: any) {
-      console.error('Failed to set up user profile listener:', error);
+      logger.error('Failed to set up user profile listener:', error);
       return () => {}; // Return empty function if setup fails
     }
   }
@@ -398,10 +403,10 @@ class FirestoreService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Message sent to stream ${streamId}: ${messageRef.id}`);
+      logger.debug(`✅ Message sent to stream ${streamId}: ${messageRef.id}`);
       return messageRef.id;
     } catch (error: any) {
-      console.error('Failed to send stream message:', error.message);
+      logger.error('Failed to send stream message:', error.message);
       throw error;
     }
   }
@@ -454,9 +459,9 @@ class FirestoreService {
         });
       });
 
-      console.log(`✅ Reaction ${emoji} toggled on message ${messageId}`);
+      logger.debug(`✅ Reaction ${emoji} toggled on message ${messageId}`);
     } catch (error: any) {
-      console.error('Failed to add message reaction:', error.message);
+      logger.error('Failed to add message reaction:', error.message);
       throw error;
     }
   }
@@ -480,7 +485,7 @@ class FirestoreService {
       // Debug: Log authentication state
       const currentUser = auth?.currentUser;
       const isAuth = this.isAuthenticated();
-      console.log('🔐 sendGlobalChatMessage - Auth Debug:', {
+      logger.debug('🔐 sendGlobalChatMessage - Auth Debug:', {
         hasAuth: !!auth,
         hasCurrentUser: !!currentUser,
         isAuthenticated: isAuth,
@@ -491,12 +496,12 @@ class FirestoreService {
 
       // Authentication check
       if (!this.isAuthenticated()) {
-        console.warn('❌ Guest user attempted to send global chat message');
+        logger.warn('❌ Guest user attempted to send global chat message');
         throw new Error('Authentication required to send messages');
       }
 
       // Debug: Log message data before validation
-      console.log('📝 sendGlobalChatMessage - Message Data:', {
+      logger.debug('📝 sendGlobalChatMessage - Message Data:', {
         senderId: message.senderId,
         senderName: message.senderName,
         hasAvatar: !!message.senderAvatar,
@@ -532,20 +537,20 @@ class FirestoreService {
       }
 
       // Debug: Log sanitized message before sending
-      console.log('✅ sendGlobalChatMessage - Sanitized Data:', {
+      logger.debug('✅ sendGlobalChatMessage - Sanitized Data:', {
         ...sanitizedMessage,
         timestamp: '[ServerTimestamp]'
       });
 
       // Attempt to send message
-      console.log('🚀 sendGlobalChatMessage - Attempting to send to Firestore...');
+      logger.debug('🚀 sendGlobalChatMessage - Attempting to send to Firestore...');
       const messageRef = await addDoc(collection(db, 'globalChat'), sanitizedMessage);
-      console.log('✅ sendGlobalChatMessage - Success! Message ID:', messageRef.id);
+      logger.debug('✅ sendGlobalChatMessage - Success! Message ID:', messageRef.id);
 
       return messageRef.id;
     } catch (error: any) {
       // Enhanced error logging
-      console.error('❌ sendGlobalChatMessage - Error occurred:', {
+      logger.error('❌ sendGlobalChatMessage - Error occurred:', {
         errorCode: error?.code,
         errorMessage: error?.message,
         errorName: error?.name,
@@ -566,7 +571,7 @@ class FirestoreService {
     try {
       // Public read access - no authentication required for viewing messages
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         return [];
       }
 
@@ -587,7 +592,7 @@ class FirestoreService {
 
       // Only log non-permission errors
       FirebaseErrorHandler.logError('getGlobalChatMessages', error);
-      console.error('Failed to get global chat messages:', error.message);
+      logger.error('Failed to get global chat messages:', error.message);
       return [];
     }
   }
@@ -658,7 +663,7 @@ class FirestoreService {
 
       return null;
     } catch (error: any) {
-      console.error('Failed to get conversation by participants:', error.message);
+      logger.error('Failed to get conversation by participants:', error.message);
       return null;
     }
   }
@@ -748,7 +753,7 @@ class FirestoreService {
         ...doc.data()
       })) as Conversation[];
     } catch (error: any) {
-      console.error('Failed to get user conversations:', error.message);
+      logger.error('Failed to get user conversations:', error.message);
       return [];
     }
   }
@@ -818,12 +823,12 @@ class FirestoreService {
       // TEMPORARY WORKAROUND: Handle permission errors gracefully
       try {
         await setDoc(doc(streamsRef, streamId), sanitizedStreamDoc);
-        console.log(`✅ Created stream ${streamId} with enhanced schema`);
+        logger.debug(`✅ Created stream ${streamId} with enhanced schema`);
       } catch (permissionError: any) {
         if (permissionError?.code === 'permission-denied') {
-          console.warn('🚨 FIREBASE RULES NOT DEPLOYED - Stream creation blocked by permissions');
-          console.warn('📋 To fix: Deploy the updated firestore.rules to Firebase Console');
-          console.warn('🔗 Go to: https://console.firebase.google.com/project/vulugo/firestore/rules');
+          logger.warn('🚨 FIREBASE RULES NOT DEPLOYED - Stream creation blocked by permissions');
+          logger.warn('📋 To fix: Deploy the updated firestore.rules to Firebase Console');
+          logger.warn('🔗 Go to: https://console.firebase.google.com/project/vulugo/firestore/rules');
 
           // Create a more user-friendly error message
           throw new Error('Live streaming is temporarily unavailable. Please contact support or try again later.');
@@ -831,7 +836,7 @@ class FirestoreService {
         throw permissionError;
       }
     } catch (error: any) {
-      console.error('Failed to create stream:', error.message);
+      logger.error('Failed to create stream:', error.message);
       throw error;
     }
   }
@@ -923,9 +928,9 @@ class FirestoreService {
         });
       });
 
-      console.log(`✅ User ${currentUser.uid} joined stream ${streamId}`);
+      logger.debug(`✅ User ${currentUser.uid} joined stream ${streamId}`);
     } catch (error: any) {
-      console.error('Failed to join stream:', error.message);
+      logger.error('Failed to join stream:', error.message);
       throw error;
     }
   }
@@ -966,9 +971,9 @@ class FirestoreService {
         });
       });
 
-      console.log(`✅ User ${currentUser.uid} left stream ${streamId}`);
+      logger.debug(`✅ User ${currentUser.uid} left stream ${streamId}`);
     } catch (error: any) {
-      console.error('Failed to leave stream:', error.message);
+      logger.error('Failed to leave stream:', error.message);
       throw error;
     }
   }
@@ -977,7 +982,7 @@ class FirestoreService {
     try {
       // Public read access - no authentication required for viewing streams
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         return [];
       }
 
@@ -1002,7 +1007,7 @@ class FirestoreService {
       }
 
       // For other errors, return empty array but log more prominently
-      console.error('Failed to get active streams:', error.message);
+      logger.error('Failed to get active streams:', error.message);
       return [];
     }
   }
@@ -1011,7 +1016,7 @@ class FirestoreService {
     try {
       // Get all streams regardless of status (for cleanup purposes)
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         return [];
       }
 
@@ -1025,7 +1030,7 @@ class FirestoreService {
       }));
     } catch (error: any) {
       FirebaseErrorHandler.logError('getAllStreams', error);
-      console.error('Error getting all streams:', error.message);
+      logger.error('Error getting all streams:', error.message);
       return [];
     }
   }
@@ -1033,7 +1038,7 @@ class FirestoreService {
   async getStreamById(streamId: string): Promise<any | null> {
     try {
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         return null;
       }
 
@@ -1050,7 +1055,7 @@ class FirestoreService {
       return null;
     } catch (error: any) {
       FirebaseErrorHandler.logError('getStreamById', error);
-      console.error('Error getting stream by ID:', error.message);
+      logger.error('Error getting stream by ID:', error.message);
       return null;
     }
   }
@@ -1063,7 +1068,7 @@ class FirestoreService {
         updatedAt: serverTimestamp()
       });
     } catch (error: any) {
-      console.error('Failed to update stream participants:', error.message);
+      logger.error('Failed to update stream participants:', error.message);
       throw error;
     }
   }
@@ -1076,7 +1081,7 @@ class FirestoreService {
         updatedAt: serverTimestamp()
       });
     } catch (error: any) {
-      console.error('Failed to update stream viewer count:', error.message);
+      logger.error('Failed to update stream viewer count:', error.message);
       throw error;
     }
   }
@@ -1089,7 +1094,7 @@ class FirestoreService {
         updatedAt: serverTimestamp()
       });
     } catch (error: any) {
-      console.error('Failed to update stream status:', error.message);
+      logger.error('Failed to update stream status:', error.message);
       throw error;
     }
   }
@@ -1107,7 +1112,7 @@ class FirestoreService {
     try {
       // Public read access - no authentication required for viewing streams
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         callback([]);
         return () => {}; // Return empty unsubscribe function
       }
@@ -1125,7 +1130,7 @@ class FirestoreService {
             id: doc.id,
             ...doc.data()
           }));
-          console.log(`🔄 Firebase real-time update: ${streams.length} streams received`);
+          logger.debug(`🔄 Firebase real-time update: ${streams.length} streams received`);
           callback(streams);
         },
         (error) => {
@@ -1138,12 +1143,12 @@ class FirestoreService {
           }
 
           // For other errors, log and return empty array
-          console.error('Error in active streams listener:', error);
+          logger.error('Error in active streams listener:', error);
           callback([]);
         }
       );
     } catch (error: any) {
-      console.error('Failed to set up active streams listener:', error.message);
+      logger.error('Failed to set up active streams listener:', error.message);
       callback([]);
       return () => {}; // Return empty unsubscribe function
     }
@@ -1157,7 +1162,7 @@ class FirestoreService {
         updatedAt: serverTimestamp()
       });
     } catch (error: any) {
-      console.error('Failed to mark messages as read:', error.message);
+      logger.error('Failed to mark messages as read:', error.message);
     }
   }
 
@@ -1202,7 +1207,7 @@ class FirestoreService {
         ...doc.data()
       }));
 
-      console.log(`📊 [FIRESTORE] Retrieved ${streams.length} total streams (active and inactive)`);
+      logger.debug(`📊 [FIRESTORE] Retrieved ${streams.length} total streams (active and inactive)`);
       return streams;
     } catch (error: any) {
       throw new Error(`Failed to get all streams: ${error.message}`);
@@ -1227,7 +1232,7 @@ class FirestoreService {
     try {
       // Public read access - no authentication required for viewing streams
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         callback([]);
         return () => {}; // Return empty unsubscribe function
       }
@@ -1244,13 +1249,13 @@ class FirestoreService {
           callback(streams);
         },
         (error) => {
-          console.error('Error in live streams listener:', error);
+          logger.error('Error in live streams listener:', error);
           // Call callback with empty array on error to prevent app crashes
           callback([]);
         }
       );
     } catch (error: any) {
-      console.error('Failed to set up live streams listener:', error.message);
+      logger.error('Failed to set up live streams listener:', error.message);
       callback([]);
       return () => {}; // Return empty unsubscribe function
     }
@@ -1275,7 +1280,7 @@ class FirestoreService {
     try {
       // Public read access - no authentication required for viewing messages
       if (!db) {
-        console.warn('Firestore not initialized');
+        logger.warn('Firestore not initialized');
         callback([]);
         return () => {}; // Return empty unsubscribe function
       }
@@ -1301,12 +1306,12 @@ class FirestoreService {
 
           // Only log non-permission errors
           FirebaseErrorHandler.logError('onGlobalChatMessages', error);
-          console.error('Error in global chat messages listener:', error);
+          logger.error('Error in global chat messages listener:', error);
           callback([]);
         }
       );
     } catch (error: any) {
-      console.error('Failed to set up global chat messages listener:', error.message);
+      logger.error('Failed to set up global chat messages listener:', error.message);
       callback([]);
       return () => {}; // Return empty unsubscribe function
     }
@@ -1334,14 +1339,14 @@ class FirestoreService {
           })) as Conversation[];
           callback(conversations);
         } catch (error) {
-          console.error('Error processing conversations snapshot:', error);
+          logger.error('Error processing conversations snapshot:', error);
           if (onError) {
             onError(error);
           }
         }
       },
       (error) => {
-        console.error('Firestore listener error in onUserConversations:', error);
+        logger.error('Firestore listener error in onUserConversations:', error);
         if (onError) {
           onError(error);
         } else {
@@ -1374,7 +1379,7 @@ class FirestoreService {
         return []; // Return empty array for permission errors
       }
 
-      console.error('Failed to get user friends:', error.message);
+      logger.error('Failed to get user friends:', error.message);
       FirebaseErrorHandler.logError('getUserFriends', error);
       return [];
     }
@@ -1420,7 +1425,7 @@ class FirestoreService {
         });
       });
     } catch (error: any) {
-      console.error('Failed to add friend:', error.message);
+      logger.error('Failed to add friend:', error.message);
       throw error;
     }
   }
@@ -1454,7 +1459,7 @@ class FirestoreService {
         });
       });
     } catch (error: any) {
-      console.error('Failed to remove friend:', error.message);
+      logger.error('Failed to remove friend:', error.message);
       throw error;
     }
   }
@@ -1495,7 +1500,7 @@ class FirestoreService {
           allFriends.push({
             id: friendId,
             name: friendData.displayName,
-            avatar: friendData.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(friendData.displayName || friendData.username || 'User') + '&background=6E69F4&color=FFFFFF&size=150',
+            avatar: friendData.photoURL || null,
             status: this.getUserStatus(friendData.lastSeen),
             isCloseFriend: isCloseFriend
           });
@@ -1569,7 +1574,7 @@ class FirestoreService {
         return aUsername.localeCompare(bUsername);
       });
     } catch (error: any) {
-      console.error('Failed to search users by username:', error.message);
+      logger.error('Failed to search users by username:', error.message);
       return [];
     }
   }

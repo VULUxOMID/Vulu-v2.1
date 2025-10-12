@@ -11,7 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import CommonHeader from '../components/CommonHeader';
@@ -262,7 +262,7 @@ const AddFriendsScreen = () => {
   const renderSearchResult = ({ item }: { item: User }) => (
     <View style={styles.userItem}>
       <Image
-        source={{ uri: item.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.displayName || item.username || 'User') + '&background=6E69F4&color=FFFFFF&size=150' }}
+        source={{ uri: item.photoURL || null }}
         style={styles.avatar}
       />
       <View style={styles.userInfo}>
@@ -294,7 +294,7 @@ const AddFriendsScreen = () => {
   const renderFriendRequest = ({ item }: { item: FriendRequest }) => (
     <View style={styles.requestItem}>
       <Image 
-        source={{ uri: item.fromUserAvatar || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(item.fromUserName || 'User') + '&background=6E69F4&color=FFFFFF&size=150' }}
+        source={{ uri: item.fromUserAvatar || null }}
         style={styles.avatar} 
       />
       <View style={styles.requestInfo}>
@@ -336,7 +336,7 @@ const AddFriendsScreen = () => {
           title="Add Friends"
           leftIcon={{
             name: "arrow-back",
-            onPress: () => router.back(),
+            onPress: () => navigation.goBack(),
             color: "#FFFFFF"
           }}
         />

@@ -4,6 +4,7 @@
  */
 
 import {
+import { logger } from '../utils/logger';
   collection,
   doc,
   addDoc,
@@ -21,10 +22,15 @@ import {
   runTransaction
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 import { Stream, StreamCategory, StreamQuality } from './firestoreService';
+import { logger } from '../utils/logger';
 import agoraService from './agoraService';
+import { logger } from '../utils/logger';
 import participantTrackingService from './participantTrackingService';
+import { logger } from '../utils/logger';
 import { agoraTokenService } from './agoraTokenService';
+import { logger } from '../utils/logger';
 
 export interface StreamCreationOptions {
   title: string;
@@ -79,7 +85,7 @@ class StreamLifecycleService {
       const user = auth.currentUser;
       const streamId = `stream_${user.uid}_${Date.now()}`;
 
-      console.log(`🎬 Creating stream: ${streamId}`);
+      logger.debug(`🎬 Creating stream: ${streamId}`);
 
       // Create stream document in Firestore with sanitized data
       const streamData: Partial<Stream> = {
@@ -138,11 +144,11 @@ class StreamLifecycleService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Stream created and started: ${streamId}`);
+      logger.debug(`✅ Stream created and started: ${streamId}`);
       return streamId;
 
     } catch (error: any) {
-      console.error('Failed to create stream:', error);
+      logger.error('Failed to create stream:', error);
       throw new Error(`Stream creation failed: ${error.message}`);
     }
   }
@@ -152,7 +158,7 @@ class StreamLifecycleService {
    */
   async endStream(streamId: string): Promise<void> {
     try {
-      console.log(`🛑 Ending stream: ${streamId}`);
+      logger.debug(`🛑 Ending stream: ${streamId}`);
 
       // Verify user is the host
       const streamDoc = await getDoc(doc(db, 'streams', streamId));
@@ -181,10 +187,10 @@ class StreamLifecycleService {
       // Clean up resources
       await this.cleanupStreamResources(streamId);
 
-      console.log(`✅ Stream ended successfully: ${streamId}`);
+      logger.debug(`✅ Stream ended successfully: ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to end stream:', error);
+      logger.error('Failed to end stream:', error);
       throw new Error(`Stream ending failed: ${error.message}`);
     }
   }
@@ -198,7 +204,7 @@ class StreamLifecycleService {
         throw new Error('User not authenticated');
       }
 
-      console.log(`👋 Joining stream: ${streamId}`);
+      logger.debug(`👋 Joining stream: ${streamId}`);
 
       // Validate stream access
       const streamDoc = await getDoc(doc(db, 'streams', streamId));
@@ -225,10 +231,10 @@ class StreamLifecycleService {
       // Start participant tracking
       await participantTrackingService.startTracking(streamId);
 
-      console.log(`✅ Joined stream successfully: ${streamId}`);
+      logger.debug(`✅ Joined stream successfully: ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to join stream:', error);
+      logger.error('Failed to join stream:', error);
       throw new Error(`Stream joining failed: ${error.message}`);
     }
   }
@@ -242,7 +248,7 @@ class StreamLifecycleService {
         throw new Error('User not authenticated');
       }
 
-      console.log(`👋 Leaving stream: ${streamId}`);
+      logger.debug(`👋 Leaving stream: ${streamId}`);
 
       // Stop participant tracking
       participantTrackingService.stopTracking(streamId);
@@ -253,10 +259,10 @@ class StreamLifecycleService {
       // Remove user from participants
       await this.removeParticipant(streamId, auth.currentUser.uid);
 
-      console.log(`✅ Left stream successfully: ${streamId}`);
+      logger.debug(`✅ Left stream successfully: ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to leave stream:', error);
+      logger.error('Failed to leave stream:', error);
       throw new Error(`Stream leaving failed: ${error.message}`);
     }
   }
@@ -265,7 +271,7 @@ class StreamLifecycleService {
    * Start monitoring a stream
    */
   private startStreamMonitoring(streamId: string): void {
-    console.log(`📊 Starting monitoring for stream: ${streamId}`);
+    logger.debug(`📊 Starting monitoring for stream: ${streamId}`);
 
     // Set up real-time listener for stream updates
     const unsubscribe = onSnapshot(
@@ -277,7 +283,7 @@ class StreamLifecycleService {
         }
       },
       (error) => {
-        console.error(`Error monitoring stream ${streamId}:`, error);
+        logger.error(`Error monitoring stream ${streamId}:`, error);
       }
     );
 
@@ -295,7 +301,7 @@ class StreamLifecycleService {
    * Stop monitoring a stream
    */
   private stopStreamMonitoring(streamId: string): void {
-    console.log(`📊 Stopping monitoring for stream: ${streamId}`);
+    logger.debug(`📊 Stopping monitoring for stream: ${streamId}`);
 
     // Unsubscribe from real-time updates
     const unsubscribe = this.activeStreams.get(streamId);
@@ -318,13 +324,13 @@ class StreamLifecycleService {
   private handleStreamUpdate(streamId: string, streamData: Stream): void {
     // Check for critical issues
     if (!streamData.isActive && this.activeStreams.has(streamId)) {
-      console.log(`Stream ${streamId} became inactive, stopping monitoring`);
+      logger.debug(`Stream ${streamId} became inactive, stopping monitoring`);
       this.stopStreamMonitoring(streamId);
     }
 
     // Monitor participant count
     if (streamData.viewerCount === 0 && streamData.hostId !== auth.currentUser?.uid) {
-      console.log(`Stream ${streamId} has no viewers`);
+      logger.debug(`Stream ${streamId} has no viewers`);
       // Could trigger auto-end logic here
     }
 
@@ -361,10 +367,10 @@ class StreamLifecycleService {
       });
 
       // Log health status
-      console.log(`💓 Health check for ${streamId}: Agora=${agoraStatus}, Participants=${participantCount}`);
+      logger.debug(`💓 Health check for ${streamId}: Agora=${agoraStatus}, Participants=${participantCount}`);
 
     } catch (error) {
-      console.error(`Health check failed for stream ${streamId}:`, error);
+      logger.error(`Health check failed for stream ${streamId}:`, error);
     }
   }
 
@@ -380,10 +386,10 @@ class StreamLifecycleService {
       const hostUserId = auth.currentUser?.uid || 'host';
       await agoraService.joinChannel(streamId, hostUserId, true);
 
-      console.log(`✅ Agora connection initialized for stream: ${streamId}`);
+      logger.debug(`✅ Agora connection initialized for stream: ${streamId}`);
 
     } catch (error: any) {
-      console.error('Failed to initialize Agora connection:', error);
+      logger.error('Failed to initialize Agora connection:', error);
       throw error;
     }
   }
@@ -475,10 +481,10 @@ class StreamLifecycleService {
       participantTrackingService.stopTracking(streamId);
 
       // Clean up any temporary data
-      console.log(`🧹 Cleaned up resources for stream: ${streamId}`);
+      logger.debug(`🧹 Cleaned up resources for stream: ${streamId}`);
 
     } catch (error) {
-      console.error(`Failed to cleanup resources for stream ${streamId}:`, error);
+      logger.error(`Failed to cleanup resources for stream ${streamId}:`, error);
     }
   }
 
@@ -503,17 +509,17 @@ class StreamLifecycleService {
           
           // Check if stream has been inactive for more than 10 minutes
           if (now - lastActivity > 10 * 60 * 1000) {
-            console.log(`⚠️ Stream ${doc.id} appears inactive, may need cleanup`);
+            logger.debug(`⚠️ Stream ${doc.id} appears inactive, may need cleanup`);
             // Could trigger automatic cleanup here
           }
         });
 
       } catch (error) {
-        console.error('Health check service error:', error);
+        logger.error('Health check service error:', error);
       }
     }, 5 * 60 * 1000); // Every 5 minutes
 
-    console.log('💓 Stream health check service started');
+    logger.debug('💓 Stream health check service started');
   }
 
   /**
@@ -521,7 +527,7 @@ class StreamLifecycleService {
    */
   private emitMonitoringUpdate(data: StreamMonitoringData): void {
     // This could emit events to UI components or analytics services
-    console.log('📊 Stream monitoring update:', data);
+    logger.debug('📊 Stream monitoring update:', data);
   }
 
   /**
@@ -548,7 +554,7 @@ class StreamLifecycleService {
       };
 
     } catch (error) {
-      console.error('Failed to get stream monitoring data:', error);
+      logger.error('Failed to get stream monitoring data:', error);
       return null;
     }
   }
@@ -576,7 +582,7 @@ class StreamLifecycleService {
     this.activeStreams.clear();
     this.monitoringIntervals.clear();
 
-    console.log('🧹 Stream Lifecycle Service destroyed');
+    logger.debug('🧹 Stream Lifecycle Service destroyed');
   }
 }
 

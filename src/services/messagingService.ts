@@ -32,7 +32,10 @@ import {
   MessageStatus,
   MessageType,
   UserStatus,
-  FriendRequestStatus
+  FriendRequestStatus,
+  MessageAttachment,
+  VoiceMessageData,
+  EncryptedMessageData
 } from './types';
 import { pushNotificationService } from './pushNotificationService';
 import { encryptionService } from './encryptionService';
@@ -75,7 +78,7 @@ export class MessagingService {
       this.cleanupUnusedListeners();
     }, this.poolCleanupInterval);
 
-    console.log('📡 Messaging service listener optimization initialized');
+    logger.debug('📡 Messaging service listener optimization initialized');
   }
 
   // ==================== CONVERSATION SETTINGS ====================
@@ -94,7 +97,7 @@ export class MessagingService {
   ): Promise<void> {
     try {
       const conversationRef = doc(db, 'conversations', conversationId);
-      const updateData: any = {};
+      const updateData: Record<string, boolean> = {};
 
       if (settings.isCloseFriend !== undefined) {
         updateData[`closeFriends.${userId}`] = settings.isCloseFriend;
@@ -109,9 +112,9 @@ export class MessagingService {
       updateData.updatedAt = serverTimestamp();
 
       await updateDoc(conversationRef, updateData);
-      console.log('✅ Conversation settings updated:', settings);
+      logger.debug('✅ Conversation settings updated:', settings);
     } catch (error: any) {
-      console.error('Error updating conversation settings:', error);
+      logger.error('Error updating conversation settings:', error);
       throw new Error(`Failed to update conversation settings: ${error.message}`);
     }
   }
@@ -139,7 +142,7 @@ export class MessagingService {
         isPinned: data.pinnedBy?.[userId] || false,
       };
     } catch (error: any) {
-      console.error('Error getting conversation settings:', error);
+      logger.error('Error getting conversation settings:', error);
       return { isCloseFriend: false, isMuted: false, isPinned: false };
     }
   }
@@ -162,7 +165,7 @@ export class MessagingService {
       pooledListener.subscribers.add(subscriberId);
       pooledListener.lastUsed = Date.now();
 
-      console.log(`📡 Reusing pooled conversation listener for user ${userId}`);
+      logger.debug(`📡 Reusing pooled conversation listener for user ${userId}`);
 
       // Return unsubscribe function for this subscriber
       return () => {
@@ -173,7 +176,7 @@ export class MessagingService {
             if (pooledListener.subscribers.size === 0) {
               pooledListener.unsubscribe();
               this.listenerPool.delete(poolKey);
-              console.log(`📡 Removed unused conversation listener for user ${userId}`);
+              logger.debug(`📡 Removed unused conversation listener for user ${userId}`);
             }
           }, 30000); // 30 second delay
         }
@@ -213,7 +216,7 @@ export class MessagingService {
 
       callback(activeConversations);
     }, (error) => {
-      console.error('Error in pooled conversation listener:', error);
+      logger.error('Error in pooled conversation listener:', error);
       callback([]);
     });
 
@@ -225,7 +228,7 @@ export class MessagingService {
     };
 
     this.listenerPool.set(poolKey, pooledListener);
-    console.log(`📡 Created new pooled conversation listener for user ${userId}`);
+    logger.debug(`📡 Created new pooled conversation listener for user ${userId}`);
 
     // Return unsubscribe function for this subscriber
     return () => {
@@ -235,7 +238,7 @@ export class MessagingService {
           if (pooledListener.subscribers.size === 0) {
             pooledListener.unsubscribe();
             this.listenerPool.delete(poolKey);
-            console.log(`📡 Removed unused conversation listener for user ${userId}`);
+            logger.debug(`📡 Removed unused conversation listener for user ${userId}`);
           }
         }, 30000);
       }
@@ -259,7 +262,7 @@ export class MessagingService {
     }
 
     if (cleanedCount > 0) {
-      console.log(`🧹 Cleaned up ${cleanedCount} unused listeners from pool`);
+      logger.debug(`🧹 Cleaned up ${cleanedCount} unused listeners from pool`);
     }
 
     // Also enforce max pool size
@@ -273,7 +276,7 @@ export class MessagingService {
         this.listenerPool.delete(key);
       }
 
-      console.log(`🧹 Enforced pool size limit, removed ${toRemove.length} oldest listeners`);
+      logger.debug(`🧹 Enforced pool size limit, removed ${toRemove.length} oldest listeners`);
     }
   }
 
@@ -339,7 +342,7 @@ export class MessagingService {
       try {
         unsubscribe();
       } catch (error) {
-        console.warn('Error cleaning up conversation listener:', error);
+        logger.warn('Error cleaning up conversation listener:', error);
       }
     });
     this.conversationListeners.clear();
@@ -349,7 +352,7 @@ export class MessagingService {
       try {
         unsubscribe();
       } catch (error) {
-        console.warn('Error cleaning up message listener:', error);
+        logger.warn('Error cleaning up message listener:', error);
       }
     });
     this.messageListeners.clear();
@@ -359,7 +362,7 @@ export class MessagingService {
       try {
         unsubscribe();
       } catch (error) {
-        console.warn('Error cleaning up presence listener:', error);
+        logger.warn('Error cleaning up presence listener:', error);
       }
     });
     this.presenceListeners.clear();
@@ -368,9 +371,9 @@ export class MessagingService {
     this.listenerPool.forEach((listener, key) => {
       try {
         listener.unsubscribe();
-        console.log(`🧹 Cleaned up pooled listener: ${key}`);
+        logger.debug(`🧹 Cleaned up pooled listener: ${key}`);
       } catch (error) {
-        console.error(`Error cleaning up pooled listener ${key}:`, error);
+        logger.error(`Error cleaning up pooled listener ${key}:`, error);
       }
     });
     this.listenerPool.clear();
@@ -384,7 +387,7 @@ export class MessagingService {
     // Clear active listeners set
     this.activeListeners.clear();
 
-    console.log('✅ All messaging service listeners cleaned up');
+    logger.debug('✅ All messaging service listeners cleaned up');
   }
 
   /**
@@ -465,12 +468,12 @@ export class MessagingService {
         };
         messagingAnalyticsService.trackConversationCreated(conversationForAnalytics);
       } catch (analyticsError) {
-        console.warn('Failed to track conversation creation analytics:', analyticsError);
+        logger.warn('Failed to track conversation creation analytics:', analyticsError);
       }
 
       return conversationRef.id;
     } catch (error: any) {
-      console.error('Error creating conversation:', error);
+      logger.error('Error creating conversation:', error);
       throw new Error(`Failed to create conversation: ${error.message}`);
     }
   }
@@ -497,7 +500,7 @@ export class MessagingService {
 
       return null;
     } catch (error: any) {
-      console.error('Error finding existing conversation:', error);
+      logger.error('Error finding existing conversation:', error);
       return null;
     }
   }
@@ -547,7 +550,7 @@ export class MessagingService {
           return timeB.getTime() - timeA.getTime(); // Descending order (newest first)
         });
     } catch (error: any) {
-      console.error('Error getting user conversations:', error);
+      logger.error('Error getting user conversations:', error);
       return [];
     }
   }
@@ -607,10 +610,20 @@ export class MessagingService {
     type: MessageType = 'text',
     senderAvatar?: string,
     replyTo?: DirectMessage['replyTo'],
-    attachments?: any[],
-    voiceData?: any
+    attachments?: MessageAttachment[],
+    voiceData?: VoiceMessageData
   ): Promise<string> {
     try {
+      // Check authentication first
+      if (!auth?.currentUser) {
+        throw new Error('Authentication required to send messages');
+      }
+
+      // Verify the sender matches the authenticated user
+      if (auth.currentUser.uid !== senderId) {
+        throw new Error('Sender ID must match authenticated user');
+      }
+
       // Validate message text
       const validation = this.validateMessageText(text);
       if (!validation.isValid) {
@@ -631,7 +644,7 @@ export class MessagingService {
         // Opt-in encryption: encrypt if conversation.isEncrypted, else send plaintext
         let finalText = validation.sanitizedText!;
         let isEncrypted = false;
-        let encryptedData: any = null;
+        let encryptedData: EncryptedMessageData | null = null;
 
         const shouldEncrypt = !!conversation.isEncrypted;
         if (shouldEncrypt) {
@@ -667,7 +680,7 @@ export class MessagingService {
               );
             } catch (logErr) {
               // Ensure logging failure never blocks user flow
-              console.error('Failed to log encryption error:', logErr);
+              logger.error('Failed to log encryption error:', logErr);
             }
             // Throw a generic, non-sensitive error to the caller
             throw new Error('Failed to encrypt message. Please try again or contact support.');
@@ -675,7 +688,16 @@ export class MessagingService {
         }
 
         // Create message data, filtering out undefined values
-        const messageData: any = {
+        const messageData: Partial<DirectMessage> & {
+          conversationId: string;
+          senderId: string;
+          senderName: string;
+          recipientId: string;
+          text: string;
+          type: MessageType;
+          status: MessageStatus;
+          timestamp: ReturnType<typeof serverTimestamp>;
+        } = {
           conversationId,
           senderId,
           senderName,
@@ -780,7 +802,7 @@ export class MessagingService {
             false // Not a group message
           );
         } catch (notificationError) {
-          console.warn('Failed to send push notification:', notificationError);
+          logger.warn('Failed to send push notification:', notificationError);
           // Don't throw error for notification failures
         }
 
@@ -808,13 +830,13 @@ export class MessagingService {
 
           messagingAnalyticsService.trackMessageSent(messageForAnalytics);
         } catch (analyticsError) {
-          console.warn('Failed to track message analytics:', analyticsError);
+          logger.warn('Failed to track message analytics:', analyticsError);
         }
 
         return messageRef.id;
       });
     } catch (error: any) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message:', error);
 
       // Enhanced error handling with specific error types
       let errorMessage = 'Failed to send message';
@@ -887,7 +909,7 @@ export class MessagingService {
 
       } catch (indexError: any) {
         // Strategy 2: Fallback to memory filtering if index doesn't exist
-        console.log('Using fallback query strategy (no composite index)');
+        logger.debug('Using fallback query strategy (no composite index)');
 
         let fallbackQuery = query(
           messagesRef,
@@ -925,7 +947,7 @@ export class MessagingService {
         return { messages: processedMessages, hasMore, nextCursor };
       }
     } catch (error: any) {
-      console.error('Error getting conversation messages:', error);
+      logger.error('Error getting conversation messages:', error);
       return { messages: [], hasMore: false };
     }
   }
@@ -994,7 +1016,7 @@ export class MessagingService {
                 text: decryptedText,
               };
             } catch (error) {
-              console.warn('Failed to decrypt message:', error);
+              logger.warn('Failed to decrypt message:', error);
               return {
                 ...message,
                 text: 'Message unavailable',
@@ -1046,11 +1068,11 @@ export class MessagingService {
         this.processMessagesForDisplay(messages)
           .then(processed => callback(processed))
           .catch(err => {
-            console.warn('processMessagesForDisplay failed:', err);
+            logger.warn('processMessagesForDisplay failed:', err);
             callback(messages);
           });
       }, (error) => {
-        console.log('Optimized query failed, using fallback strategy');
+        logger.debug('Optimized query failed, using fallback strategy');
         // Switch to fallback strategy
         setupFallbackListener();
       });
@@ -1079,11 +1101,11 @@ export class MessagingService {
         this.processMessagesForDisplay(filteredMessages)
           .then(processed => callback(processed))
           .catch(err => {
-            console.warn('processMessagesForDisplay failed:', err);
+            logger.warn('processMessagesForDisplay failed:', err);
             callback(filteredMessages);
           });
       }, (error) => {
-        console.error('Error listening to messages:', error);
+        logger.error('Error listening to messages:', error);
         callback([]);
       });
 
@@ -1091,7 +1113,7 @@ export class MessagingService {
       const listenerKey = `messages-${conversationId}`;
       this.messageListeners.set(conversationId, unsubscribe);
       this.activeListeners.add(listenerKey);
-      console.log(`📡 Started message listener for conversation ${conversationId}`);
+      logger.debug(`📡 Started message listener for conversation ${conversationId}`);
       return unsubscribe;
     };
 
@@ -1101,7 +1123,7 @@ export class MessagingService {
       const listenerKey = `messages-${conversationId}`;
       this.messageListeners.set(conversationId, unsubscribe);
       this.activeListeners.add(listenerKey);
-      console.log(`📡 Started optimized message listener for conversation ${conversationId}`);
+      logger.debug(`📡 Started optimized message listener for conversation ${conversationId}`);
       return unsubscribe;
     } catch (error) {
       return setupFallbackListener();
@@ -1146,7 +1168,7 @@ export class MessagingService {
         });
       });
     } catch (error: any) {
-      console.error('Error marking messages as read:', error);
+      logger.error('Error marking messages as read:', error);
       throw new Error(`Failed to mark messages as read: ${error.message}`);
     }
   }
@@ -1168,7 +1190,7 @@ export class MessagingService {
         });
       }
     } catch (error: any) {
-      console.error('Error updating typing status:', error);
+      logger.error('Error updating typing status:', error);
     }
   }
 
@@ -1222,7 +1244,7 @@ export class MessagingService {
       const requestRef = await addDoc(collection(db, 'friendRequests'), requestData);
       return requestRef.id;
     } catch (error: any) {
-      console.error('Error sending friend request:', error);
+      logger.error('Error sending friend request:', error);
       throw new Error('Failed to send friend request. Please try again.');
     }
   }
@@ -1242,9 +1264,9 @@ export class MessagingService {
       const requestRef = doc(db, 'friendRequests', existingRequest.id);
       await deleteDoc(requestRef);
 
-      console.log(`✅ Friend request cancelled: ${senderId} -> ${recipientId}`);
+      logger.debug(`✅ Friend request cancelled: ${senderId} -> ${recipientId}`);
     } catch (error: any) {
-      console.error('Error cancelling friend request:', error);
+      logger.error('Error cancelling friend request:', error);
       throw new Error('Failed to cancel friend request. Please try again.');
     }
   }
@@ -1303,7 +1325,7 @@ export class MessagingService {
         }
       });
     } catch (error: any) {
-      console.error('Error responding to friend request:', error);
+      logger.error('Error responding to friend request:', error);
       throw new Error(`Failed to respond to friend request: ${error.message}`);
     }
   }
@@ -1329,7 +1351,7 @@ export class MessagingService {
         ...doc.data()
       })) as FriendRequest[];
     } catch (error: any) {
-      console.error('Error getting friend requests:', error);
+      logger.error('Error getting friend requests:', error);
       return [];
     }
   }
@@ -1362,7 +1384,7 @@ export class MessagingService {
 
       return { status: 'none' };
     } catch (error: any) {
-      console.error('Error getting friend request status:', error);
+      logger.error('Error getting friend request status:', error);
       return { status: 'none' };
     }
   }
@@ -1426,9 +1448,9 @@ export class MessagingService {
         transaction.update(messageRef, { reactions });
       });
 
-      console.log(`✅ Toggled reaction ${emoji} for message ${messageId}`);
+      logger.debug(`✅ Toggled reaction ${emoji} for message ${messageId}`);
     } catch (error: any) {
-      console.error('Error toggling message reaction:', error);
+      logger.error('Error toggling message reaction:', error);
       throw new Error('Failed to toggle reaction. Please try again.');
     }
   }
@@ -1448,7 +1470,7 @@ export class MessagingService {
       const messageData = messageDoc.data() as DirectMessage;
       return messageData.reactions || [];
     } catch (error: any) {
-      console.error('Error getting message reactions:', error);
+      logger.error('Error getting message reactions:', error);
       return [];
     }
   }
@@ -1466,7 +1488,7 @@ export class MessagingService {
       const reaction = reactions.find(r => r.emoji === emoji);
       return reaction ? reaction.userIds : [];
     } catch (error: any) {
-      console.error('Error getting reaction users:', error);
+      logger.error('Error getting reaction users:', error);
       return [];
     }
   }
@@ -1533,9 +1555,9 @@ export class MessagingService {
         lastMessageSenderId: senderId
       });
 
-      console.log(`✅ Reply sent to message ${replyToMessageId} in conversation ${conversationId}`);
+      logger.debug(`✅ Reply sent to message ${replyToMessageId} in conversation ${conversationId}`);
     } catch (error: any) {
-      console.error('Error sending reply message:', error);
+      logger.error('Error sending reply message:', error);
       throw new Error('Failed to send reply. Please try again.');
     }
   }
@@ -1554,7 +1576,7 @@ export class MessagingService {
 
       return { id: messageDoc.id, ...messageDoc.data() } as DirectMessage;
     } catch (error: any) {
-      console.error('Error getting original message:', error);
+      logger.error('Error getting original message:', error);
       return null;
     }
   }
@@ -1577,7 +1599,7 @@ export class MessagingService {
         ...doc.data()
       })) as DirectMessage[];
     } catch (error: any) {
-      console.error('Error getting message replies:', error);
+      logger.error('Error getting message replies:', error);
       return [];
     }
   }
@@ -1645,9 +1667,9 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Message ${messageId} edited successfully`);
+      logger.debug(`✅ Message ${messageId} edited successfully`);
     } catch (error: any) {
-      console.error('Error editing message:', error);
+      logger.error('Error editing message:', error);
       throw new Error('Failed to edit message. Please try again or contact support.');
     }
   }
@@ -1667,7 +1689,7 @@ export class MessagingService {
       const messageData = messageDoc.data() as DirectMessage;
       return messageData.editHistory || [];
     } catch (error: any) {
-      console.error('Error getting message edit history:', error);
+      logger.error('Error getting message edit history:', error);
       return [];
     }
   }
@@ -1710,7 +1732,7 @@ export class MessagingService {
 
       return { canEdit: true };
     } catch (error: any) {
-      console.error('Error checking if message can be edited:', error);
+      logger.error('Error checking if message can be edited:', error);
       return { canEdit: false, reason: 'Error checking edit permissions' };
     }
   }
@@ -1761,9 +1783,9 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Message ${messageId} deleted for everyone`);
+      logger.debug(`✅ Message ${messageId} deleted for everyone`);
     } catch (error: any) {
-      console.error('Error deleting message for everyone:', error);
+      logger.error('Error deleting message for everyone:', error);
       throw new Error('Failed to delete message. Please try again.');
     }
   }
@@ -1800,9 +1822,9 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Message ${messageId} deleted for user ${userId}`);
+      logger.debug(`✅ Message ${messageId} deleted for user ${userId}`);
     } catch (error: any) {
-      console.error('Error deleting message for user:', error);
+      logger.error('Error deleting message for user:', error);
       throw new Error(`Failed to delete message: ${error.message}`);
     }
   }
@@ -1869,7 +1891,7 @@ export class MessagingService {
         canDeleteForMe: true, // Anyone can delete for themselves
       };
     } catch (error: any) {
-      console.error('Error checking delete permissions:', error);
+      logger.error('Error checking delete permissions:', error);
       return {
         canDeleteForEveryone: false,
         canDeleteForMe: false,
@@ -1911,16 +1933,16 @@ export class MessagingService {
       // 2. Get download URL
       // 3. Return the attachment info
 
-      console.log(`📎 Mock upload: ${file.name} (${file.size} bytes) to ${filePath}`);
+      logger.debug(`📎 Mock upload: ${file.name} (${file.size} bytes) to ${filePath}`);
 
       return {
-        downloadURL: `https://mock-storage.com/${filePath}`,
+        downloadURL: null, // Real Firebase Storage URL
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
       };
     } catch (error: any) {
-      console.error('Error uploading attachment:', error);
+      logger.error('Error uploading attachment:', error);
       throw new Error('Failed to upload attachment. Please try again or contact support.');
     }
   }
@@ -1978,9 +2000,9 @@ export class MessagingService {
         lastMessageSenderId: senderId,
       });
 
-      console.log(`✅ Message with attachment sent to conversation ${conversationId}`);
+      logger.debug(`✅ Message with attachment sent to conversation ${conversationId}`);
     } catch (error: any) {
-      console.error('Error sending message with attachment:', error);
+      logger.error('Error sending message with attachment:', error);
       throw new Error('Failed to send message with attachment. Please try again.');
     }
   }
@@ -2010,7 +2032,7 @@ export class MessagingService {
         fileName,
       };
     } catch (error) {
-      console.error('Error getting attachment info:', error);
+      logger.error('Error getting attachment info:', error);
       return {
         isImage: false,
         isVideo: false,
@@ -2045,7 +2067,7 @@ export class MessagingService {
         readAt: messageData.readAt || {},
       };
     } catch (error: any) {
-      console.error('Error getting message read status:', error);
+      logger.error('Error getting message read status:', error);
       return { isRead: false, readBy: [] };
     }
   }
@@ -2073,7 +2095,7 @@ export class MessagingService {
         deliveredAt: messageData.deliveredAt || {},
       };
     } catch (error: any) {
-      console.error('Error getting message delivery status:', error);
+      logger.error('Error getting message delivery status:', error);
       return { isDelivered: false, deliveredTo: [] };
     }
   }
@@ -2114,9 +2136,9 @@ export class MessagingService {
         }
       });
 
-      console.log(`✅ Message ${messageId} marked as delivered for user ${userId}`);
+      logger.debug(`✅ Message ${messageId} marked as delivered for user ${userId}`);
     } catch (error: any) {
-      console.error('Error marking message as delivered:', error);
+      logger.error('Error marking message as delivered:', error);
       throw new Error(`Failed to mark message as delivered: ${error.message}`);
     }
   }
@@ -2197,7 +2219,7 @@ export class MessagingService {
             participantStatus[participantId] = { isOnline: false, lastSeen: serverTimestamp() };
           }
         } catch (error) {
-          console.warn(`Failed to get user info for ${participantId}:`, error);
+          logger.warn(`Failed to get user info for ${participantId}:`, error);
           participantNames[participantId] = 'Unknown User';
           participantStatus[participantId] = { isOnline: false, lastSeen: serverTimestamp() };
         }
@@ -2256,13 +2278,13 @@ export class MessagingService {
         };
         messagingAnalyticsService.trackConversationCreated(conversationForAnalytics);
       } catch (analyticsError) {
-        console.warn('Failed to track group conversation creation analytics:', analyticsError);
+        logger.warn('Failed to track group conversation creation analytics:', analyticsError);
       }
 
-      console.log(`✅ Group conversation created: ${conversationRef.id}`);
+      logger.debug(`✅ Group conversation created: ${conversationRef.id}`);
       return conversationRef.id;
     } catch (error: any) {
-      console.error('Error creating group conversation:', error);
+      logger.error('Error creating group conversation:', error);
       throw new Error(`Failed to create group conversation: ${error.message}`);
     }
   }
@@ -2331,7 +2353,7 @@ export class MessagingService {
               updatedParticipantNames[participantId] = 'Unknown User';
             }
           } catch (error) {
-            console.warn(`Failed to get user info for ${participantId}:`, error);
+            logger.warn(`Failed to get user info for ${participantId}:`, error);
             updatedParticipantNames[participantId] = 'Unknown User';
           }
 
@@ -2370,9 +2392,9 @@ export class MessagingService {
         addedBy
       );
 
-      console.log(`✅ Added ${participantIds.length} participants to group ${conversationId}`);
+      logger.debug(`✅ Added ${participantIds.length} participants to group ${conversationId}`);
     } catch (error: any) {
-      console.error('Error adding participants to group:', error);
+      logger.error('Error adding participants to group:', error);
       throw new Error(`Failed to add participants: ${error.message}`);
     }
   }
@@ -2467,9 +2489,9 @@ export class MessagingService {
         removedBy
       );
 
-      console.log(`✅ Removed participant ${participantId} from group ${conversationId}`);
+      logger.debug(`✅ Removed participant ${participantId} from group ${conversationId}`);
     } catch (error: any) {
-      console.error('Error removing participant from group:', error);
+      logger.error('Error removing participant from group:', error);
       throw new Error(`Failed to remove participant: ${error.message}`);
     }
   }
@@ -2542,9 +2564,9 @@ export class MessagingService {
         updatedBy
       );
 
-      console.log(`✅ Updated group info for ${conversationId}`);
+      logger.debug(`✅ Updated group info for ${conversationId}`);
     } catch (error: any) {
-      console.error('Error updating group info:', error);
+      logger.error('Error updating group info:', error);
       throw new Error(`Failed to update group info: ${error.message}`);
     }
   }
@@ -2596,7 +2618,7 @@ export class MessagingService {
         updatedAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Error sending system message:', error);
+      logger.error('Error sending system message:', error);
     }
   }
 
@@ -2650,9 +2672,9 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Message ${messageId} pinned in conversation ${conversationId}`);
+      logger.debug(`✅ Message ${messageId} pinned in conversation ${conversationId}`);
     } catch (error: any) {
-      console.error('Error pinning message:', error);
+      logger.error('Error pinning message:', error);
       throw new Error(`Failed to pin message: ${error.message}`);
     }
   }
@@ -2712,9 +2734,9 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Message ${messageId} unpinned in conversation ${conversationId}`);
+      logger.debug(`✅ Message ${messageId} unpinned in conversation ${conversationId}`);
     } catch (error: any) {
-      console.error('Error unpinning message:', error);
+      logger.error('Error unpinning message:', error);
       throw new Error(`Failed to unpin message: ${error.message}`);
     }
   }
@@ -2742,10 +2764,10 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Retrieved ${pinnedMessages.length} pinned messages from conversation ${conversationId}`);
+      logger.debug(`✅ Retrieved ${pinnedMessages.length} pinned messages from conversation ${conversationId}`);
       return pinnedMessages;
     } catch (error: any) {
-      console.error('Error getting pinned messages:', error);
+      logger.error('Error getting pinned messages:', error);
       throw new Error(`Failed to get pinned messages: ${error.message}`);
     }
   }
@@ -2773,7 +2795,7 @@ export class MessagingService {
       // In the future, this could be restricted based on group settings
       return true;
     } catch (error) {
-      console.error('Error checking pin permissions:', error);
+      logger.error('Error checking pin permissions:', error);
       return false;
     }
   }
@@ -2831,10 +2853,10 @@ export class MessagingService {
         type: 'text',
       });
 
-      console.log(`✅ Message forwarded to conversation ${targetConversationId}`);
+      logger.debug(`✅ Message forwarded to conversation ${targetConversationId}`);
       return docRef.id;
     } catch (error: any) {
-      console.error('Error forwarding message:', error);
+      logger.error('Error forwarding message:', error);
       throw new Error('Failed to forward message. Please try again.');
     }
   }
@@ -2874,10 +2896,10 @@ export class MessagingService {
         forwardedMessageIds.push(forwardedId);
       }
 
-      console.log(`✅ Forwarded ${originalMessages.length} messages to conversation ${targetConversationId}`);
+      logger.debug(`✅ Forwarded ${originalMessages.length} messages to conversation ${targetConversationId}`);
       return forwardedMessageIds;
     } catch (error: any) {
-      console.error('Error forwarding messages:', error);
+      logger.error('Error forwarding messages:', error);
       throw new Error(`Failed to forward messages: ${error.message}`);
     }
   }
@@ -2914,10 +2936,10 @@ export class MessagingService {
         });
       });
 
-      console.log(`✅ Retrieved ${conversations.length} forwarding targets for user ${userId}`);
+      logger.debug(`✅ Retrieved ${conversations.length} forwarding targets for user ${userId}`);
       return conversations;
     } catch (error: any) {
-      console.error('Error getting forwarding targets:', error);
+      logger.error('Error getting forwarding targets:', error);
       throw new Error(`Failed to get forwarding targets: ${error.message}`);
     }
   }
@@ -2953,7 +2975,7 @@ export class MessagingService {
 
       return true;
     } catch (error) {
-      console.error('Error checking forward permissions:', error);
+      logger.error('Error checking forward permissions:', error);
       return false;
     }
   }
@@ -2992,7 +3014,7 @@ export class MessagingService {
 
       return friends;
     } catch (error: any) {
-      console.error('Error getting user friends:', error);
+      logger.error('Error getting user friends:', error);
       return [];
     }
   }
@@ -3017,7 +3039,7 @@ export class MessagingService {
 
       return null;
     } catch (error: any) {
-      console.error('Error finding existing friend request:', error);
+      logger.error('Error finding existing friend request:', error);
       return null;
     }
   }
@@ -3041,7 +3063,7 @@ export class MessagingService {
       const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
       return !snapshot1.empty || !snapshot2.empty;
     } catch (error: any) {
-      console.error('Error checking friendship status:', error);
+      logger.error('Error checking friendship status:', error);
       return false;
     }
   }

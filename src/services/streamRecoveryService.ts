@@ -4,8 +4,11 @@
  */
 
 import { agoraService } from './agoraService';
+import { logger } from '../utils/logger';
 import { agoraTokenService } from './agoraTokenService';
+import { logger } from '../utils/logger';
 import { FirebaseErrorHandler, ErrorCategory } from '../utils/firebaseErrorHandler';
+import { logger } from '../utils/logger';
 
 export interface RecoveryAttempt {
   timestamp: number;
@@ -78,7 +81,7 @@ class StreamRecoveryService {
   ): Promise<RecoveryResult> {
     const opts = { ...this.defaultOptions, ...options };
     
-    console.log(`🔄 [RECOVERY] Starting recovery for stream ${streamId}`, error);
+    logger.debug(`🔄 [RECOVERY] Starting recovery for stream ${streamId}`, error);
 
     // Check circuit breaker
     if (this.isCircuitBreakerOpen(opts)) {
@@ -107,7 +110,7 @@ class StreamRecoveryService {
       const attemptStartTime = Date.now();
 
       try {
-        console.log(`🔄 [RECOVERY] Attempt ${attempts}/${opts.maxRetries} using strategy: ${strategy}`);
+        logger.debug(`🔄 [RECOVERY] Attempt ${attempts}/${opts.maxRetries} using strategy: ${strategy}`);
 
         const success = await this.executeRecoveryStrategy(
           strategy,
@@ -130,7 +133,7 @@ class StreamRecoveryService {
         });
 
         if (success) {
-          console.log(`✅ [RECOVERY] Successfully recovered using strategy: ${strategy}`);
+          logger.debug(`✅ [RECOVERY] Successfully recovered using strategy: ${strategy}`);
           this.consecutiveFailures = 0;
           return {
             success: true,
@@ -141,7 +144,7 @@ class StreamRecoveryService {
         }
 
       } catch (recoveryError) {
-        console.error(`❌ [RECOVERY] Strategy ${strategy} failed:`, recoveryError);
+        logger.error(`❌ [RECOVERY] Strategy ${strategy} failed:`, recoveryError);
         lastError = recoveryError;
 
         const duration = Date.now() - attemptStartTime;
@@ -160,7 +163,7 @@ class StreamRecoveryService {
           opts.baseDelay * Math.pow(opts.backoffMultiplier, attempts - 1),
           opts.maxDelay
         );
-        console.log(`⏳ [RECOVERY] Waiting ${delay}ms before next attempt`);
+        logger.debug(`⏳ [RECOVERY] Waiting ${delay}ms before next attempt`);
         await this.delay(delay);
       }
     }
@@ -255,7 +258,7 @@ class StreamRecoveryService {
    */
   private async attemptTokenRenewal(streamId: string, userId: string): Promise<boolean> {
     try {
-      console.log('🔑 [RECOVERY] Attempting token renewal');
+      logger.debug('🔑 [RECOVERY] Attempting token renewal');
       
       // Clear token cache to force new token generation
       agoraTokenService.clearCache();
@@ -265,7 +268,7 @@ class StreamRecoveryService {
       
       return renewed;
     } catch (error) {
-      console.error('❌ [RECOVERY] Token renewal failed:', error);
+      logger.error('❌ [RECOVERY] Token renewal failed:', error);
       return false;
     }
   }
@@ -275,7 +278,7 @@ class StreamRecoveryService {
    */
   private async attemptReconnect(streamId: string, userId: string): Promise<boolean> {
     try {
-      console.log('🔄 [RECOVERY] Attempting reconnect');
+      logger.debug('🔄 [RECOVERY] Attempting reconnect');
       
       // Leave current channel if still connected
       await agoraService.leaveChannel();
@@ -288,7 +291,7 @@ class StreamRecoveryService {
       
       return joined;
     } catch (error) {
-      console.error('❌ [RECOVERY] Reconnect failed:', error);
+      logger.error('❌ [RECOVERY] Reconnect failed:', error);
       return false;
     }
   }
@@ -298,7 +301,7 @@ class StreamRecoveryService {
    */
   private async attemptReinitialize(streamId: string, userId: string): Promise<boolean> {
     try {
-      console.log('🔄 [RECOVERY] Attempting reinitialization');
+      logger.debug('🔄 [RECOVERY] Attempting reinitialization');
       
       // Destroy current service
       await agoraService.destroy();
@@ -316,7 +319,7 @@ class StreamRecoveryService {
       
       return joined;
     } catch (error) {
-      console.error('❌ [RECOVERY] Reinitialization failed:', error);
+      logger.error('❌ [RECOVERY] Reinitialization failed:', error);
       return false;
     }
   }
@@ -326,7 +329,7 @@ class StreamRecoveryService {
    */
   private async attemptFallbackMode(streamId: string, userId: string): Promise<boolean> {
     try {
-      console.log('🔄 [RECOVERY] Attempting fallback mode');
+      logger.debug('🔄 [RECOVERY] Attempting fallback mode');
       
       // Disable video to reduce bandwidth
       await agoraService.enableLocalVideo(false);
@@ -336,7 +339,7 @@ class StreamRecoveryService {
       
       return joined;
     } catch (error) {
-      console.error('❌ [RECOVERY] Fallback mode failed:', error);
+      logger.error('❌ [RECOVERY] Fallback mode failed:', error);
       return false;
     }
   }
@@ -351,7 +354,7 @@ class StreamRecoveryService {
 
     const now = Date.now();
     if (now - this.circuitBreakerOpenTime > options.circuitBreakerTimeout) {
-      console.log('🔄 [RECOVERY] Circuit breaker timeout expired, closing');
+      logger.debug('🔄 [RECOVERY] Circuit breaker timeout expired, closing');
       this.circuitBreakerOpen = false;
       this.consecutiveFailures = 0;
       return false;
@@ -364,7 +367,7 @@ class StreamRecoveryService {
    * Open circuit breaker
    */
   private openCircuitBreaker(): void {
-    console.warn('⚠️ [RECOVERY] Opening circuit breaker due to consecutive failures');
+    logger.warn('⚠️ [RECOVERY] Opening circuit breaker due to consecutive failures');
     this.circuitBreakerOpen = true;
     this.circuitBreakerOpenTime = Date.now();
   }
@@ -421,7 +424,7 @@ class StreamRecoveryService {
     this.circuitBreakerOpen = false;
     this.circuitBreakerOpenTime = 0;
     this.consecutiveFailures = 0;
-    console.log('🔄 [RECOVERY] Recovery state reset');
+    logger.debug('🔄 [RECOVERY] Recovery state reset');
   }
 }
 

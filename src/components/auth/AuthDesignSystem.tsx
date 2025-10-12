@@ -13,48 +13,48 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
-// Discord Dark Mode Design System (WCAG AA compliant)
+// Discord Dark Mode Design System (WCAG AA compliant) - Dark theme for login/auth screens
 export const AuthColors = {
-  // Discord-inspired dark background colors
-  backgroundGradient: ['#36393f', '#2f3136', '#202225'],
-  background: '#0f1117', // Pure dark gray/black - app background
-  cardBackground: '#151924', // Slightly lighter dark - panels/cards
-  cardBackgroundLight: '#40444b',
+  // Very dark background colors for login screens (darker than main app)
+  backgroundGradient: ['#0f1117', '#1a1c20', '#202225'],
+  background: '#0f1117',        // Very dark - darker than main app for login
+  cardBackground: '#151924',    // Dark card background
+  cardBackgroundLight: '#1e2128',
 
   // Dark mode text colors
-  primaryText: '#ffffff', // Headings - white
-  secondaryText: '#D1D5DB', // Body - light gray
-  labelText: '#8e9297',
-  mutedText: '#9AA3B2', // Subtext/helper - muted gray
+  primaryText: '#ffffff',       // White text
+  secondaryText: '#D1D5DB',     // Light gray body text
+  labelText: '#8e9297',         // Muted labels
+  mutedText: '#9AA3B2',         // Subtext/muted text
 
-  // Discord button styling with new accent
-  primaryButton: '#5865F2', // Vibrant indigo - Discord blurple
+  // Discord button styling
+  primaryButton: '#5865F2',     // Discord blurple
   primaryButtonGradient: ['#5865F2', '#4752c4'],
   primaryButtonHover: '#4752c4',
   secondaryButton: '#4f545c',
   secondaryButtonText: '#ffffff',
 
   // Discord-style interactive elements
-  linkColor: '#00b0f4', // Discord link blue
-  inputBackground: '#1e2230', // Darker input background for Discord style
-  inputBorder: '#252A3A', // Subtle borders/dividers
-  inputBorderFocus: '#5865F2', // Vibrant indigo focus with glow
+  linkColor: '#00b0f4',         // Discord link blue
+  inputBackground: '#1e2230',   // Dark input background
+  inputBorder: '#252A3A',       // Subtle borders
+  inputBorderFocus: '#5865F2',  // Focus color
   inputBorderError: '#ed4245',
   inputBorderSuccess: '#57f287',
-  inputText: '#ffffff', // White input text
+  inputText: '#ffffff',         // White input text
 
   // Dark mode status colors
   errorColor: '#ed4245',
   successColor: '#57f287',
   warningColor: '#fee75c',
-  placeholderColor: '#9AA3B2', // Muted gray for placeholders
+  placeholderColor: '#9AA3B2',  // Muted gray placeholders
 
   // Dark mode shadows and elevation
   shadowColor: 'rgba(0, 0, 0, 0.3)',
   shadowColorDark: 'rgba(0, 0, 0, 0.5)',
 
   // Additional UI elements
-  divider: '#252A3A', // Subtle 1px line dividers
+  divider: '#252A3A',           // Subtle dividers
   overlay: 'rgba(0, 0, 0, 0.85)',
 
   // Discord accent colors

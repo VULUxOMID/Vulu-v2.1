@@ -14,7 +14,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useLiveStreams } from '../context/LiveStreamContext';
@@ -49,7 +49,7 @@ const LIVE_TAGS: LiveTag[] = [
 ];
 
 const LiveStreamSetupScreen: React.FC = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { createNewStream } = useLiveStreams();
 
@@ -112,7 +112,7 @@ const LiveStreamSetupScreen: React.FC = () => {
   };
 
   const handleBackPress = () => {
-    router.back();
+    navigation.goBack();
   };
 
   const handleTagPress = () => {
@@ -181,7 +181,7 @@ const LiveStreamSetupScreen: React.FC = () => {
         microphoneEnabled,
         hostId: user.uid,
         hostName: user.displayName || 'Host',
-        hostAvatar: user.photoURL || 'https://via.placeholder.com/150/6E69F4/FFFFFF?text=H',
+        hostAvatar: user.photoURL || 'https://null/150/6E69F4/FFFFFF?text=H',
         environment: isExpoGo ? 'Expo Go' : 'Production Build'
       });
 
@@ -191,7 +191,7 @@ const LiveStreamSetupScreen: React.FC = () => {
         finalTitle,
         user.uid,
         user.displayName || 'Host',
-        user.photoURL || 'https://via.placeholder.com/150/6E69F4/FFFFFF?text=H'
+        user.photoURL || 'https://null/150/6E69F4/FFFFFF?text=H'
       );
 
       console.log('✅ Stream created successfully with ID:', streamId);
@@ -201,7 +201,7 @@ const LiveStreamSetupScreen: React.FC = () => {
         streamId,
         title: finalTitle, // Use the final title (with fallback applied)
         hostName: user.displayName || 'Host',
-        hostAvatar: user.photoURL || 'https://via.placeholder.com/150/6E69F4/FFFFFF?text=H',
+        hostAvatar: user.photoURL || 'https://null/150/6E69F4/FFFFFF?text=H',
         isHost: 'true',
         viewCount: '0',
         tag: selectedTag.label,
@@ -214,7 +214,7 @@ const LiveStreamSetupScreen: React.FC = () => {
 
       console.log('📋 Navigation parameters:', navigationParams);
 
-      router.push({
+      navigation.navigate({
         pathname: '/livestream',
         params: navigationParams
       });

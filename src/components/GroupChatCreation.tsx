@@ -152,7 +152,7 @@ const GroupChatCreation = ({ visible, onClose, onGroupCreated }: GroupChatCreati
           <Text style={styles.friendEmail}>{item.email}</Text>
         </View>
       </View>
-      <View style={[styles.checkbox, item.selected && styles.checkedBox]}>
+      <View style={[styles.checkbox, item.selected && styles.checkboxChecked]}>
         {item.selected && (
           <MaterialIcons name="check" size={16} color="#FFFFFF" />
         )}
@@ -221,7 +221,7 @@ const GroupChatCreation = ({ visible, onClose, onGroupCreated }: GroupChatCreati
                       {(user.displayName || user.email || 'Unknown').split(' ')[0]}
                     </Text>
                     <TouchableOpacity onPress={() => toggleUserSelection(user.uid)}>
-                      <MaterialIcons name="close" size={16} color="#666" />
+                      <MaterialIcons name="close" size={16} color="#9AA3B2" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -234,12 +234,12 @@ const GroupChatCreation = ({ visible, onClose, onGroupCreated }: GroupChatCreati
             
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color="#5865F2" />
                 <Text style={styles.loadingText}>Loading friends...</Text>
               </View>
             ) : friends.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <MaterialIcons name="people-outline" size={48} color="#CCC" />
+                <MaterialIcons name="people-outline" size={48} color="#72767D" />
                 <Text style={styles.emptyText}>No friends found</Text>
                 <Text style={styles.emptySubtext}>Add friends to create group chats</Text>
               </View>
@@ -262,7 +262,7 @@ const GroupChatCreation = ({ visible, onClose, onGroupCreated }: GroupChatCreati
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0f1117', // VULU dark background
   },
   header: {
     flexDirection: 'row',
@@ -271,22 +271,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#202225', // Discord border color
+    backgroundColor: '#151924', // Card background
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5, // Android shadow
   },
   cancelButton: {
     padding: 8,
   },
   cancelText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#D1D5DB', // Secondary text color
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#000',
+    color: '#FFFFFF', // Primary text color
   },
   createButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#5865F2', // Discord blurple
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -294,7 +300,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   disabledButton: {
-    backgroundColor: '#CCC',
+    backgroundColor: '#4f545c', // Discord secondary button
   },
   createText: {
     fontSize: 16,
@@ -304,6 +310,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
+    backgroundColor: '#0f1117', // Dark background
   },
   groupInfoSection: {
     marginBottom: 24,
@@ -311,17 +318,23 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#000',
+    color: '#FFFFFF', // Primary text
     marginBottom: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#252A3A', // Discord input border
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 12,
+    backgroundColor: '#1e2230', // Discord input background
+    color: '#FFFFFF', // White text
+  },
+  inputFocused: {
+    borderColor: '#5865F2', // Discord blurple when focused
+    borderWidth: 2,
   },
   descriptionInput: {
     height: 80,
@@ -338,7 +351,7 @@ const styles = StyleSheet.create({
   selectedUserChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0F0F0',
+    backgroundColor: '#252A3A', // Discord chip background
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -346,7 +359,7 @@ const styles = StyleSheet.create({
   },
   selectedUserName: {
     fontSize: 14,
-    color: '#333',
+    color: '#D1D5DB', // Secondary text
   },
   friendsSection: {
     flex: 1,
@@ -359,7 +372,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#666',
+    color: '#9AA3B2', // Muted text
   },
   emptyContainer: {
     flex: 1,
@@ -370,11 +383,11 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#666',
+    color: '#9AA3B2', // Muted text
   },
   emptySubtext: {
     fontSize: 14,
-    color: '#999',
+    color: '#72767D', // Secondary text
   },
   friendsList: {
     flex: 1,
@@ -386,10 +399,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#202225', // Discord border
   },
   selectedFriendItem: {
-    backgroundColor: '#F0F8FF',
+    backgroundColor: '#252A3A', // Discord selection background
   },
   friendInfo: {
     flexDirection: 'row',
@@ -400,7 +413,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#007AFF',
+    backgroundColor: '#5865F2', // Discord accent color
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -421,25 +434,43 @@ const styles = StyleSheet.create({
   friendName: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#000',
+    color: '#FFFFFF', // Primary text
+    marginBottom: 2,
   },
   friendEmail: {
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    color: '#9AA3B2', // Muted text
   },
   checkbox: {
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: 4, // Square corners like Discord
     borderWidth: 2,
-    borderColor: '#CCC',
+    borderColor: '#5865F2', // Discord accent
     justifyContent: 'center',
     alignItems: 'center',
   },
-  checkedBox: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+  checkboxChecked: {
+    backgroundColor: '#5865F2', // Discord accent
+  },
+  errorContainer: {
+    backgroundColor: '#ED4245', // Discord error color
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    flex: 1,
+    marginLeft: 8,
+  },
+  errorDismissButton: {
+    padding: 4,
   },
 });
 

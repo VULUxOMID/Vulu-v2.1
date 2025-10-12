@@ -115,7 +115,7 @@ class MessageSearchService {
         totalCount: sortedResults.length,
       };
     } catch (error) {
-      console.error('Error searching messages:', error);
+      logger.error('Error searching messages:', error);
       throw new Error('Failed to search messages');
     }
   }
@@ -185,7 +185,7 @@ class MessageSearchService {
           }
         }
       } catch (error) {
-        console.warn(`Error searching in conversation ${conversationId}:`, error);
+        logger.warn(`Error searching in conversation ${conversationId}:`, error);
         // Continue with other conversations
       }
     }
@@ -266,7 +266,7 @@ class MessageSearchService {
         totalCount: sortedResults.length,
       };
     } catch (error) {
-      console.error('Error searching in conversation:', error);
+      logger.error('Error searching in conversation:', error);
       throw new Error('Failed to search in conversation');
     }
   }

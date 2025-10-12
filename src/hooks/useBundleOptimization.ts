@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { bundleOptimizer } from '../utils/bundleOptimization';
-import { performanceService } from '../services/performanceService';
+import { performanceService } from '../services/performance';
 
 export interface UseBundleOptimizationReturn {
   // Bundle info

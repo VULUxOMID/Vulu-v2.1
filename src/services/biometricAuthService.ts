@@ -46,7 +46,7 @@ class BiometricAuthService {
         securityLevel,
       };
     } catch (error) {
-      console.warn('Error checking biometric capabilities:', error);
+      logger.warn('Error checking biometric capabilities:', error);
       return {
         isAvailable: false,
         supportedTypes: [],
@@ -113,13 +113,13 @@ class BiometricAuthService {
       try {
         await SecureStore.setItemAsync(this.BIOMETRIC_CREDENTIALS_KEY, JSON.stringify(credentials));
       } catch (error) {
-        console.warn('Failed to store credentials in secure storage, falling back to AsyncStorage:', error);
+        logger.warn('Failed to store credentials in secure storage, falling back to AsyncStorage:', error);
         await AsyncStorage.setItem(this.BIOMETRIC_CREDENTIALS_KEY, JSON.stringify(credentials));
       }
       
       return true;
     } catch (error: any) {
-      console.warn('Error enabling biometric auth:', error);
+      logger.warn('Error enabling biometric auth:', error);
       throw new Error(error.message || 'Failed to enable biometric authentication');
     }
   }
@@ -135,14 +135,14 @@ class BiometricAuthService {
         if (this.BIOMETRIC_CREDENTIALS_KEY && this.BIOMETRIC_CREDENTIALS_KEY.trim() !== '') {
           await SecureStore.deleteItemAsync(this.BIOMETRIC_CREDENTIALS_KEY);
         } else {
-          console.warn('Invalid biometric credentials key, skipping SecureStore deletion');
+          logger.warn('Invalid biometric credentials key, skipping SecureStore deletion');
         }
       } catch (error) {
-        console.warn('Failed to remove from secure storage, trying AsyncStorage:', error);
+        logger.warn('Failed to remove from secure storage, trying AsyncStorage:', error);
         await AsyncStorage.removeItem(this.BIOMETRIC_CREDENTIALS_KEY);
       }
     } catch (error) {
-      console.warn('Error disabling biometric auth:', error);
+      logger.warn('Error disabling biometric auth:', error);
       throw new Error('Failed to disable biometric authentication');
     }
   }
@@ -156,7 +156,7 @@ class BiometricAuthService {
       const config: BiometricAuthConfig = JSON.parse(configStr);
       return config.enabled;
     } catch (error) {
-      console.warn('Error checking biometric auth status:', error);
+      logger.warn('Error checking biometric auth status:', error);
       return false;
     }
   }
@@ -169,7 +169,7 @@ class BiometricAuthService {
 
       return JSON.parse(configStr);
     } catch (error) {
-      console.warn('Error getting biometric config:', error);
+      logger.warn('Error getting biometric config:', error);
       return null;
     }
   }
@@ -215,7 +215,7 @@ class BiometricAuthService {
         try {
           credentialsStr = await SecureStore.getItemAsync(this.BIOMETRIC_CREDENTIALS_KEY);
         } catch (error) {
-          console.warn('Failed to read from secure storage, trying AsyncStorage:', error);
+          logger.warn('Failed to read from secure storage, trying AsyncStorage:', error);
           credentialsStr = await AsyncStorage.getItem(this.BIOMETRIC_CREDENTIALS_KEY);
         }
 
@@ -236,7 +236,7 @@ class BiometricAuthService {
           };
         } else {
           // Biometric auth succeeded but no stored credentials found
-          console.warn('Biometric authentication succeeded but no stored credentials found');
+          logger.warn('Biometric authentication succeeded but no stored credentials found');
 
           // Clear stale biometric config
           await this.disableBiometricAuth();
@@ -253,7 +253,7 @@ class BiometricAuthService {
         error: result.error || 'Biometric authentication failed',
       };
     } catch (error: any) {
-      console.warn('Error during biometric authentication:', error);
+      logger.warn('Error during biometric authentication:', error);
       return {
         success: false,
         error: error.message || 'Biometric authentication failed',
@@ -270,7 +270,7 @@ class BiometricAuthService {
       const capabilities = await this.getCapabilities();
       return capabilities.isAvailable && capabilities.isEnrolled;
     } catch (error) {
-      console.warn('Error checking if should offer biometric auth:', error);
+      logger.warn('Error checking if should offer biometric auth:', error);
       return false;
     }
   }
@@ -281,7 +281,7 @@ class BiometricAuthService {
       const config = await this.getBiometricConfig();
       return config?.userEmail || null;
     } catch (error) {
-      console.warn('Error getting stored user email:', error);
+      logger.warn('Error getting stored user email:', error);
       return null;
     }
   }
@@ -291,7 +291,7 @@ class BiometricAuthService {
     try {
       await this.disableBiometricAuth();
     } catch (error) {
-      console.warn('Error clearing biometric data:', error);
+      logger.warn('Error clearing biometric data:', error);
     }
   }
 }

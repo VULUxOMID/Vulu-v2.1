@@ -62,18 +62,18 @@ class SessionService {
       if (this.sessionData) {
         const isValid = this.isSessionValid();
         if (!isValid) {
-          console.log('🔄 Session expired, clearing session data');
+          logger.debug('🔄 Session expired, clearing session data');
           await this.endSession(); // Just end session, don't trigger signOut
           return;
         } else {
-          console.log('✅ Existing session is still valid');
+          logger.debug('✅ Existing session is still valid');
         }
       }
 
       // Start new session if none exists (only if auto-logout is enabled)
       if (!this.sessionData && this.config.enableAutoLogout) {
         await this.startSession();
-        console.log('🔄 Started new session');
+        logger.debug('🔄 Started new session');
       }
 
       // Set up timers only if auto-logout is enabled
@@ -137,7 +137,7 @@ class SessionService {
         this.sessionData = JSON.parse(stored);
       }
     } catch (error) {
-      console.warn('Failed to load session data:', error);
+      logger.warn('Failed to load session data:', error);
       this.sessionData = null;
     }
   }
@@ -148,7 +148,7 @@ class SessionService {
     try {
       await AsyncStorage.setItem(this.SESSION_STORAGE_KEY, JSON.stringify(this.sessionData));
     } catch (error) {
-      console.warn('Failed to save session data:', error);
+      logger.warn('Failed to save session data:', error);
     }
   }
 
@@ -214,7 +214,7 @@ class SessionService {
       const timeoutMs = this.config.backgroundTimeoutMinutes * 60 * 1000;
       this.backgroundTimer = setTimeout(() => {
         this.expireSession().catch((error) => {
-          console.warn('Error during background session expiration:', error);
+          logger.warn('Error during background session expiration:', error);
         });
       }, timeoutMs);
       
@@ -242,10 +242,10 @@ class SessionService {
 
     // Only trigger session expired callback if auto-logout is enabled
     if (this.config.enableAutoLogout && this.onSessionExpired) {
-      console.log('🔄 Session expired, triggering signOut');
+      logger.debug('🔄 Session expired, triggering signOut');
       this.onSessionExpired();
     } else {
-      console.log('🔄 Session expired but auto-logout disabled, maintaining auth state');
+      logger.debug('🔄 Session expired but auto-logout disabled, maintaining auth state');
     }
   }
 

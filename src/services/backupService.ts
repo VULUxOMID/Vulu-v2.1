@@ -102,7 +102,7 @@ class BackupService {
     }
   ): Promise<string> {
     try {
-      console.log('🔄 Creating backup with options:', options);
+      logger.debug('🔄 Creating backup with options:', options);
 
       // Get conversations to backup
       const conversations = await this.getConversationsForBackup(userId, options);
@@ -153,10 +153,10 @@ class BackupService {
       // Store backup reference locally
       await this.storeBackupReference(backupData, filePath);
 
-      console.log('✅ Backup created successfully:', filePath);
+      logger.debug('✅ Backup created successfully:', filePath);
       return filePath;
     } catch (error) {
-      console.error('Error creating backup:', error);
+      logger.error('Error creating backup:', error);
       throw error;
     }
   }
@@ -208,7 +208,7 @@ class BackupService {
       await FileSystem.writeAsStringAsync(filePath, jsonData);
       return filePath;
     } catch (error) {
-      console.error('Error exporting to JSON:', error);
+      logger.error('Error exporting to JSON:', error);
       throw error;
     }
   }
@@ -226,10 +226,10 @@ class BackupService {
       const textFilePath = filePath.replace('.pdf', '.txt');
       await FileSystem.writeAsStringAsync(textFilePath, textContent);
       
-      console.log('📄 PDF export created as text file (PDF library needed for actual PDF)');
+      logger.debug('📄 PDF export created as text file (PDF library needed for actual PDF)');
       return textFilePath;
     } catch (error) {
-      console.error('Error exporting to PDF:', error);
+      logger.error('Error exporting to PDF:', error);
       throw error;
     }
   }
@@ -243,7 +243,7 @@ class BackupService {
       await FileSystem.writeAsStringAsync(filePath, textContent);
       return filePath;
     } catch (error) {
-      console.error('Error exporting to text:', error);
+      logger.error('Error exporting to text:', error);
       throw error;
     }
   }
@@ -314,7 +314,7 @@ class BackupService {
 
       return conversations;
     } catch (error) {
-      console.error('Error getting conversations for backup:', error);
+      logger.error('Error getting conversations for backup:', error);
       return [];
     }
   }
@@ -347,7 +347,7 @@ class BackupService {
 
       return filteredMessages;
     } catch (error) {
-      console.error('Error getting messages for backup:', error);
+      logger.error('Error getting messages for backup:', error);
       return [];
     }
   }
@@ -409,7 +409,7 @@ class BackupService {
 
       await AsyncStorage.setItem(this.BACKUP_STORAGE_KEY, JSON.stringify(recentBackups));
     } catch (error) {
-      console.error('Error storing backup reference:', error);
+      logger.error('Error storing backup reference:', error);
     }
   }
 
@@ -421,7 +421,7 @@ class BackupService {
       const stored = await AsyncStorage.getItem(this.BACKUP_STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Error getting stored backups:', error);
+      logger.error('Error getting stored backups:', error);
       return [];
     }
   }
@@ -440,7 +440,7 @@ class BackupService {
         throw new Error('Sharing is not available on this device');
       }
     } catch (error) {
-      console.error('Error sharing backup:', error);
+      logger.error('Error sharing backup:', error);
       throw error;
     }
   }
@@ -476,9 +476,9 @@ class BackupService {
       // Restore conversations and messages
       await this.restoreBackup(backupData, options);
 
-      console.log('✅ Backup imported successfully');
+      logger.debug('✅ Backup imported successfully');
     } catch (error) {
-      console.error('Error importing backup:', error);
+      logger.error('Error importing backup:', error);
       throw error;
     }
   }
@@ -502,7 +502,7 @@ class BackupService {
    */
   private async restoreBackup(backupData: BackupData, options: RestoreOptions): Promise<void> {
     try {
-      console.log('🔄 Restoring backup...');
+      logger.debug('🔄 Restoring backup...');
       
       // TODO: Implement actual restore logic
       // This would involve:
@@ -511,13 +511,13 @@ class BackupService {
       // 3. Handling duplicates based on options
       // 4. Updating conversation metadata
       
-      console.log('⚠️ Backup restore not fully implemented - would restore:', {
+      logger.debug('⚠️ Backup restore not fully implemented - would restore:', {
         conversations: backupData.conversations.length,
         totalMessages: backupData.metadata.totalMessages,
         options,
       });
     } catch (error) {
-      console.error('Error restoring backup:', error);
+      logger.error('Error restoring backup:', error);
       throw error;
     }
   }
@@ -537,9 +537,9 @@ class BackupService {
       const updatedBackups = backups.filter(backup => backup.filePath !== filePath);
       await AsyncStorage.setItem(this.BACKUP_STORAGE_KEY, JSON.stringify(updatedBackups));
 
-      console.log('✅ Backup deleted:', filePath);
+      logger.debug('✅ Backup deleted:', filePath);
     } catch (error) {
-      console.error('Error deleting backup:', error);
+      logger.error('Error deleting backup:', error);
       throw error;
     }
   }
@@ -552,7 +552,7 @@ class BackupService {
       const fileInfo = await FileSystem.getInfoAsync(filePath);
       return fileInfo.exists ? fileInfo.size || 0 : 0;
     } catch (error) {
-      console.error('Error getting backup size:', error);
+      logger.error('Error getting backup size:', error);
       return 0;
     }
   }
@@ -572,7 +572,7 @@ class BackupService {
           try {
             await this.deleteBackup(backup.filePath);
           } catch (error) {
-            console.warn('Failed to delete old backup:', backup.filePath);
+            logger.warn('Failed to delete old backup:', backup.filePath);
           }
         } else {
           validBackups.push(backup);
@@ -580,9 +580,9 @@ class BackupService {
       }
 
       await AsyncStorage.setItem(this.BACKUP_STORAGE_KEY, JSON.stringify(validBackups));
-      console.log('✅ Cleaned up old backups');
+      logger.debug('✅ Cleaned up old backups');
     } catch (error) {
-      console.error('Error cleaning up old backups:', error);
+      logger.error('Error cleaning up old backups:', error);
     }
   }
 }

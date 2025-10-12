@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { OnboardingStackParamList } from '../../navigation/OnboardingNavigator';
 import { OnboardingCenteredCard } from '../../components/onboarding/OnboardingCard';
@@ -16,7 +16,7 @@ type HomeHandoffScreenNavigationProp = StackNavigationProp<OnboardingStackParamL
 
 const HomeHandoffScreen: React.FC = () => {
   const navigation = useNavigation<HomeHandoffScreenNavigationProp>();
-  const router = useRouter();
+  const navigation = useNavigation();
   const { onboardingData, completeOnboarding, markStepCompleted, currentStep } = useOnboarding();
   const { completeOnboarding: authCompleteOnboarding } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -35,7 +35,7 @@ const HomeHandoffScreen: React.FC = () => {
       await authCompleteOnboarding(onboardingData);
 
       // Navigate to main app
-      router.replace('/(main)');
+      navigation.replace('/(main)');
     } catch (error) {
       console.error('Error completing onboarding:', error);
       setLoading(false);

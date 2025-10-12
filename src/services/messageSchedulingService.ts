@@ -54,7 +54,7 @@ class MessageSchedulingService {
    */
   initialize(): void {
     this.startSchedulingProcessor();
-    console.log('✅ Message scheduling service initialized');
+    logger.debug('✅ Message scheduling service initialized');
   }
 
   /**
@@ -89,10 +89,10 @@ class MessageSchedulingService {
 
       const docRef = await addDoc(collection(db, 'scheduledMessages'), scheduledMessage);
       
-      console.log(`✅ Message scheduled for ${scheduledFor.toISOString()}`);
+      logger.debug(`✅ Message scheduled for ${scheduledFor.toISOString()}`);
       return docRef.id;
     } catch (error: any) {
-      console.error('Error scheduling message:', error);
+      logger.error('Error scheduling message:', error);
       throw new Error(`Failed to schedule message: ${error.message}`);
     }
   }
@@ -112,9 +112,9 @@ class MessageSchedulingService {
         cancelledBy: userId,
       });
 
-      console.log(`✅ Scheduled message ${messageId} cancelled`);
+      logger.debug(`✅ Scheduled message ${messageId} cancelled`);
     } catch (error: any) {
-      console.error('Error cancelling scheduled message:', error);
+      logger.error('Error cancelling scheduled message:', error);
       throw new Error(`Failed to cancel scheduled message: ${error.message}`);
     }
   }
@@ -150,8 +150,8 @@ class MessageSchedulingService {
 
       return scheduledMessages;
     } catch (error: any) {
-      console.error('Error getting scheduled messages:', error);
-      console.log('Using fallback query strategy (no composite index)');
+      logger.error('Error getting scheduled messages:', error);
+      logger.debug('Using fallback query strategy (no composite index)');
       // Fallback: return empty array instead of throwing
       return [];
     }
@@ -164,7 +164,7 @@ class MessageSchedulingService {
     try {
       const userId = auth?.currentUser?.uid;
       if (!userId) {
-        console.warn('Unauthenticated: user must be logged in to retrieve scheduled messages');
+        logger.warn('Unauthenticated: user must be logged in to retrieve scheduled messages');
         throw new Error('Unauthenticated: user must be logged in to retrieve scheduled messages');
       }
 
@@ -195,8 +195,8 @@ class MessageSchedulingService {
 
       return scheduledMessages;
     } catch (error: any) {
-      console.error('Error getting conversation scheduled messages:', error);
-      console.log('Using fallback query strategy (no composite index)');
+      logger.error('Error getting conversation scheduled messages:', error);
+      logger.debug('Using fallback query strategy (no composite index)');
       // Fallback: return empty array instead of throwing
       return [];
     }
@@ -216,7 +216,7 @@ class MessageSchedulingService {
       }
     }, this.checkInterval);
 
-    console.log(`✅ Scheduling processor started (${this.checkInterval}ms interval)`);
+    logger.debug(`✅ Scheduling processor started (${this.checkInterval}ms interval)`);
   }
 
   /**
@@ -259,7 +259,7 @@ class MessageSchedulingService {
         return;
       }
 
-      console.log(`📤 Processing ${dueMessages.length} scheduled messages`);
+      logger.debug(`📤 Processing ${dueMessages.length} scheduled messages`);
 
       const promises = dueMessages.map(async (m) => {
         await this.sendScheduledMessage(m);
@@ -267,7 +267,7 @@ class MessageSchedulingService {
 
       await Promise.allSettled(promises);
     } catch (error) {
-      console.error('Error processing scheduled messages:', error);
+      logger.error('Error processing scheduled messages:', error);
     } finally {
       this.isProcessing = false;
     }
@@ -310,9 +310,9 @@ class MessageSchedulingService {
         actualMessageId: messageId,
       });
 
-      console.log(`✅ Scheduled message sent: ${scheduledMessage.id}`);
+      logger.debug(`✅ Scheduled message sent: ${scheduledMessage.id}`);
     } catch (error: any) {
-      console.error(`Error sending scheduled message ${scheduledMessage.id}:`, error);
+      logger.error(`Error sending scheduled message ${scheduledMessage.id}:`, error);
       await this.handleScheduledMessageFailure(scheduledMessage, error.message);
     }
   }
@@ -339,7 +339,7 @@ class MessageSchedulingService {
           failedAt: serverTimestamp(),
         });
 
-        console.error(`❌ Scheduled message ${scheduledMessage.id} failed permanently after ${retryCount} attempts`);
+        logger.error(`❌ Scheduled message ${scheduledMessage.id} failed permanently after ${retryCount} attempts`);
       } else {
         // Schedule for retry (exponential backoff)
         const retryDelay = Math.pow(2, retryCount) * 60000; // 2^n minutes
@@ -352,10 +352,10 @@ class MessageSchedulingService {
           lastFailedAt: serverTimestamp(),
         });
 
-        console.warn(`⚠️ Scheduled message ${scheduledMessage.id} failed, retrying in ${retryDelay / 60000} minutes (attempt ${retryCount}/${maxRetries})`);
+        logger.warn(`⚠️ Scheduled message ${scheduledMessage.id} failed, retrying in ${retryDelay / 60000} minutes (attempt ${retryCount}/${maxRetries})`);
       }
     } catch (error) {
-      console.error('Error handling scheduled message failure:', error);
+      logger.error('Error handling scheduled message failure:', error);
     }
   }
 
@@ -369,7 +369,7 @@ class MessageSchedulingService {
     }
 
     this.isProcessing = false;
-    console.log('✅ Message scheduling service cleaned up');
+    logger.debug('✅ Message scheduling service cleaned up');
   }
 
   /**
@@ -400,7 +400,7 @@ class MessageSchedulingService {
 
       return stats;
     } catch (error) {
-      console.error('Error getting scheduling stats:', error);
+      logger.error('Error getting scheduling stats:', error);
       return { pending: 0, sent: 0, failed: 0, cancelled: 0 };
     }
   }

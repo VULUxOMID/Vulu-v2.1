@@ -14,6 +14,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 import { AppState, AppStateStatus } from 'react-native';
 import { UserStatus, AppUser } from './types';
 import * as Crypto from 'expo-crypto';
@@ -50,9 +51,11 @@ export class PresenceService {
   private isActive = false;
   private isOnline = true;
   private lastHeartbeat: number = 0;
-  private heartbeatFrequency = 15000; // 15 seconds (reduced from 30)
-  private connectionCheckFrequency = 5000; // 5 seconds
-  private offlineThreshold = 45000; // 45 seconds (3 missed heartbeats)
+  private lastPresenceUpdate: number = 0;
+  private heartbeatFrequency = 30000; // 30 seconds (increased from 15)
+  private connectionCheckFrequency = 10000; // 10 seconds (increased from 5)
+  private offlineThreshold = 90000; // 90 seconds (3 missed heartbeats)
+  private presenceUpdateThrottle = 25000; // Minimum 25 seconds between presence updates
 
   constructor() {
     // Generate unique device ID
@@ -108,9 +111,9 @@ export class PresenceService {
       // Setup cleanup on app termination
       this.setupCleanupHandlers();
 
-      console.log(`✅ Enhanced presence service initialized for user: ${userId}, device: ${this.currentDeviceId}`);
+      logger.debug(`✅ Enhanced presence service initialized for user: ${userId}, device: ${this.currentDeviceId}`);
     } catch (error: any) {
-      console.error('Error initializing presence service:', error);
+      logger.error('Error initializing presence service:', error);
     }
   }
 
@@ -131,9 +134,9 @@ export class PresenceService {
       const deviceRef = doc(db, 'presence', userId, 'devices', this.currentDeviceId);
       await setDoc(deviceRef, deviceSession);
 
-      console.log(`✅ Device session registered: ${this.currentDeviceId}`);
+      // Reduced logging
     } catch (error) {
-      console.error('Error registering device session:', error);
+      logger.error('Error registering device session:', error);
     }
   }
 
@@ -151,13 +154,13 @@ export class PresenceService {
           await this.sendHeartbeat();
           this.lastHeartbeat = Date.now();
         } catch (error) {
-          console.error('Heartbeat failed:', error);
+          logger.error('Heartbeat failed:', error);
           this.handleHeartbeatFailure();
         }
       }
     }, this.heartbeatFrequency);
 
-    console.log(`✅ Enhanced heartbeat started (${this.heartbeatFrequency}ms interval)`);
+    logger.debug(`✅ Enhanced heartbeat started (${this.heartbeatFrequency}ms interval)`);
   }
 
   /**
@@ -177,7 +180,7 @@ export class PresenceService {
       // Update main presence document
       await this.updateUserPresence(this.isOnline ? 'online' : 'offline');
     } catch (error) {
-      console.error('Error sending heartbeat:', error);
+      logger.error('Error sending heartbeat:', error);
       throw error;
     }
   }
@@ -186,7 +189,7 @@ export class PresenceService {
    * Handle heartbeat failures
    */
   private handleHeartbeatFailure(): void {
-    console.warn('Heartbeat failed, checking connection...');
+    logger.warn('Heartbeat failed, checking connection...');
     this.isOnline = false;
 
     // Try to reconnect after a delay
@@ -207,7 +210,7 @@ export class PresenceService {
       this.checkConnection();
     }, this.connectionCheckFrequency);
 
-    console.log(`✅ Connection monitoring started (${this.connectionCheckFrequency}ms interval)`);
+    logger.debug(`✅ Connection monitoring started (${this.connectionCheckFrequency}ms interval)`);
   }
 
   /**
@@ -221,7 +224,7 @@ export class PresenceService {
 
       if (!this.isOnline) {
         this.isOnline = true;
-        console.log('✅ Connection restored');
+        logger.debug('✅ Connection restored');
 
         // Resume heartbeat if needed
         if (this.isActive && this.currentUserId) {
@@ -231,7 +234,7 @@ export class PresenceService {
     } catch (error) {
       if (this.isOnline) {
         this.isOnline = false;
-        console.warn('❌ Connection lost');
+        logger.warn('❌ Connection lost');
       }
     }
   }
@@ -265,9 +268,9 @@ export class PresenceService {
       // Update main presence based on remaining devices
       await this.updatePresenceFromDevices();
 
-      console.log(`✅ Device session cleaned up: ${this.currentDeviceId}`);
+      logger.debug(`✅ Device session cleaned up: ${this.currentDeviceId}`);
     } catch (error) {
-      console.error('Error cleaning up device session:', error);
+      logger.error('Error cleaning up device session:', error);
     }
   }
 
@@ -324,7 +327,7 @@ export class PresenceService {
       await setDoc(presenceRef, presenceData);
 
     } catch (error) {
-      console.error('Error updating presence from devices:', error);
+      logger.error('Error updating presence from devices:', error);
     }
   }
 
@@ -334,7 +337,16 @@ export class PresenceService {
   async updateUserPresence(status: UserStatus): Promise<void> {
     if (!this.currentUserId) return;
 
+    // Throttle presence updates - don't update more than once per throttle period
+    const now = Date.now();
+    if (now - this.lastPresenceUpdate < this.presenceUpdateThrottle) {
+      // Too soon since last update, skip to reduce spam
+      return;
+    }
+
     try {
+      this.lastPresenceUpdate = now;
+
       // Update device session first
       if (this.currentDeviceId) {
         const deviceRef = doc(db, 'presence', this.currentUserId, 'devices', this.currentDeviceId);
@@ -356,9 +368,9 @@ export class PresenceService {
         lastSeen: serverTimestamp()
       });
 
-      console.log(`✅ Enhanced user presence updated: ${status} (device: ${this.currentDeviceId})`);
+      // Reduced logging
     } catch (error: any) {
-      console.error('Error updating user presence:', error);
+      logger.error('Error updating user presence:', error);
     }
   }
 
@@ -376,9 +388,9 @@ export class PresenceService {
         lastActivity: serverTimestamp()
       });
 
-      console.log('📡 User set to away status');
+      logger.debug('📡 User set to away status');
     } catch (error: any) {
-      console.error('Error setting user away:', error);
+      logger.error('Error setting user away:', error);
     }
   }
 
@@ -396,9 +408,9 @@ export class PresenceService {
         lastSeen: serverTimestamp()
       });
 
-      console.log('📡 User set to offline');
+      logger.debug('📡 User set to offline');
     } catch (error: any) {
-      console.error('Error setting user offline:', error);
+      logger.error('Error setting user offline:', error);
     }
   }
 
@@ -426,7 +438,7 @@ export class PresenceService {
         });
       }
     }, (error) => {
-      console.error(`Error listening to user ${userId} presence:`, error);
+      logger.error(`Error listening to user ${userId} presence:`, error);
       callback({
         uid: userId,
         status: 'offline',
@@ -494,7 +506,7 @@ export class PresenceService {
         ...doc.data()
       })) as AppUser[];
     } catch (error: any) {
-      console.error('Error getting online friends:', error);
+      logger.error('Error getting online friends:', error);
       return [];
     }
   }
@@ -503,7 +515,7 @@ export class PresenceService {
    * Start heartbeat to maintain presence (legacy method - use startEnhancedHeartbeat)
    */
   private startHeartbeat(): void {
-    console.warn('Using legacy heartbeat - consider using startEnhancedHeartbeat()');
+    logger.warn('Using legacy heartbeat - consider using startEnhancedHeartbeat()');
     this.startEnhancedHeartbeat();
   }
 
@@ -563,9 +575,9 @@ export class PresenceService {
 
       this.currentUserId = null;
 
-      console.log('✅ Enhanced presence service cleaned up');
+      logger.debug('✅ Enhanced presence service cleaned up');
     } catch (error: any) {
-      console.error('Error cleaning up presence service:', error);
+      logger.error('Error cleaning up presence service:', error);
     }
   }
 

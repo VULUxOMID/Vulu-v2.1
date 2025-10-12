@@ -118,7 +118,7 @@ class StreamDiscoveryService {
         realtime = false
       } = options;
 
-      console.log('🔍 Discovering streams with filters:', filters);
+      logger.debug('🔍 Discovering streams with filters:', filters);
 
       // Build Firestore query
       let streamQuery = collection(db, 'streams');
@@ -188,11 +188,11 @@ class StreamDiscoveryService {
       const cacheKey = this.generateCacheKey(filters, options);
       this.discoveryCache.set(cacheKey, streams);
 
-      console.log(`✅ Discovered ${streams.length} streams`);
+      logger.debug(`✅ Discovered ${streams.length} streams`);
       return streams;
 
     } catch (error: any) {
-      console.error('Failed to discover streams:', error);
+      logger.error('Failed to discover streams:', error);
       throw new Error(`Stream discovery failed: ${error.message}`);
     }
   }
@@ -246,7 +246,7 @@ class StreamDiscoveryService {
       return trendingStreams;
 
     } catch (error: any) {
-      console.error('Failed to get trending streams:', error);
+      logger.error('Failed to get trending streams:', error);
       return [];
     }
   }
@@ -259,7 +259,7 @@ class StreamDiscoveryService {
     limit: number = 10
   ): Promise<StreamRecommendation[]> {
     try {
-      console.log(`🎯 Getting recommendations for user: ${userId}`);
+      logger.debug(`🎯 Getting recommendations for user: ${userId}`);
 
       const recommendations: StreamRecommendation[] = [];
       
@@ -303,7 +303,7 @@ class StreamDiscoveryService {
         .slice(0, limit);
 
     } catch (error: any) {
-      console.error('Failed to get recommended streams:', error);
+      logger.error('Failed to get recommended streams:', error);
       return [];
     }
   }
@@ -329,7 +329,7 @@ class StreamDiscoveryService {
       return categoryData.sort((a, b) => b.count - a.count);
 
     } catch (error: any) {
-      console.error('Failed to get popular categories:', error);
+      logger.error('Failed to get popular categories:', error);
       return [];
     }
   }
@@ -347,7 +347,7 @@ class StreamDiscoveryService {
     // Stop existing listener if any
     this.stopRealtimeDiscovery(cacheKey);
 
-    console.log('🔄 Starting real-time discovery:', cacheKey);
+    logger.debug('🔄 Starting real-time discovery:', cacheKey);
 
     // Build query (similar to discoverStreams but with onSnapshot)
     let streamQuery = collection(db, 'streams');
@@ -396,7 +396,7 @@ class StreamDiscoveryService {
         callback(streams);
       },
       (error) => {
-        console.error('Real-time discovery error:', error);
+        logger.error('Real-time discovery error:', error);
       }
     );
 
@@ -412,7 +412,7 @@ class StreamDiscoveryService {
     if (unsubscribe) {
       unsubscribe();
       this.realtimeListeners.delete(cacheKey);
-      console.log('🛑 Stopped real-time discovery:', cacheKey);
+      logger.debug('🛑 Stopped real-time discovery:', cacheKey);
     }
   }
 
@@ -429,7 +429,7 @@ class StreamDiscoveryService {
    */
   clearCache(): void {
     this.discoveryCache.clear();
-    console.log('🗑️ Discovery cache cleared');
+    logger.debug('🗑️ Discovery cache cleared');
   }
 
   /**
@@ -526,13 +526,13 @@ class StreamDiscoveryService {
     this.trendingAnalysisInterval = setInterval(async () => {
       try {
         await this.getTrendingStreams();
-        console.log('📈 Updated trending streams');
+        logger.debug('📈 Updated trending streams');
       } catch (error) {
-        console.error('Failed to update trending streams:', error);
+        logger.error('Failed to update trending streams:', error);
       }
     }, 5 * 60 * 1000);
 
-    console.log('🔄 Started trending analysis interval (5 minute updates)');
+    logger.debug('🔄 Started trending analysis interval (5 minute updates)');
   }
 
   /**
@@ -543,7 +543,7 @@ class StreamDiscoveryService {
     if (this.trendingAnalysisInterval) {
       clearInterval(this.trendingAnalysisInterval);
       this.trendingAnalysisInterval = null;
-      console.log('⏹️ Stopped trending analysis interval');
+      logger.debug('⏹️ Stopped trending analysis interval');
     }
 
     // Stop all real-time listeners
@@ -557,7 +557,7 @@ class StreamDiscoveryService {
     this.trendingStreams = [];
     this.popularCategories = [];
 
-    console.log('🧹 Stream Discovery Service destroyed');
+    logger.debug('🧹 Stream Discovery Service destroyed');
   }
 }
 

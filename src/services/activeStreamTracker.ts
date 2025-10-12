@@ -1,6 +1,9 @@
 import { doc, setDoc, deleteDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { logger } from '../utils/logger';
 import { db, auth } from './firebase';
+import { logger } from '../utils/logger';
 import { GuestUserServiceWrapper } from '../utils/guestUserServiceWrapper';
+import { logger } from '../utils/logger';
 
 /**
  * Service for tracking user's active stream participation
@@ -26,7 +29,7 @@ export class ActiveStreamTracker {
   }> {
     // Handle guest users - they don't have Firebase permissions but that's expected
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} - skipping Firebase permission test (expected behavior)`);
+      logger.debug(`🎭 Guest user ${userId} - skipping Firebase permission test (expected behavior)`);
       return {
         canRead: true,  // Guest users can "read" (locally)
         canWrite: true, // Guest users can "write" (locally)
@@ -38,7 +41,7 @@ export class ActiveStreamTracker {
     let canRead = false;
     let canWrite = false;
 
-    console.log(`🧪 Testing Firebase permissions for user ${userId}`);
+    logger.debug(`🧪 Testing Firebase permissions for user ${userId}`);
 
     // Test write permission - ONLY test activeStream subcollection, NOT create actual streams
     try {
@@ -56,29 +59,29 @@ export class ActiveStreamTracker {
 
       await setDoc(activeStreamRef, testData);
       canWrite = true;
-      console.log(`✅ Write permission test passed for user ${userId}`);
+      logger.debug(`✅ Write permission test passed for user ${userId}`);
 
       // Clean up test data immediately
       await deleteDoc(activeStreamRef);
     } catch (error: any) {
       canWrite = false;
       errors.push(`Write test failed: ${error?.code} - ${error?.message}`);
-      console.log(`❌ Write permission test failed for user ${userId}:`, error?.code);
+      logger.debug(`❌ Write permission test failed for user ${userId}:`, error?.code);
     }
 
     // Test read permission
     try {
       await this.getActiveStream(userId);
       canRead = true;
-      console.log(`✅ Read permission test passed for user ${userId}`);
+      logger.debug(`✅ Read permission test passed for user ${userId}`);
     } catch (error: any) {
       canRead = false;
       errors.push(`Read test failed: ${error?.code} - ${error?.message}`);
-      console.log(`❌ Read permission test failed for user ${userId}:`, error?.code);
+      logger.debug(`❌ Read permission test failed for user ${userId}:`, error?.code);
     }
 
     const result = { canRead, canWrite, errors };
-    console.log(`🧪 Permission test results for user ${userId}:`, result);
+    logger.debug(`🧪 Permission test results for user ${userId}:`, result);
 
     return result;
   }
@@ -89,20 +92,20 @@ export class ActiveStreamTracker {
   static async setActiveStream(userId: string, streamId: string): Promise<void> {
     // Prevent test streams from being created (except permission tests)
     if (streamId.startsWith('test-') && !streamId.includes('permission')) {
-      console.warn(`⚠️ Blocking test stream creation: ${streamId}`);
+      logger.warn(`⚠️ Blocking test stream creation: ${streamId}`);
       return;
     }
 
     // Handle guest users - they can't write to Firebase
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} setting active stream locally: ${streamId}`);
+      logger.debug(`🎭 Guest user ${userId} setting active stream locally: ${streamId}`);
       // For guest users, we could store this in memory or local storage
       // For now, just log and return successfully
       return;
     }
 
     try {
-      console.log(`🔄 Attempting to set active stream for user ${userId}: ${streamId}`);
+      logger.debug(`🔄 Attempting to set active stream for user ${userId}: ${streamId}`);
 
       const activeStreamRef = doc(db, 'users', userId, 'activeStream', 'current');
       const streamData = {
@@ -114,10 +117,10 @@ export class ActiveStreamTracker {
 
       await setDoc(activeStreamRef, streamData);
 
-      console.log(`✅ Successfully set active stream for user ${userId}: ${streamId}`);
+      logger.debug(`✅ Successfully set active stream for user ${userId}: ${streamId}`);
     } catch (error: any) {
-      console.error('❌ Error setting active stream:', error);
-      console.error('Error details:', {
+      logger.error('❌ Error setting active stream:', error);
+      logger.error('Error details:', {
         code: error?.code,
         message: error?.message,
         userId,
@@ -127,9 +130,9 @@ export class ActiveStreamTracker {
 
       // Handle permission errors gracefully
       if (error?.code === 'permission-denied') {
-        console.warn(`⚠️ Permission denied setting active stream for user ${userId}.`);
-        console.warn(`   Path: users/${userId}/activeStream/current`);
-        console.warn(`   This may indicate a security rules issue or user authentication problem.`);
+        logger.warn(`⚠️ Permission denied setting active stream for user ${userId}.`);
+        logger.warn(`   Path: users/${userId}/activeStream/current`);
+        logger.warn(`   This may indicate a security rules issue or user authentication problem.`);
 
         // For now, don't throw to prevent app crashes, but log the issue
         return;
@@ -137,12 +140,12 @@ export class ActiveStreamTracker {
 
       // Handle other Firebase errors
       if (error?.code === 'unavailable' || error?.code === 'deadline-exceeded') {
-        console.warn(`⚠️ Firebase temporarily unavailable for setting active stream. Continuing without tracking.`);
+        logger.warn(`⚠️ Firebase temporarily unavailable for setting active stream. Continuing without tracking.`);
         return;
       }
 
       // For other errors, still don't crash the app but log them
-      console.error(`❌ Unexpected error setting active stream: ${error?.message}`);
+      logger.error(`❌ Unexpected error setting active stream: ${error?.message}`);
     }
   }
   
@@ -152,7 +155,7 @@ export class ActiveStreamTracker {
   static async clearActiveStream(userId: string): Promise<void> {
     // Handle guest users - they can't write to Firebase
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} clearing active stream locally`);
+      logger.debug(`🎭 Guest user ${userId} clearing active stream locally`);
       // For guest users, we could clear from memory or local storage
       // For now, just log and return successfully
       return;
@@ -162,30 +165,30 @@ export class ActiveStreamTracker {
       const activeStreamRef = doc(db, 'users', userId, 'activeStream', 'current');
       await deleteDoc(activeStreamRef);
 
-      console.log(`✅ Cleared active stream for user ${userId}`);
+      logger.debug(`✅ Cleared active stream for user ${userId}`);
     } catch (error: any) {
       const code = error?.code;
 
       // Handle permission errors gracefully without noisy redbox
       if (code === 'permission-denied') {
-        console.warn(`⚠️ Permission denied clearing active stream for user ${userId}. Likely cross-user delete or rules propagation delay.`);
+        logger.warn(`⚠️ Permission denied clearing active stream for user ${userId}. Likely cross-user delete or rules propagation delay.`);
         return;
       }
 
       // Handle not found errors (document doesn't exist)
       if (code === 'not-found') {
-        console.log(`ℹ️ Active stream record for user ${userId} doesn't exist, nothing to clear.`);
+        logger.debug(`ℹ️ Active stream record for user ${userId} doesn't exist, nothing to clear.`);
         return;
       }
 
       // Handle transient Firebase errors
       if (code === 'unavailable' || code === 'deadline-exceeded') {
-        console.warn(`⚠️ Firebase temporarily unavailable for clearing active stream. Continuing.`);
+        logger.warn(`⚠️ Firebase temporarily unavailable for clearing active stream. Continuing.`);
         return;
       }
 
       // Unexpected errors only
-      console.error('❌ Error clearing active stream:', error);
+      logger.error('❌ Error clearing active stream:', error);
       throw error;
     }
   }
@@ -196,32 +199,32 @@ export class ActiveStreamTracker {
   static async getActiveStream(userId: string): Promise<{ streamId: string; isActive: boolean } | null> {
     // Handle guest users - they can't read from Firebase
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} getting active stream locally (always null)`);
+      logger.debug(`🎭 Guest user ${userId} getting active stream locally (always null)`);
       // For guest users, we could check memory or local storage
       // For now, just return null since guests don't persist stream state
       return null;
     }
 
     try {
-      console.log(`🔄 Attempting to get active stream for user ${userId}`);
+      logger.debug(`🔄 Attempting to get active stream for user ${userId}`);
 
       const activeStreamRef = doc(db, 'users', userId, 'activeStream', 'current');
       const activeStreamDoc = await getDoc(activeStreamRef);
 
       if (activeStreamDoc.exists()) {
         const data = activeStreamDoc.data();
-        console.log(`✅ Found active stream for user ${userId}:`, data);
+        logger.debug(`✅ Found active stream for user ${userId}:`, data);
         return {
           streamId: data.streamId,
           isActive: data.isActive
         };
       }
 
-      console.log(`ℹ️ No active stream record found for user ${userId}`);
+      logger.debug(`ℹ️ No active stream record found for user ${userId}`);
       return null;
     } catch (error: any) {
-      console.error('❌ Error getting active stream:', error);
-      console.error('Error details:', {
+      logger.error('❌ Error getting active stream:', error);
+      logger.error('Error details:', {
         code: error?.code,
         message: error?.message,
         userId,
@@ -230,20 +233,20 @@ export class ActiveStreamTracker {
 
       // Handle permission errors gracefully
       if (error?.code === 'permission-denied') {
-        console.warn(`⚠️ Permission denied getting active stream for user ${userId}.`);
-        console.warn(`   Path: users/${userId}/activeStream/current`);
-        console.warn(`   This may indicate a security rules issue. Returning null.`);
+        logger.warn(`⚠️ Permission denied getting active stream for user ${userId}.`);
+        logger.warn(`   Path: users/${userId}/activeStream/current`);
+        logger.warn(`   This may indicate a security rules issue. Returning null.`);
         return null;
       }
 
       // Handle other Firebase errors
       if (error?.code === 'unavailable' || error?.code === 'deadline-exceeded') {
-        console.warn(`⚠️ Firebase temporarily unavailable for getting active stream. Returning null.`);
+        logger.warn(`⚠️ Firebase temporarily unavailable for getting active stream. Returning null.`);
         return null;
       }
 
       // For other errors, return null to prevent crashes
-      console.error(`❌ Unexpected error getting active stream: ${error?.message}`);
+      logger.error(`❌ Unexpected error getting active stream: ${error?.message}`);
       return null;
     }
   }
@@ -270,7 +273,7 @@ export class ActiveStreamTracker {
 
       if (!streamDoc.exists() || !streamDoc.data()?.isActive) {
         // Stream no longer exists or is inactive, clean up the stale record
-        console.log(`🧹 Cleaning up stale active stream record for user ${userId} (stream ${activeStream.streamId} no longer active)`);
+        logger.debug(`🧹 Cleaning up stale active stream record for user ${userId} (stream ${activeStream.streamId} no longer active)`);
         await this.clearActiveStream(userId);
         return false;
       }
@@ -281,14 +284,14 @@ export class ActiveStreamTracker {
 
       if (!isParticipant) {
         // User is not actually in the stream, clean up the stale record
-        console.log(`🧹 Cleaning up stale active stream record for user ${userId} (not in participants of stream ${activeStream.streamId})`);
+        logger.debug(`🧹 Cleaning up stale active stream record for user ${userId} (not in participants of stream ${activeStream.streamId})`);
         await this.clearActiveStream(userId);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('❌ Error checking if user in another stream:', error);
+      logger.error('❌ Error checking if user in another stream:', error);
       return false; // Fail safe - allow operation if check fails
     }
   }
@@ -305,7 +308,7 @@ export class ActiveStreamTracker {
   ): Promise<void> {
     // Handle guest users - they can't write to Firebase
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} atomic stream switch locally: ${fromStreamId} -> ${toStreamId}`);
+      logger.debug(`🎭 Guest user ${userId} atomic stream switch locally: ${fromStreamId} -> ${toStreamId}`);
       // For guest users, we could handle this in memory or local storage
       // For now, just log and return successfully
       return;
@@ -320,7 +323,7 @@ export class ActiveStreamTracker {
         // Note: We'll need to implement array removal logic here
         // This is a simplified version - actual implementation would need
         // to read current participants and remove the user
-        console.log(`🔄 Preparing to remove user ${userId} from stream ${fromStreamId}`);
+        logger.debug(`🔄 Preparing to remove user ${userId} from stream ${fromStreamId}`);
       }
 
       // Add to new stream
@@ -328,7 +331,7 @@ export class ActiveStreamTracker {
       // Note: We'll need to implement array addition logic here
       // This is a simplified version - actual implementation would need
       // to read current participants and add the user
-      console.log(`🔄 Preparing to add user ${userId} to stream ${toStreamId}`);
+      logger.debug(`🔄 Preparing to add user ${userId} to stream ${toStreamId}`);
 
       // Update user's active stream
       const activeStreamRef = doc(db, 'users', userId, 'activeStream', 'current');
@@ -342,9 +345,9 @@ export class ActiveStreamTracker {
       // Commit all operations atomically
       await batch.commit();
 
-      console.log(`✅ Atomic stream switch completed for user ${userId}: ${fromStreamId} -> ${toStreamId}`);
+      logger.debug(`✅ Atomic stream switch completed for user ${userId}: ${fromStreamId} -> ${toStreamId}`);
     } catch (error) {
-      console.error('❌ Error in atomic stream switch:', error);
+      logger.error('❌ Error in atomic stream switch:', error);
       throw error;
     }
   }
@@ -365,11 +368,11 @@ export class ActiveStreamTracker {
         if (!streamDoc.exists() || !streamDoc.data()?.isActive) {
           // Stream no longer exists or is inactive, clear the active stream record
           await this.clearActiveStream(userId);
-          console.log(`🧹 Cleaned up orphaned active stream record for user ${userId}`);
+          logger.debug(`🧹 Cleaned up orphaned active stream record for user ${userId}`);
         }
       }
     } catch (error) {
-      console.error('❌ Error cleaning up orphaned streams:', error);
+      logger.error('❌ Error cleaning up orphaned streams:', error);
       // Don't throw - this is a cleanup operation
     }
   }
@@ -385,14 +388,14 @@ export class ActiveStreamTracker {
   ): Promise<void> {
     // Handle guest users - they don't need Firebase cleanup
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} partial failure cleanup (local only): ${operationType} ${streamId}`);
+      logger.debug(`🎭 Guest user ${userId} partial failure cleanup (local only): ${operationType} ${streamId}`);
       // For guest users, we could handle this in memory or local storage
       // For now, just log and return successfully
       return;
     }
 
     try {
-      console.log(`🧹 Starting partial failure cleanup for user ${userId}, stream ${streamId}, operation: ${operationType}`);
+      logger.debug(`🧹 Starting partial failure cleanup for user ${userId}, stream ${streamId}, operation: ${operationType}`);
 
       const streamRef = doc(db, 'streams', streamId);
       const streamDoc = await getDoc(streamRef);
@@ -400,7 +403,7 @@ export class ActiveStreamTracker {
       if (!streamDoc.exists()) {
         // Stream doesn't exist, clear active stream record
         await this.clearActiveStream(userId);
-        console.log(`🧹 Cleared active stream record - stream ${streamId} doesn't exist`);
+        logger.debug(`🧹 Cleared active stream record - stream ${streamId} doesn't exist`);
         return;
       }
 
@@ -413,26 +416,26 @@ export class ActiveStreamTracker {
         if (!isParticipant && activeStream?.streamId === streamId) {
           // User has active stream record but isn't in Firebase participants
           await this.clearActiveStream(userId);
-          console.log(`🧹 Cleared orphaned active stream record after failed join`);
+          logger.debug(`🧹 Cleared orphaned active stream record after failed join`);
         } else if (isParticipant && (!activeStream || activeStream.streamId !== streamId)) {
           // User is in Firebase but doesn't have active stream record
           await this.setActiveStream(userId, streamId);
-          console.log(`🧹 Set missing active stream record after partial join`);
+          logger.debug(`🧹 Set missing active stream record after partial join`);
         }
       } else if (operationType === 'leave') {
         if (isParticipant && (!activeStream || activeStream.streamId !== streamId)) {
           // User is still in Firebase but active stream record is wrong/missing
           await this.setActiveStream(userId, streamId);
-          console.log(`🧹 Restored active stream record after partial leave`);
+          logger.debug(`🧹 Restored active stream record after partial leave`);
         } else if (!isParticipant && activeStream?.streamId === streamId) {
           // User not in Firebase but still has active stream record
           await this.clearActiveStream(userId);
-          console.log(`🧹 Cleared active stream record after successful leave`);
+          logger.debug(`🧹 Cleared active stream record after successful leave`);
         }
       }
 
     } catch (error) {
-      console.error('❌ Error in partial failure cleanup:', error);
+      logger.error('❌ Error in partial failure cleanup:', error);
       // Don't throw - this is a cleanup operation
     }
   }
@@ -444,12 +447,12 @@ export class ActiveStreamTracker {
   static async recoverGhostState(userId: string): Promise<{ recovered: boolean; action: string }> {
     // Handle guest users - they don't have persistent state to recover
     if (this.isGuestUser(userId)) {
-      console.log(`🎭 Guest user ${userId} ghost state recovery: no_active_stream`);
+      logger.debug(`🎭 Guest user ${userId} ghost state recovery: no_active_stream`);
       return { recovered: true, action: 'no_active_stream' };
     }
 
     try {
-      console.log(`👻 Starting ghost state recovery for user ${userId}`);
+      logger.debug(`👻 Starting ghost state recovery for user ${userId}`);
 
       const activeStream = await this.getActiveStream(userId);
 
@@ -487,7 +490,7 @@ export class ActiveStreamTracker {
       return { recovered: true, action: 'state_consistent' };
 
     } catch (error) {
-      console.error('❌ Error in ghost state recovery:', error);
+      logger.error('❌ Error in ghost state recovery:', error);
       return { recovered: false, action: 'recovery_failed' };
     }
   }
@@ -530,7 +533,7 @@ export class ActiveStreamTracker {
       
       return true;
     } catch (error) {
-      console.error('❌ Error validating stream participation:', error);
+      logger.error('❌ Error validating stream participation:', error);
       return false;
     }
   }

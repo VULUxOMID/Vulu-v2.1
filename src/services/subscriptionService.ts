@@ -218,7 +218,7 @@ class SubscriptionService {
 
       await setDoc(doc(db, 'userSubscriptions', userId), subscription);
       
-      console.log(`✅ Created free subscription for user: ${userId}`);
+      logger.debug(`✅ Created free subscription for user: ${userId}`);
       return subscription;
 
     } catch (error: any) {
@@ -308,7 +308,7 @@ class SubscriptionService {
 
       await setDoc(doc(db, 'userSubscriptions', userId), subscription);
       
-      console.log(`✅ User ${userId} subscribed to ${plan} (${billingCycle})`);
+      logger.debug(`✅ User ${userId} subscribed to ${plan} (${billingCycle})`);
       this.currentSubscription = subscription;
       
       return subscription;
@@ -336,7 +336,7 @@ class SubscriptionService {
       return historyDocs.empty; // Eligible if no history found
 
     } catch (error: any) {
-      console.error('Error checking trial eligibility:', error);
+      logger.error('Error checking trial eligibility:', error);
       return false;
     }
   }
@@ -358,7 +358,7 @@ class SubscriptionService {
         updatedAt: serverTimestamp()
       });
 
-      console.log(`✅ Cancelled subscription for user: ${targetUserId}`);
+      logger.debug(`✅ Cancelled subscription for user: ${targetUserId}`);
 
     } catch (error: any) {
       FirebaseErrorHandler.logError('cancelSubscription', error);
@@ -411,7 +411,7 @@ class SubscriptionService {
       return subscription.features[feature] as boolean;
 
     } catch (error: any) {
-      console.error('Error checking feature access:', error);
+      logger.error('Error checking feature access:', error);
       return false;
     }
   }
@@ -429,7 +429,7 @@ class SubscriptionService {
       return subscription.features.dailyGems;
 
     } catch (error: any) {
-      console.error('Error getting daily gems:', error);
+      logger.error('Error getting daily gems:', error);
       return SUBSCRIPTION_PLANS.free.features.dailyGems;
     }
   }
@@ -468,7 +468,7 @@ class SubscriptionService {
    * Listen to subscription changes
    */
   onSubscriptionChange(userId: string, callback: (subscription: UserSubscription | null) => void): () => void {
-    console.log(`🔄 Setting up subscription listener for user: ${userId}`);
+    logger.debug(`🔄 Setting up subscription listener for user: ${userId}`);
 
     const unsubscribe = onSnapshot(
       doc(db, 'userSubscriptions', userId),
@@ -478,16 +478,16 @@ class SubscriptionService {
             id: doc.id,
             ...doc.data()
           } as UserSubscription;
-          console.log(`✅ Subscription loaded for user: ${userId}`, subscription);
+          logger.debug(`✅ Subscription loaded for user: ${userId}`, subscription);
           callback(subscription);
         } else {
           // Document doesn't exist, create a default subscription
-          console.log(`🔄 Creating default subscription for user: ${userId}`);
+          logger.debug(`🔄 Creating default subscription for user: ${userId}`);
           try {
             await this.createDefaultSubscription(userId);
             // The listener will be triggered again with the new document
           } catch (error) {
-            console.error('Failed to create default subscription:', error);
+            logger.error('Failed to create default subscription:', error);
             // Return a default subscription instead of null
             const defaultSubscription: UserSubscription = {
               id: userId,
@@ -501,13 +501,13 @@ class SubscriptionService {
               currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
               billingCycle: 'monthly'
             };
-            console.log(`🔄 Using fallback default subscription for user: ${userId}`);
+            logger.debug(`🔄 Using fallback default subscription for user: ${userId}`);
             callback(defaultSubscription);
           }
         }
       },
       (error) => {
-        console.error('Error listening to subscription changes:', error);
+        logger.error('Error listening to subscription changes:', error);
         // Instead of returning null, provide a default subscription
         const defaultSubscription: UserSubscription = {
           id: userId,
@@ -521,17 +521,17 @@ class SubscriptionService {
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           billingCycle: 'monthly'
         };
-        console.log(`🔄 Using error fallback default subscription for user: ${userId}`);
+        logger.debug(`🔄 Using error fallback default subscription for user: ${userId}`);
         callback(defaultSubscription);
 
         // Try to create the subscription document in the background
         setTimeout(async () => {
           try {
-            console.log(`🔄 Attempting to create subscription document in background for user: ${userId}`);
+            logger.debug(`🔄 Attempting to create subscription document in background for user: ${userId}`);
             await this.createDefaultSubscription(userId);
-            console.log(`✅ Successfully created subscription document in background for user: ${userId}`);
+            logger.debug(`✅ Successfully created subscription document in background for user: ${userId}`);
           } catch (bgError) {
-            console.error('Background subscription creation failed:', bgError);
+            logger.error('Background subscription creation failed:', bgError);
           }
         }, 2000);
       }
@@ -558,7 +558,7 @@ class SubscriptionService {
     };
 
     await setDoc(doc(db, 'userSubscriptions', userId), defaultSubscription);
-    console.log(`✅ Created default subscription for user: ${userId}`);
+    logger.debug(`✅ Created default subscription for user: ${userId}`);
   }
 
   /**

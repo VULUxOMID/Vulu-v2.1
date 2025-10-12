@@ -18,7 +18,6 @@ import {
   ErrorCode,
   WarningCode,
   isAgoraAvailable,
-  isUsingMockAgora
 } from './agoraImportWrapper';
 
 import { agoraTokenService } from './agoraTokenService';
@@ -84,7 +83,7 @@ class AgoraService {
   private eventCallbacks: AgoraEventCallbacks = {};
   private currentToken: string | null = null;
   private tokenExpiresAt: number = 0;
-  private isUsingMockService = isUsingMockAgora();
+  private isUsingMockService = false;
 
   private constructor() {
     this.streamState = {
@@ -111,35 +110,22 @@ class AgoraService {
    */
   async initialize(): Promise<boolean> {
     try {
-      // Use mock service when Agora SDK is not available
-      if (isUsingMockAgora()) {
-        console.log('🎭 Initializing Mock Agora Service for development');
-        const { mockAgoraService } = require('./agoraServiceMock');
-        await mockAgoraService.initialize('mock-app-id');
-        this.rtcEngine = mockAgoraService as any; // Cast to satisfy TypeScript
-        // Forward any existing callbacks to the mock engine so UI receives events
-        try {
-          if (this.eventCallbacks && typeof (this.rtcEngine as any).setEventCallbacks === 'function') {
-            (this.rtcEngine as any).setEventCallbacks(this.eventCallbacks);
-          }
-        } catch (e) {
-          console.warn('⚠️ Failed to forward callbacks to mock Agora service:', e);
-        }
-        console.log('✅ Mock Agora Service initialized successfully');
-        return true;
+      // Initialize real Agora SDK
+      if (!isAgoraAvailable()) {
+        throw new Error('Agora SDK is not available. Please ensure proper configuration.');
       }
 
       if (!isAgoraConfigured()) {
-        console.warn('⚠️ Agora not configured. Cannot initialize RTC engine.');
+        logger.warn('⚠️ Agora not configured. Cannot initialize RTC engine.');
         return false;
       }
 
       if (this.rtcEngine) {
-        console.log('✅ Agora RTC Engine already initialized');
+        logger.debug('✅ Agora RTC Engine already initialized');
         return true;
       }
 
-      console.log('🔄 Initializing Agora RTC Engine...');
+      logger.debug('🔄 Initializing Agora RTC Engine...');
 
       // Create RTC Engine instance
       this.rtcEngine = await RtcEngine.create(this.config.appId);
@@ -160,11 +146,11 @@ class AgoraService {
       this.setupEventListeners();
 
       this.streamState.isConnected = true;
-      console.log('✅ Agora RTC Engine initialized successfully');
+      logger.debug('✅ Agora RTC Engine initialized successfully');
       return true;
 
     } catch (error: any) {
-      console.error('❌ Failed to initialize Agora RTC Engine:', error);
+      logger.error('❌ Failed to initialize Agora RTC Engine:', error);
       return false;
     }
   }
@@ -175,17 +161,17 @@ class AgoraService {
   private setupEventListeners(): void {
     if (!this.rtcEngine) return;
 
-    console.log('📡 Setting up Agora event listeners');
+    logger.debug('📡 Setting up Agora event listeners');
 
     // User joined channel
     this.rtcEngine.addListener('UserJoined', (uid: number, elapsed: number) => {
-      console.log(`👤 User joined: ${uid}`);
+      logger.debug(`👤 User joined: ${uid}`);
       this.eventCallbacks.onUserJoined?.(uid, elapsed);
     });
 
     // User left channel
     this.rtcEngine.addListener('UserOffline', (uid: number, reason: UserOfflineReason) => {
-      console.log(`👤 User offline: ${uid}, reason: ${reason}`);
+      logger.debug(`👤 User offline: ${uid}, reason: ${reason}`);
       this.streamState.participants.delete(uid);
       this.eventCallbacks.onUserOffline?.(uid, reason);
     });
@@ -205,14 +191,14 @@ class AgoraService {
 
     // Connection state changed
     this.rtcEngine.addListener('ConnectionStateChanged', (state: ConnectionStateType, reason: ConnectionChangedReason) => {
-      console.log(`🔗 Connection state changed: ${state}, reason: ${reason}`);
+      logger.debug(`🔗 Connection state changed: ${state}, reason: ${reason}`);
       this.streamState.connectionState = state;
       this.eventCallbacks.onConnectionStateChanged?.(state, reason);
     });
 
     // Join channel success
     this.rtcEngine.addListener('JoinChannelSuccess', (channel: string, uid: number, elapsed: number) => {
-      console.log(`✅ Successfully joined channel: ${channel} with UID: ${uid}`);
+      logger.debug(`✅ Successfully joined channel: ${channel} with UID: ${uid}`);
       this.streamState.isJoined = true;
       this.streamState.channelName = channel;
       this.streamState.localUid = uid;
@@ -221,7 +207,7 @@ class AgoraService {
 
     // Leave channel
     this.rtcEngine.addListener('LeaveChannel', (stats: any) => {
-      console.log('👋 Left channel');
+      logger.debug('👋 Left channel');
       this.streamState.isJoined = false;
       this.streamState.participants.clear();
       this.eventCallbacks.onLeaveChannel?.(stats);
@@ -229,19 +215,19 @@ class AgoraService {
 
     // Error handling
     this.rtcEngine.addListener('Error', (errorCode: ErrorCode) => {
-      console.error(`❌ Agora Error: ${errorCode}`);
+      logger.error(`❌ Agora Error: ${errorCode}`);
       this.eventCallbacks.onError?.(errorCode);
     });
 
     // Warning handling
     this.rtcEngine.addListener('Warning', (warningCode: WarningCode) => {
-      console.warn(`⚠️ Agora Warning: ${warningCode}`);
+      logger.warn(`⚠️ Agora Warning: ${warningCode}`);
       this.eventCallbacks.onWarning?.(warningCode);
     });
 
     // Remote audio state changed
     this.rtcEngine.addListener('RemoteAudioStateChanged', (uid: number, state: number, reason: number, elapsed: number) => {
-      console.log(`🔊 Remote audio state changed for ${uid}: state=${state}, reason=${reason}`);
+      logger.debug(`🔊 Remote audio state changed for ${uid}: state=${state}, reason=${reason}`);
       const participant = this.streamState.participants.get(uid);
       if (participant) {
         participant.isMuted = state === 0; // 0 = stopped, 2 = decoding
@@ -268,7 +254,7 @@ class AgoraService {
       return tokenData;
 
     } catch (error: any) {
-      console.error('❌ Failed to generate Agora token:', error);
+      logger.error('❌ Failed to generate Agora token:', error);
       throw error;
     }
   }
@@ -287,11 +273,11 @@ class AgoraService {
   async renewToken(): Promise<boolean> {
     try {
       if (!this.streamState.isJoined || !this.rtcEngine) {
-        console.warn('⚠️ Cannot renew token - not joined to channel');
+        logger.warn('⚠️ Cannot renew token - not joined to channel');
         return false;
       }
 
-      console.log('🔄 Renewing Agora token...');
+      logger.debug('🔄 Renewing Agora token...');
 
       const uid = this.streamState.localUid;
       const channelName = this.streamState.channelName;
@@ -313,14 +299,14 @@ class AgoraService {
         this.currentToken = tokenData.token;
         this.tokenExpiresAt = tokenData.expiresAt;
 
-        console.log('✅ Token renewed successfully');
+        logger.debug('✅ Token renewed successfully');
         return true;
       }
 
       return false; // Token was still valid
 
     } catch (error: any) {
-      console.error('❌ Failed to renew token:', error);
+      logger.error('❌ Failed to renew token:', error);
       return false;
     }
   }
@@ -333,7 +319,7 @@ class AgoraService {
       const validation = await agoraTokenService.validateStreamAccess(streamId);
       return validation.canJoin;
     } catch (error: any) {
-      console.error('❌ Stream access validation failed:', error);
+      logger.error('❌ Stream access validation failed:', error);
       return false;
     }
   }
@@ -353,7 +339,7 @@ class AgoraService {
       if (validateAccess && !isHost) {
         const hasAccess = await this.validateStreamAccess(channelName);
         if (!hasAccess) {
-          console.error('❌ Stream access denied');
+          logger.error('❌ Stream access denied');
           return false;
         }
       }
@@ -364,18 +350,18 @@ class AgoraService {
       }
 
       if (!this.rtcEngine) {
-        console.error('❌ RTC Engine not initialized');
+        logger.error('❌ RTC Engine not initialized');
         return false;
       }
 
-      console.log(`🔄 Joining channel: ${channelName} as ${isHost ? 'host' : 'audience'}`);
+      logger.debug(`🔄 Joining channel: ${channelName} as ${isHost ? 'host' : 'audience'}`);
 
       // Generate UID from userId (consistent hash)
       const uid = this.generateUidFromUserId(userId);
 
       // Handle mock service differently
       if (this.isUsingMockService) {
-        console.log('🎭 Using mock service to join channel');
+        logger.debug('🎭 Using mock service to join channel');
         await this.rtcEngine.joinChannel('mock-token', channelName, uid, isHost);
         this.streamState.isJoined = true;
         this.streamState.channelName = channelName;
@@ -401,11 +387,11 @@ class AgoraService {
       // Join the channel
       await this.rtcEngine.joinChannel(token, channelName, null, uid);
 
-      console.log(`✅ Joining channel initiated: ${channelName} with UID: ${uid}`);
+      logger.debug(`✅ Joining channel initiated: ${channelName} with UID: ${uid}`);
       return true;
 
     } catch (error: any) {
-      console.error('❌ Failed to join channel:', error);
+      logger.error('❌ Failed to join channel:', error);
       return false;
     }
   }
@@ -417,11 +403,11 @@ class AgoraService {
     try {
       if (!this.streamState.isJoined || !this.rtcEngine) return;
 
-      console.log('🔄 Leaving channel...');
+      logger.debug('🔄 Leaving channel...');
 
       // Handle mock service
       if (this.isUsingMockService) {
-        console.log('🎭 Using mock service to leave channel');
+        logger.debug('🎭 Using mock service to leave channel');
         await this.rtcEngine.leaveChannel();
         this.streamState.isJoined = false;
         this.streamState.channelName = '';
@@ -440,10 +426,10 @@ class AgoraService {
       this.currentToken = null;
       this.tokenExpiresAt = 0;
 
-      console.log('✅ Successfully left channel');
+      logger.debug('✅ Successfully left channel');
 
     } catch (error: any) {
-      console.error('❌ Failed to leave channel:', error);
+      logger.error('❌ Failed to leave channel:', error);
     }
   }
 
@@ -456,10 +442,10 @@ class AgoraService {
 
       await this.rtcEngine.muteLocalAudioStream(muted);
       this.streamState.isAudioMuted = muted;
-      console.log(`🔇 Local audio ${muted ? 'muted' : 'unmuted'}`);
+      logger.debug(`🔇 Local audio ${muted ? 'muted' : 'unmuted'}`);
 
     } catch (error: any) {
-      console.error('❌ Failed to mute/unmute audio:', error);
+      logger.error('❌ Failed to mute/unmute audio:', error);
     }
   }
 
@@ -479,10 +465,10 @@ class AgoraService {
       }
 
       this.streamState.isVideoEnabled = enabled;
-      console.log(`📹 Local video ${enabled ? 'enabled' : 'disabled'}`);
+      logger.debug(`📹 Local video ${enabled ? 'enabled' : 'disabled'}`);
 
     } catch (error: any) {
-      console.error('❌ Failed to enable/disable video:', error);
+      logger.error('❌ Failed to enable/disable video:', error);
     }
   }
 
@@ -494,10 +480,10 @@ class AgoraService {
       if (!this.rtcEngine || !this.streamState.isVideoEnabled) return;
 
       await this.rtcEngine.switchCamera();
-      console.log('📷 Camera switched');
+      logger.debug('📷 Camera switched');
 
     } catch (error: any) {
-      console.error('❌ Failed to switch camera:', error);
+      logger.error('❌ Failed to switch camera:', error);
     }
   }
 
@@ -511,10 +497,10 @@ class AgoraService {
       // Volume range: 0-400 (0 = mute, 100 = original, 400 = 4x amplification)
       const adjustedVolume = Math.max(0, Math.min(400, volume));
       await this.rtcEngine.adjustRecordingSignalVolume(adjustedVolume);
-      console.log(`🔊 Recording volume adjusted to: ${adjustedVolume}`);
+      logger.debug(`🔊 Recording volume adjusted to: ${adjustedVolume}`);
 
     } catch (error: any) {
-      console.error('❌ Failed to adjust recording volume:', error);
+      logger.error('❌ Failed to adjust recording volume:', error);
     }
   }
 
@@ -542,8 +528,8 @@ class AgoraService {
       if (nextCb) {
         const prevCb = prev[key];
         combined[key] = ((...args: any[]) => {
-          try { prevCb?.(...args as any); } catch (e) { console.warn(`⚠️ Error in previous ${String(key)} callback:`, e); }
-          try { (nextCb as any)(...args); } catch (e) { console.warn(`⚠️ Error in new ${String(key)} callback:`, e); }
+          try { prevCb?.(...args as any); } catch (e) { logger.warn(`⚠️ Error in previous ${String(key)} callback:`, e); }
+          try { (nextCb as any)(...args); } catch (e) { logger.warn(`⚠️ Error in new ${String(key)} callback:`, e); }
         }) as any;
       }
     });
@@ -556,9 +542,9 @@ class AgoraService {
         (this.rtcEngine as any).setEventCallbacks(this.eventCallbacks);
       }
     } catch (e) {
-      console.warn('⚠️ Failed to forward event callbacks to RTC engine:', e);
+      logger.warn('⚠️ Failed to forward event callbacks to RTC engine:', e);
     }
-    console.log('📡 Event callbacks set');
+    logger.debug('📡 Event callbacks set');
   }
 
   /**
@@ -636,21 +622,21 @@ class AgoraService {
    */
   async cleanup(): Promise<void> {
     try {
-      console.log('🧹 Cleaning up Agora resources...');
+      logger.debug('🧹 Cleaning up Agora resources...');
 
       // Leave channel if connected
       if (this.rtcEngine) {
         try {
           await this.rtcEngine.leaveChannel();
         } catch (leaveError) {
-          console.warn('Error leaving channel:', leaveError);
+          logger.warn('Error leaving channel:', leaveError);
         }
 
         // Destroy engine instance
         try {
           await this.rtcEngine.destroy();
         } catch (destroyError) {
-          console.warn('Error destroying engine:', destroyError);
+          logger.warn('Error destroying engine:', destroyError);
         }
 
         this.rtcEngine = null;
@@ -664,9 +650,9 @@ class AgoraService {
       this.currentToken = null;
       this.tokenExpiresAt = 0;
 
-      console.log('✅ Agora cleanup complete');
+      logger.debug('✅ Agora cleanup complete');
     } catch (error) {
-      console.error('❌ Agora cleanup failed:', error);
+      logger.error('❌ Agora cleanup failed:', error);
     }
   }
 
@@ -695,10 +681,10 @@ class AgoraService {
       this.tokenExpiresAt = 0;
       this.eventCallbacks = {};
 
-      console.log('✅ Agora service destroyed');
+      logger.debug('✅ Agora service destroyed');
 
     } catch (error: any) {
-      console.error('❌ Failed to destroy Agora service:', error);
+      logger.error('❌ Failed to destroy Agora service:', error);
     }
   }
 
@@ -710,17 +696,17 @@ class AgoraService {
       if (!this.rtcEngine || !this.streamState.isJoined) return;
 
       if (nextAppState === 'background') {
-        console.log('📱 App going to background - pausing audio');
+        logger.debug('📱 App going to background - pausing audio');
         // Optionally mute audio when app goes to background
         // await this.muteLocalAudio(true);
       } else if (nextAppState === 'active') {
-        console.log('📱 App becoming active - resuming audio');
+        logger.debug('📱 App becoming active - resuming audio');
         // Resume audio when app becomes active
         // await this.muteLocalAudio(false);
       }
 
     } catch (error: any) {
-      console.error('❌ Failed to handle app state change:', error);
+      logger.error('❌ Failed to handle app state change:', error);
     }
   }
 
@@ -742,7 +728,7 @@ class AgoraService {
       };
 
     } catch (error: any) {
-      console.error('❌ Failed to get connection stats:', error);
+      logger.error('❌ Failed to get connection stats:', error);
       return null;
     }
   }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { 
   RegistrationHeader, 
@@ -15,7 +15,7 @@ import { auth } from '../../../services/firebase';
 import FirebaseErrorHandler from '../../../utils/firebaseErrorHandler';
 
 const DateOfBirthScreen: React.FC = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { signUp, markRegistrationComplete } = useAuth();
   const {
     registrationData,
@@ -141,7 +141,7 @@ const DateOfBirthScreen: React.FC = () => {
 
       console.log('✅ Registration process completed, navigating to main app...');
       // Navigate to main app (will skip onboarding due to justRegistered flag)
-      router.replace('/(main)');
+      navigation.replace('/(main)');
     } catch (err: any) {
       console.error('❌ Registration error:', err);
 

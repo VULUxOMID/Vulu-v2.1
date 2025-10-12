@@ -9,11 +9,11 @@ import { Buffer } from 'buffer';
 
 // Debug environment variables (development only)
 if (process.env.NODE_ENV === 'development') {
-  console.log('🔍 Twilio Environment Variables Debug:');
-  console.log('  EXPO_PUBLIC_TWILIO_ACCOUNT_SID:', process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
-  console.log('  EXPO_PUBLIC_TWILIO_API_KEY_SID:', process.env.EXPO_PUBLIC_TWILIO_API_KEY_SID ? 'SET' : 'MISSING');
-  console.log('  EXPO_PUBLIC_TWILIO_API_KEY_SECRET:', process.env.EXPO_PUBLIC_TWILIO_API_KEY_SECRET ? 'SET' : 'MISSING');
-  console.log('  EXPO_PUBLIC_TWILIO_FROM_NUMBER:', process.env.EXPO_PUBLIC_TWILIO_FROM_NUMBER || 'MISSING');
+  logger.debug('🔍 Twilio Environment Variables Debug:');
+  logger.debug('  EXPO_PUBLIC_TWILIO_ACCOUNT_SID:', process.env.EXPO_PUBLIC_TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
+  logger.debug('  EXPO_PUBLIC_TWILIO_API_KEY_SID:', process.env.EXPO_PUBLIC_TWILIO_API_KEY_SID ? 'SET' : 'MISSING');
+  logger.debug('  EXPO_PUBLIC_TWILIO_API_KEY_SECRET:', process.env.EXPO_PUBLIC_TWILIO_API_KEY_SECRET ? 'SET' : 'MISSING');
+  logger.debug('  EXPO_PUBLIC_TWILIO_FROM_NUMBER:', process.env.EXPO_PUBLIC_TWILIO_FROM_NUMBER || 'MISSING');
 }
 
 // Twilio configuration with API Key support
@@ -36,13 +36,13 @@ const TWILIO_CONFIG = {
 };
 
 if (process.env.NODE_ENV === 'development') {
-  console.log('📱 Twilio Config Loaded:');
-  console.log('  Account SID:', TWILIO_CONFIG.accountSid.substring(0, 10) + '...');
-  console.log('  API Key SID:', TWILIO_CONFIG.apiKeySid ? TWILIO_CONFIG.apiKeySid.substring(0, 10) + '...' : 'MISSING');
-  console.log('  API Key Secret:', TWILIO_CONFIG.apiKeySecret ? 'SET' : 'MISSING');
-  console.log('  Auth Token (fallback):', TWILIO_CONFIG.authToken ? 'SET' : 'MISSING');
-  console.log('  From Number:', TWILIO_CONFIG.fromNumber);
-  console.log('  Authentication Method:', TWILIO_CONFIG.apiKeySid ? 'API Key' : 'Account Credentials');
+  logger.debug('📱 Twilio Config Loaded:');
+  logger.debug('  Account SID:', TWILIO_CONFIG.accountSid.substring(0, 10) + '...');
+  logger.debug('  API Key SID:', TWILIO_CONFIG.apiKeySid ? TWILIO_CONFIG.apiKeySid.substring(0, 10) + '...' : 'MISSING');
+  logger.debug('  API Key Secret:', TWILIO_CONFIG.apiKeySecret ? 'SET' : 'MISSING');
+  logger.debug('  Auth Token (fallback):', TWILIO_CONFIG.authToken ? 'SET' : 'MISSING');
+  logger.debug('  From Number:', TWILIO_CONFIG.fromNumber);
+  logger.debug('  Authentication Method:', TWILIO_CONFIG.apiKeySid ? 'API Key' : 'Account Credentials');
 }
 
 export class TwilioSMSService {
@@ -61,7 +61,7 @@ export class TwilioSMSService {
   async sendSMS(phoneNumber: string, message: string): Promise<SMSVerificationResult> {
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('📱 Sending SMS via Twilio');
+        logger.debug('📱 Sending SMS via Twilio');
       }
 
       // Check if Twilio is configured
@@ -83,13 +83,13 @@ export class TwilioSMSService {
         // Use API Key authentication (recommended)
         credentials = Buffer.from(`${TWILIO_CONFIG.apiKeySid}:${TWILIO_CONFIG.apiKeySecret}`).toString('base64');
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔑 Using API Key authentication');
+          logger.debug('🔑 Using API Key authentication');
         }
       } else if (TWILIO_CONFIG.authToken) {
         // Fallback to account credentials
         credentials = Buffer.from(`${TWILIO_CONFIG.accountSid}:${TWILIO_CONFIG.authToken}`).toString('base64');
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔑 Using Account credentials (fallback)');
+          logger.debug('🔑 Using Account credentials (fallback)');
         }
       } else {
         throw new Error('No valid Twilio credentials found (API Key or Auth Token)');
@@ -119,7 +119,7 @@ export class TwilioSMSService {
 
         const result = await response.json();
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ SMS sent successfully via Twilio:', result.sid);
+          logger.debug('✅ SMS sent successfully via Twilio:', result.sid);
         }
 
         return {
@@ -135,7 +135,7 @@ export class TwilioSMSService {
         throw fetchError;
       }
     } catch (error: any) {
-      console.error('❌ Twilio SMS sending failed:', error);
+      logger.error('❌ Twilio SMS sending failed:', error);
       
       return {
         success: false,

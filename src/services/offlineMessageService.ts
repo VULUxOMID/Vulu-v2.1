@@ -70,10 +70,10 @@ class OfflineMessageService {
         this.isOnline = state.isConnected ?? false;
 
         if (!wasOnline && this.isOnline) {
-          console.log('📶 Network restored - starting sync');
+          logger.debug('📶 Network restored - starting sync');
           this.startSync();
         } else if (wasOnline && !this.isOnline) {
-          console.log('📵 Network lost - entering offline mode');
+          logger.debug('📵 Network lost - entering offline mode');
         }
 
         this.notifyListeners();
@@ -87,9 +87,9 @@ class OfflineMessageService {
       // Sync any pending messages from previous sessions
       await this.syncPendingMessages();
 
-      console.log('✅ Offline message service initialized');
+      logger.debug('✅ Offline message service initialized');
     } catch (error) {
-      console.error('Error initializing offline message service:', error);
+      logger.error('Error initializing offline message service:', error);
     }
   }
 
@@ -138,7 +138,7 @@ class OfflineMessageService {
       this.notifyListeners();
       return messageId;
     } catch (error: any) {
-      console.error('Error queuing offline message:', error);
+      logger.error('Error queuing offline message:', error);
       throw new Error(`Failed to queue message: ${error.message}`);
     }
   }
@@ -154,7 +154,7 @@ class OfflineMessageService {
       const messages: OfflineMessage[] = JSON.parse(stored);
       return messages.filter(msg => msg.status === 'pending' || msg.status === 'failed');
     } catch (error) {
-      console.error('Error getting pending messages:', error);
+      logger.error('Error getting pending messages:', error);
       return [];
     }
   }
@@ -167,7 +167,7 @@ class OfflineMessageService {
       const allMessages = await this.getAllOfflineMessages();
       return allMessages.filter(msg => msg.conversationId === conversationId);
     } catch (error) {
-      console.error('Error getting conversation offline messages:', error);
+      logger.error('Error getting conversation offline messages:', error);
       return [];
     }
   }
@@ -182,7 +182,7 @@ class OfflineMessageService {
       await AsyncStorage.setItem(this.STORAGE_KEY, JSON.stringify(filteredMessages));
       this.notifyListeners();
     } catch (error) {
-      console.error('Error removing offline message:', error);
+      logger.error('Error removing offline message:', error);
     }
   }
 
@@ -193,9 +193,9 @@ class OfflineMessageService {
     try {
       await AsyncStorage.removeItem(this.STORAGE_KEY);
       this.notifyListeners();
-      console.log('✅ All offline messages cleared');
+      logger.debug('✅ All offline messages cleared');
     } catch (error) {
-      console.error('Error clearing offline messages:', error);
+      logger.error('Error clearing offline messages:', error);
     }
   }
 
@@ -218,7 +218,7 @@ class OfflineMessageService {
         isSyncing: this.isSyncing,
       };
     } catch (error) {
-      console.error('Error getting sync stats:', error);
+      logger.error('Error getting sync stats:', error);
       return {
         totalPending: 0,
         totalSent: 0,
@@ -263,7 +263,7 @@ class OfflineMessageService {
       }
     }, this.SYNC_INTERVAL);
 
-    console.log(`✅ Periodic sync started (${this.SYNC_INTERVAL}ms interval)`);
+    logger.debug(`✅ Periodic sync started (${this.SYNC_INTERVAL}ms interval)`);
   }
 
   /**
@@ -290,7 +290,7 @@ class OfflineMessageService {
         return;
       }
 
-      console.log(`🔄 Syncing ${pendingMessages.length} pending messages`);
+      logger.debug(`🔄 Syncing ${pendingMessages.length} pending messages`);
 
       // Process messages in batches to avoid overwhelming the server
       const batchSize = 5;
@@ -300,9 +300,9 @@ class OfflineMessageService {
         await Promise.allSettled(promises);
       }
 
-      console.log('✅ Message sync completed');
+      logger.debug('✅ Message sync completed');
     } catch (error) {
-      console.error('Error syncing pending messages:', error);
+      logger.error('Error syncing pending messages:', error);
     } finally {
       this.isSyncing = false;
       this.notifyListeners();
@@ -334,9 +334,9 @@ class OfflineMessageService {
         this.removeOfflineMessage(message.id);
       }, 5000); // Keep for 5 seconds for UI feedback
 
-      console.log(`✅ Offline message sent: ${message.id} -> ${sentMessageId}`);
+      logger.debug(`✅ Offline message sent: ${message.id} -> ${sentMessageId}`);
     } catch (error: any) {
-      console.error(`Error sending offline message ${message.id}:`, error);
+      logger.error(`Error sending offline message ${message.id}:`, error);
       await this.handleSendFailure(message, error.message);
     }
   }
@@ -351,7 +351,7 @@ class OfflineMessageService {
       if (retryCount >= message.maxRetries) {
         // Mark as permanently failed
         await this.updateMessageStatus(message.id, 'failed', errorMessage);
-        console.error(`❌ Message ${message.id} failed permanently after ${retryCount} attempts`);
+        logger.error(`❌ Message ${message.id} failed permanently after ${retryCount} attempts`);
       } else {
         // Update retry count and set back to pending
         const messages = await this.getAllOfflineMessages();
@@ -362,12 +362,12 @@ class OfflineMessageService {
         );
         await AsyncStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedMessages));
         
-        console.warn(`⚠️ Message ${message.id} failed, will retry (attempt ${retryCount}/${message.maxRetries})`);
+        logger.warn(`⚠️ Message ${message.id} failed, will retry (attempt ${retryCount}/${message.maxRetries})`);
       }
 
       this.notifyListeners();
     } catch (error) {
-      console.error('Error handling send failure:', error);
+      logger.error('Error handling send failure:', error);
     }
   }
 
@@ -380,7 +380,7 @@ class OfflineMessageService {
       messages.push(message);
       await AsyncStorage.setItem(this.STORAGE_KEY, JSON.stringify(messages));
     } catch (error) {
-      console.error('Error storing offline message:', error);
+      logger.error('Error storing offline message:', error);
       throw error;
     }
   }
@@ -393,7 +393,7 @@ class OfflineMessageService {
       const stored = await AsyncStorage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Error getting all offline messages:', error);
+      logger.error('Error getting all offline messages:', error);
       return [];
     }
   }
@@ -416,7 +416,7 @@ class OfflineMessageService {
       await AsyncStorage.setItem(this.STORAGE_KEY, JSON.stringify(updatedMessages));
       this.notifyListeners();
     } catch (error) {
-      console.error('Error updating message status:', error);
+      logger.error('Error updating message status:', error);
     }
   }
 
@@ -430,11 +430,11 @@ class OfflineMessageService {
         try {
           listener(stats);
         } catch (error) {
-          console.error('Error in sync listener:', error);
+          logger.error('Error in sync listener:', error);
         }
       });
     } catch (error) {
-      console.error('Error notifying listeners:', error);
+      logger.error('Error notifying listeners:', error);
     }
   }
 
@@ -449,7 +449,7 @@ class OfflineMessageService {
 
     this.listeners.clear();
     this.isSyncing = false;
-    console.log('✅ Offline message service cleaned up');
+    logger.debug('✅ Offline message service cleaned up');
   }
 }
 
