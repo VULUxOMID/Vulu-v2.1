@@ -4,10 +4,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 import PersonGroupIcon from '../components/PersonGroupIcon';
 import CommonHeader from '../components/CommonHeader';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 
 const ViewerInfoScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   
   // Sample viewer data
   const viewers = [
@@ -17,7 +17,7 @@ const ViewerInfoScreen = () => {
   ];
   
   const handleGoBack = () => {
-    router.back();
+    navigation.goBack();
   };
   
   const handleManageAudience = () => {

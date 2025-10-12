@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Text, Button, Card, ProgressBar, Divider } from 'react-native-paper';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import ScrollableContentContainer from '../components/ScrollableContentContainer';
 
 interface MiningTask {
@@ -17,7 +17,7 @@ interface MiningTask {
 }
 
 const MiningScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
 
   const miningTasks: MiningTask[] = [
     { 
@@ -56,7 +56,7 @@ const MiningScreen = () => {
           <MaterialIcons name="monetization-on" size={24} color="#FFD700" style={styles.headerIcon} />
           <Text style={styles.headerTitle}>Mining Gold</Text>
         </View>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.push('/(main)')}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('/(main)')}>
           <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>

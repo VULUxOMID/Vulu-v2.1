@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, Feather, FontAwesome, AntDesign, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import BackButton from '../components/BackButton';
 import MenuButton from '../components/MenuButton';
 import {
@@ -67,7 +67,7 @@ interface Photo {
 }
 
 const ProfileScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { user, isGuest, userProfile } = useAuth();
   const { canManagePhotos, canEditProfile, canChangeStatus } = useGuestRestrictions();
   const {
@@ -285,7 +285,7 @@ const ProfileScreen = () => {
   }, [user, isGuest]);
 
   const navigateToAccount = () => {
-    router.push('/(main)/account');
+    navigation.navigate('/(main)/account');
   };
 
   // Photo management functions
@@ -1311,7 +1311,7 @@ const ProfileScreen = () => {
                   style={styles.manageFriendsButton}
                   onPress={() => {
                     hideStatusMenu();
-                    router.push({
+                    navigation.navigate({
                       pathname: '/(main)/close-friends',
                       params: { source: '/(main)/profile' }
                     });
@@ -1791,7 +1791,7 @@ const ProfileScreen = () => {
                         // Close the friends modal
                         setShowFriendsModal(false);
                         // Navigate to the chat screen with this friend
-                        router.push({
+                        navigation.navigate({
                           pathname: '/(main)/chat',
                           params: {
                             userId: friend.id,

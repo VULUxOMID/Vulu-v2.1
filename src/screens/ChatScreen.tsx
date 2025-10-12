@@ -27,7 +27,7 @@ import { IconFallback } from '../../app/_layout';
 import SVGIcon from '../components/SVGIcon';
 import * as Haptics from 'expo-haptics';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Message from '../components/Message';
 import ChatHeader from '../components/ChatHeader';
 import ChatFooter from '../components/ChatFooter';
@@ -830,7 +830,7 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
   // Navigation handler that respects the source parameter
   const handleNavigation = useCallback(() => {
     if (source === 'notifications') {
-      router.push('/(main)/notifications');
+      navigation.navigate('/(main)/notifications');
     } else if (goToDMs) {
       goToDMs();
     } else {
@@ -1540,8 +1540,11 @@ const ChatScreenInternal = ({ userId, name, avatar, goBack, goToDMs, source }: C
 
 // New wrapper component to handle route props
 const ChatScreen = (props: any) => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  
   // Extract params from route - handle both navigation patterns
-  const routeParams = props.route?.params || props;
+  const routeParams = route.params || props.route?.params || props;
 
   // Handle different parameter structures
   let userId, name, avatar, goBack, goToDMs, source;
@@ -1552,7 +1555,7 @@ const ChatScreen = (props: any) => {
     name = routeParams.recipientName;
     avatar = routeParams.recipientAvatar;
     source = routeParams.conversationId ? 'conversation' : 'direct';
-    goBack = () => router.back(); // Default goBack function
+    goBack = () => navigation.goBack(); // Default goBack function
   } else {
     // Legacy pattern: { userId, name, avatar, goBack, goToDMs, source }
     userId = routeParams.userId;
@@ -1578,7 +1581,7 @@ const ChatScreen = (props: any) => {
 
   // Provide default goBack if not provided
   if (!goBack) {
-    goBack = () => router.back();
+    goBack = () => navigation.goBack();
   }
 
   return (

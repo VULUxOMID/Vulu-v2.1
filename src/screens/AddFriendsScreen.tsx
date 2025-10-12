@@ -11,7 +11,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import CommonHeader from '../components/CommonHeader';
@@ -336,7 +336,7 @@ const AddFriendsScreen = () => {
           title="Add Friends"
           leftIcon={{
             name: "arrow-back",
-            onPress: () => router.back(),
+            onPress: () => navigation.goBack(),
             color: "#FFFFFF"
           }}
         />

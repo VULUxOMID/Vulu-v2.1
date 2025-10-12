@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'; // For back button
 
 interface NotificationSetting {
@@ -16,7 +16,7 @@ interface NotificationSection {
 }
 
 const NotificationSettingsScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   
   // State for app notification settings
   const [appNotifications, setAppNotifications] = useState<NotificationSetting[]>([
@@ -68,7 +68,7 @@ const NotificationSettingsScreen = () => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.push('/notifications')} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('/notifications')} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notification Settings</Text>

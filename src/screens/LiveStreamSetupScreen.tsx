@@ -14,7 +14,7 @@ import {
   Dimensions,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useLiveStreams } from '../context/LiveStreamContext';
@@ -49,7 +49,7 @@ const LIVE_TAGS: LiveTag[] = [
 ];
 
 const LiveStreamSetupScreen: React.FC = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { createNewStream } = useLiveStreams();
 
@@ -112,7 +112,7 @@ const LiveStreamSetupScreen: React.FC = () => {
   };
 
   const handleBackPress = () => {
-    router.back();
+    navigation.goBack();
   };
 
   const handleTagPress = () => {
@@ -214,7 +214,7 @@ const LiveStreamSetupScreen: React.FC = () => {
 
       console.log('📋 Navigation parameters:', navigationParams);
 
-      router.push({
+      navigation.navigate({
         pathname: '/livestream',
         params: navigationParams
       });

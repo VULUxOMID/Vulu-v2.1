@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import AuthSelectionScreen from './AuthSelectionScreen';
 import RegistrationNavigator from '../../navigation/RegistrationNavigator';
@@ -11,7 +11,7 @@ import { AuthColors } from '../../components/auth/AuthDesignSystem';
 type AuthFlow = 'auth-selection' | 'register' | 'login';
 
 const NewAuthScreen: React.FC = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { signInAsGuest } = useAuth();
   const [currentFlow, setCurrentFlow] = useState<AuthFlow>('auth-selection');
 
@@ -30,7 +30,7 @@ const NewAuthScreen: React.FC = () => {
   const handleGuestContinue = async () => {
     try {
       await signInAsGuest();
-      router.replace('/(main)');
+      navigation.replace('/(main)');
     } catch (error) {
       console.error('Guest login failed:', error);
     }

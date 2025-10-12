@@ -13,7 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import DiscordChatWrapper from '../components/DiscordChatWrapper';
 import { DiscordTheme } from '../styles/discordTheme';
 
@@ -90,7 +90,7 @@ const DiscordThemeDemo: React.FC = () => {
   };
 
   const handleBack = () => {
-    router.back();
+    navigation.goBack();
   };
 
   const showFeatureAlert = (feature: string) => {

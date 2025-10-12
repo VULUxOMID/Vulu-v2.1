@@ -14,7 +14,7 @@ import {
   Platform,
   PanResponder,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -433,8 +433,9 @@ const LiveStreamView = () => {
   // Add loop protection
   useLoopProtection();
   
-  const router = useRouter();
-  const params = useLocalSearchParams();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const params = route.params || {};
   const { profileImage } = useUserProfile();
   const { getStreamById, streams, currentlyWatching, isMinimized: contextIsMinimized, setStreamMinimized, leaveStreamWithConfirmation, leaveStream } = useLiveStreams();
   const { user } = useAuth();
@@ -453,7 +454,7 @@ const LiveStreamView = () => {
         // Regular viewer - leave immediately and clear state before navigation
         console.log('🔄 [LIVESTREAM] Regular viewer leaving stream, clearing state immediately');
         await leaveStream(streamId);
-        router.back();
+        navigation.goBack();
         return;
       }
 
@@ -463,7 +464,7 @@ const LiveStreamView = () => {
 
       // Only navigate back if the user actually left (not cancelled)
       console.log('✅ [LIVESTREAM] Host successfully left stream, navigating back');
-      router.back();
+      navigation.goBack();
 
     } catch (error: any) {
       // Don't navigate back if user cancelled
@@ -474,7 +475,7 @@ const LiveStreamView = () => {
 
       console.error('❌ [LIVESTREAM] Error leaving stream:', error);
       // Still navigate back on actual error to prevent user from being stuck
-      router.back();
+      navigation.goBack();
     }
   };
   

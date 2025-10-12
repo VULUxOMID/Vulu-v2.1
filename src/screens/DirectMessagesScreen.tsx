@@ -16,7 +16,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import CommonHeader from '../components/CommonHeader';
@@ -417,7 +417,7 @@ const DirectMessagesScreen = () => {
       return; // Guest restriction will be handled by the hook
     }
     // Navigate to Add Friends screen
-    router.push('/(main)/add-friends');
+    navigation.navigate('/(main)/add-friends');
   };
 
   const handleCreateGroup = () => {
@@ -443,7 +443,7 @@ const DirectMessagesScreen = () => {
 
     console.log('📤 Navigation params:', navParams);
 
-    router.push({
+    navigation.navigate({
       pathname: '/(main)/chat',
       params: navParams
     });
@@ -565,12 +565,12 @@ const DirectMessagesScreen = () => {
               },
               {
                 name: "person-add",
-                onPress: () => router.push('/friend-requests'),
+                onPress: () => navigation.navigate('/friend-requests'),
                 color: "#FFFFFF"
               },
               {
                 name: "search",
-                onPress: () => router.push('/user-search'),
+                onPress: () => navigation.navigate('/user-search'),
                 color: "#FFFFFF"
               },
               {
@@ -654,7 +654,7 @@ const DirectMessagesScreen = () => {
             actionText="Sign In"
             onAction={() => {
               // Navigate to auth screen
-              router.push('/auth/selection');
+              navigation.navigate('/auth/selection');
             }}
           />
         ) : isLoading ? (
@@ -721,7 +721,7 @@ const DirectMessagesScreen = () => {
           onGroupCreated={(conversationId) => {
             console.log('Group created:', conversationId);
             // Navigate to the new group chat
-            router.push({
+            navigation.navigate({
               pathname: '/(main)/chat',
               params: {
                 userId: 'group',

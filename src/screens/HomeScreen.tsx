@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Image, ScrollView, Animated, Platfo
 import { Text, Card, Avatar } from 'react-native-paper';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import ScrollableContentContainer from '../components/ScrollableContentContainer';
 import CommonHeader from '../components/CommonHeader';
@@ -14,14 +14,14 @@ import { useLiveStreams } from '../context/LiveStreamContext';
 import { useUserProfile } from '../context/UserProfileContext';
 import SpotlightProgressBar from '../components/SpotlightProgressBar';
 import LiveStreamGrid from '../components/LiveStreamGrid';
-import { 
-  useSharedValue, 
-  useAnimatedStyle, 
-  withTiming, 
-  withSequence, 
-  withRepeat, 
-  cancelAnimation, 
-  Easing 
+import {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withRepeat,
+  cancelAnimation,
+  Easing
 } from 'react-native-reanimated';
 import { useNotifications } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
@@ -38,29 +38,13 @@ import { useGuestRestrictions } from '../hooks/useGuestRestrictions';
 import DataValidator from '../utils/dataValidation';
 import friendActivityService, { FriendActivity } from '../services/friendActivityService';
 import virtualCurrencyService, { CurrencyBalance } from '../services/virtualCurrencyService';
+import { DiscordTheme } from '../styles/discordTheme';
 import { useMusic } from '../context/MusicContext';
 import { useGaming } from '../context/GamingContext';
 import { useShop } from '../context/ShopContext';
 import { useSubscription } from '../context/SubscriptionContext';
 import { formatCurrencyCompact } from '../utils/currencyUtils';
 import { getDefaultSpotlightAvatar, getDefaultProfileAvatar } from '../utils/defaultAvatars';
-
-// Fallback router for when useRouter() fails
-const fallbackRouter = {
-  push: (href: string) => {
-    console.warn('⚠️ Fallback router: Cannot navigate to', href);
-  },
-  replace: (href: string) => {
-    console.warn('⚠️ Fallback router: Cannot replace with', href);
-  },
-  back: () => {
-    console.warn('⚠️ Fallback router: Cannot go back');
-  },
-  canGoBack: () => false,
-  setParams: (params: any) => {
-    console.warn('⚠️ Fallback router: Cannot set params', params);
-  }
-};
 
 // Tutorial preferences management
 const TUTORIAL_STORAGE_KEY = '@vulu_tutorial_preferences';
@@ -81,16 +65,9 @@ const defaultTutorialPreferences: TutorialPreferences = {
   liveStreamTutorialShown: false,
 };
 
-// Use the router for navigation
+// Use React Navigation for all routing
 const HomeScreen = () => {
-  // Safe router initialization with fallback
-  let router;
-  try {
-    router = useRouter();
-  } catch (error) {
-    console.warn('⚠️ useRouter() failed, using fallback:', error);
-    router = fallbackRouter;
-  }
+  const navigation = useNavigation();
   
   const [activeTab, setActiveTab] = useState('Week');
   const scrollViewRef = useRef<ScrollView>(null);
@@ -2644,9 +2621,7 @@ const HomeScreen = () => {
               onPress: async () => {
                 try {
                   await authService.signOut();
-                  if (router && typeof router.replace === 'function') {
-                    router.replace('/auth');
-                  }
+                  // Navigation will be handled by AuthContext
                 } catch (error) {
                   console.error('Sign out error:', error);
                 }

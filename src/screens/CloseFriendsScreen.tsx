@@ -10,7 +10,7 @@ import {
   StatusBar,
   SafeAreaView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { MaterialIcons, Feather, AntDesign } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import CommonHeader from '../components/CommonHeader';
@@ -72,7 +72,7 @@ const StatusIndicator = ({ status }: { status: Friend['status'] }) => {
 
 const CloseFriendsScreen = () => {
   console.log("CloseFriendsScreen mounted");
-  const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -172,7 +172,7 @@ const CloseFriendsScreen = () => {
 
   // Handle back button press
   const handleBack = () => {
-    router.back();
+    navigation.goBack();
   };
 
   // Render friend item

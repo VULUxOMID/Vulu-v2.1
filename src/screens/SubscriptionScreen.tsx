@@ -11,13 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useSubscription } from '../context/SubscriptionContext';
 import { SubscriptionPlan, BillingCycle } from '../services/types';
 import BackButton from '../components/BackButton';
 
 const SubscriptionScreen = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const {
     subscription,
     currentPlan,
@@ -44,7 +44,7 @@ const SubscriptionScreen = () => {
       Alert.alert(
         'Success!',
         `You've successfully subscribed to ${selectedPlan}!`,
-        [{ text: 'OK', onPress: () => router.back() }]
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
       Alert.alert('Error', error.message);

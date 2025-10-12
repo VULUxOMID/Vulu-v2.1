@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthColors, AuthTypography } from '../../components/auth/AuthDesignSystem';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
@@ -24,7 +24,7 @@ const AuthSelectionScreen: React.FC<AuthSelectionScreenProps> = ({
   showBackButton = false,
   onBackPress,
 }) => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const { signIn } = useAuth();
   return (
     <View style={styles.container}>

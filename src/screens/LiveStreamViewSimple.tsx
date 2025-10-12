@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -39,8 +39,9 @@ interface ChatMessage {
 }
 
 const LiveStreamViewSimple = () => {
-  const router = useRouter();
-  const params = useLocalSearchParams();
+  const navigation = useNavigation();
+  const route = useRoute();
+  const params = route.params || {};
   const { user } = useAuth();
   const { getStreamById, leaveStream } = useLiveStreams();
   const { showMiniPlayer, hideMiniPlayer, updateMiniPlayer, setOnExitCallback } = useMiniPlayer();
@@ -127,7 +128,7 @@ const LiveStreamViewSimple = () => {
               Alert.alert(
                 'Permission Required',
                 permissionService.handlePermissionDenied('microphone'),
-                [{ text: 'OK', onPress: () => router.back() }]
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
               );
               return;
             }
@@ -227,11 +228,11 @@ const LiveStreamViewSimple = () => {
 
       // Navigate to home page while keeping the live stream running
       try {
-        router.push('/(tabs)');
+        navigation.navigate('/(tabs)');
       } catch (error) {
         console.warn('⚠️ Failed to navigate to home page, trying alternative route:', error);
         try {
-          router.push('/');
+          navigation.navigate('/');
         } catch (fallbackError) {
           console.error('❌ Failed to navigate to home page:', fallbackError);
         }
@@ -278,7 +279,7 @@ const LiveStreamViewSimple = () => {
           onPress: () => {
             setIsMinimized(false);
             hideMiniPlayer(); // Also hide the global mini player
-            router.back();
+            navigation.goBack();
           }
         },
       ]
